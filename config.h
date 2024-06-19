@@ -14,7 +14,7 @@
 #define CFG_EVENTS_MAX                 (32)
 #define CFG_EVENT_RESPONSE_OK          "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
 #define CFG_EVENT_RESPONSE_ERR         "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
-#define CFG_TELEGRAM_API               ""
+#define CFG_TELEGRAM_API               "https://api.telegram.org/bot"
 
 
 typedef struct {
