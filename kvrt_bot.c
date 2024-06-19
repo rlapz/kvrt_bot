@@ -144,7 +144,7 @@ kvrt_bot_stop(KvrtBot *k)
 static int
 _create_listener(KvrtBot *k)
 {
-	struct sockaddr_in addr = {
+	const struct sockaddr_in addr = {
 		.sin_family = AF_INET,
 		.sin_port = htons((in_port_t)k->config.listen_port),
 		.sin_addr.s_addr = inet_addr(k->config.listen_host),
@@ -563,7 +563,7 @@ _state_response(KvrtBotClient *client)
 		return STATE_RESPONSE;
 
 	if (sent != len)
-		log_err(0, "kvrt_bot: _state_response: send: incomplete");
+		log_err(0, "kvrt_bot: _state_response: send: invalid len: %zu:%zu", sent, len);
 
 	return STATE_FINISH;
 }

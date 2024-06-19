@@ -65,20 +65,29 @@ config_load_from_env(Config *c)
 	
 	c->listen_port = atoi(port);
 
-	if (((env = getenv("KVRT_BOT_WORKER_THREADS_NUM")) != NULL) && (env[0] != '\0'))
+	if (((env = getenv("KVRT_BOT_WORKER_THREADS_NUM")) != NULL) && (env[0] != '\0')) {
+		if (env[0] == '-')
+			env = "0";
 		c->worker_threads_num = (unsigned)atoi(env);
-	else
+	} else {
 		c->worker_threads_num = CFG_DEFAULT_WORKER_THREADS_NUM;
+	}
 
-	if (((env = getenv("KVRT_BOT_WORKER_JOBS_MIN")) != NULL) && (env[0] != '\0'))
+	if (((env = getenv("KVRT_BOT_WORKER_JOBS_MIN")) != NULL) && (env[0] != '\0')) {
+		if (env[0] == '-')
+			env = "0";
 		c->worker_jobs_min = (unsigned)atoi(env);
-	else
+	} else {
 		c->worker_jobs_min = CFG_DEFAULT_WORKER_JOBS_MIN;
+	}
 
-	if (((env = getenv("KVRT_BOT_WORKER_JOBS_MAX")) != NULL) && (env[0] != '\0'))
+	if (((env = getenv("KVRT_BOT_WORKER_JOBS_MAX")) != NULL) && (env[0] != '\0')) {
+		if (env[0] == '-')
+			env = "0";
 		c->worker_jobs_max = (unsigned)atoi(env);
-	else
+	} else {
 		c->worker_jobs_max = CFG_DEFAULT_WORKER_JOBS_MAX;
+	}
 
 
 	c->hook_url_len = strlen(c->hook_url);

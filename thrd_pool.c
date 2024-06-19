@@ -33,8 +33,13 @@ static int          _worker_fn(void *udata);
 int
 thrd_pool_create(ThrdPool *t, unsigned thrd_size, unsigned jobs_init_size, unsigned jobs_max_size)
 {
+	if (thrd_size <= 1) {
+		log_err(EINVAL, "thrd_pool: thrd_pool_create: _jobs_init: thrd_size: %u", thrd_size);
+		return -1;
+	}
+
 	if (_jobs_init(t, jobs_init_size, jobs_max_size) < 0) {
-		log_err(ENOMEM, "thrd_pool: thrd_pool_create: _jobs_init");
+		log_err(ENOMEM, "thrd_pool: thrd_pool_create: _jobs_init: %zu:%zu", jobs_init_size, jobs_max_size);
 		return -1;
 	}
 	
@@ -49,7 +54,7 @@ thrd_pool_create(ThrdPool *t, unsigned thrd_size, unsigned jobs_init_size, unsig
 	}
 
 	t->is_alive = 0;
-	t->workers_len = (thrd_size == 0)? 2 : thrd_size;
+	t->workers_len = thrd_size;
 
 	t->threads = malloc(sizeof(thrd_t) * t->workers_len);
 	if (t->threads == NULL) {
@@ -155,7 +160,7 @@ _stop(ThrdPool *t)
 static int
 _jobs_init(ThrdPool *t, unsigned init_size, unsigned max_size)
 {
-	if (init_size > max_size)
+	if ((max_size == 0) || init_size > max_size)
 		return -1;
 
 	t->jobs_pool = NULL;
