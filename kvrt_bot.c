@@ -15,7 +15,7 @@
 #include "thrd_pool.h"
 #include "picohttpparser.h"
 #include "json.h"
-//#include "update.h"
+#include "update.h"
 
 
 #define HTTP_REQUEST_HEADER_LEN (16)
@@ -115,18 +115,35 @@ kvrt_bot_deinit(KvrtBot *k)
 int
 kvrt_bot_run(KvrtBot *k)
 {
+	int ret = 0;
 	Config *const cfg = &k->config;
 	config_dump(cfg);
 
 
-	if (thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, cfg->worker_jobs_min,
-			     cfg->worker_jobs_max) < 0) {
+	/* Add 'update' for each worker threads */
+	Update *const updates = malloc(sizeof(Update) * cfg->worker_threads_num);
+	if (updates == NULL) {
+		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: updates");
 		return -1;
 	}
 
-	const int ret = _run_event_loop(k);
+	// test
+	for (unsigned i = 0; i < cfg->worker_threads_num; i++)
+		updates[i].__dummy = (int)i;
+	// test
+
+	if (thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates,
+			     sizeof(Update), cfg->worker_jobs_min, cfg->worker_jobs_max) < 0) {
+		ret = -1;
+		goto out0;
+	}
+
+	ret = _run_event_loop(k);
 
 	thrd_pool_destroy(&k->thrd_pool);
+
+out0:
+	free(updates);
 	return ret;
 }
 
@@ -581,7 +598,7 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 		goto out0;
 	}
 
-	if (thrd_pool_add_job(&k->thrd_pool, _request_handler_fn, body, NULL) < 0) {
+	if (thrd_pool_add_job(&k->thrd_pool, _request_handler_fn, body) < 0) {
 		log_err(errno, "kvrt_bot: _state_response: thrd_pool_add_job");
 		free(body);
 	}
@@ -592,11 +609,15 @@ out0:
 
 
 static void
-_request_handler_fn(void *json_obj, void *udata1)
+_request_handler_fn(void *update, void *json_obj)
 {
+	Update *const u = (Update *)update;
 	char *const body = (char *)json_obj;
+
+	log_debug("ctx: %d, %p", u->__dummy, (void *)u);
 
 	/* TODO */
 	puts(body);
 	free(body);
+	sleep(1);
 }
