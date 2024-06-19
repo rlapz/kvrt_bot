@@ -22,9 +22,8 @@ typedef struct thrd_pool {
 	mtx_t           mtx_general;
 } ThrdPool;
 
-int  thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx,
-		      size_t thrd_ctx_nmemb, unsigned jobs_init_size,
-		      unsigned jobs_max_size);
+int  thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thrd_ctx_blk_size,
+		      unsigned jobs_init_size, unsigned jobs_max_size);
 void thrd_pool_destroy(ThrdPool *t);
 int  thrd_pool_add_job(ThrdPool *t, ThrdPoolFn func, void *udata);
 

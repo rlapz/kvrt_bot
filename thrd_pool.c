@@ -22,7 +22,7 @@ typedef struct thrd_pool_worker {
 } ThrdPoolWorker;
 
 
-static int          _create_threads(ThrdPool *t, void *ctx, size_t ctx_nmemb);
+static int          _create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size);
 void                _stop(ThrdPool *t);
 static int          _jobs_init(ThrdPool *t, unsigned init_size, unsigned max_size);
 static void         _jobs_deinit(ThrdPool *t);
@@ -38,7 +38,7 @@ static int          _worker_fn(void *udata);
  * Public
  */
 int
-thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx, size_t thrd_ctx_nmemb,
+thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thrd_ctx_blk_size,
 		 unsigned jobs_init_size, unsigned jobs_max_size)
 {
 	if (thrd_size <= 1) {
@@ -69,7 +69,7 @@ thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx, size_t thrd_ct
 
 	t->is_alive = 0;
 	t->workers_len = thrd_size;
-	if (_create_threads(t, thrd_ctx, thrd_ctx_nmemb) < 0)
+	if (_create_threads(t, thrd_ctx_arr, thrd_ctx_blk_size) < 0)
 		goto err3;
 
 	return 0;
@@ -129,10 +129,10 @@ out0:
  * Private
  */
 static int
-_create_threads(ThrdPool *t, void *ctx, size_t ctx_nmemb)
+_create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size)
 {
 	ThrdPoolWorker *wrk;
-	char *const ctx_mem = (char *)ctx;
+	char *const ctx_mem = (char *)ctx_arr;
 	unsigned iter = 0;
 
 
@@ -140,7 +140,7 @@ _create_threads(ThrdPool *t, void *ctx, size_t ctx_nmemb)
 	while (iter < t->workers_len) {
 		wrk = &t->workers[iter];
 		wrk->parent = t;
-		wrk->context = &ctx_mem[iter * ctx_nmemb];
+		wrk->context = &ctx_mem[iter * ctx_blk_size];
 
 		log_debug("thrd_pool: ctx: %p", wrk->context);
 
