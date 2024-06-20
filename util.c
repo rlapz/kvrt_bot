@@ -1,9 +1,11 @@
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 #include <threads.h>
 #include <unistd.h>
@@ -302,6 +304,157 @@ buffer_resize(Buffer *b, size_t len)
 	b->mem = new_mem;
 	b->size = new_size;
 	return 1;
+}
+
+
+/*
+ * SList
+ */
+void
+slist_init(SList *s)
+{
+	s->last = NULL;
+}
+
+
+void
+slist_push(SList *s, SListNode *new_node)
+{
+	new_node->prev = s->last;
+	s->last = new_node;
+}
+
+
+SListNode *
+slist_pop(SList *s)
+{
+	SListNode *const ret = s->last;
+	if (ret != NULL)
+		s->last = ret->prev;
+
+	return ret;
+}
+
+
+
+/*
+ * CstrMap
+ *
+ * 32bit FNV-1a case-insensitive hash function & hash map
+ * ref: https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
+ */
+static CstrMapItem *
+_cstrmap_map(CstrMap *c, const char key[])
+{
+	uint32_t hash = 0x811c9dc5; /* FNV-1 offset */
+	for (const char *p = key; *p != '\0'; p++) {
+		hash ^= (uint32_t)((unsigned char)tolower(*p));
+		hash *= 0x01000193; /* FNV-1 prime */
+	}
+
+	const size_t size = c->size;
+	size_t index = (size_t)(hash & c->mask);
+	CstrMapItem *item = &c->items[index];
+	for (size_t i = 0; (i < size) && (item->key != NULL); i++) {
+		if (strcasecmp(item->key, key) == 0) {
+			/* found matched key */
+			return item;
+		}
+
+#ifdef DEBUG
+		printf("cstrmap: _cstrmap_map: linear probing: [%s:%s]:[%zu:%zu]\n", key, item->key, i, index);
+#endif
+
+		index = (index + 1) & c->mask;
+		item = &c->items[index];
+	}
+
+	/* slot full, no free key */
+	if (item->key != NULL)
+		return NULL;
+
+	return item;
+}
+
+
+int
+cstrmap_init(CstrMap *c, CstrMapItem items[], size_t size)
+{
+	if ((size == 0) || (size & 1) != 0)
+		return -1;
+
+	c->is_alloc = 0;
+	c->mask = size - 1;
+	c->size = size;
+	c->items = items;
+	return 0;
+}
+
+
+int
+cstrmap_init_alloc(CstrMap *c, size_t size)
+{
+	if (size == 0)
+		size = 2;
+
+	while ((size & 1) != 0)
+		size++;
+
+	void *const items = calloc(size, sizeof(CstrMapItem));
+	if (items == NULL)
+		return -1;
+
+	c->is_alloc = 1;
+	c->mask = size - 1;
+	c->size = size;
+	c->items = items;
+	return 0;
+}
+
+
+void
+cstrmap_deinit(CstrMap *c)
+{
+	if (c->is_alloc)
+		free(c->items);
+}
+
+
+int
+cstrmap_set(CstrMap *c, const char key[], void *val)
+{
+	CstrMapItem *const item = _cstrmap_map(c, key);
+	if (item == NULL)
+		return -1;
+
+	item->key = key;
+	item->val = val;
+	return 0;
+}
+
+
+void *
+cstrmap_get(CstrMap *c, const char key[])
+{
+	CstrMapItem *const item = _cstrmap_map(c, key);
+	if ((item == NULL) || (item->key == NULL))
+		return NULL;
+
+	return item->val;
+}
+
+
+void *
+cstrmap_del(CstrMap *c, const char key[])
+{
+	CstrMapItem *const item = _cstrmap_map(c, key);
+	if ((item == NULL) || (item->key == NULL))
+		return NULL;
+
+	void *const val = item->val;
+	item->key = NULL;
+	item->val = NULL;
+	return val;
 }
 
 

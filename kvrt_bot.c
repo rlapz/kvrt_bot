@@ -301,9 +301,10 @@ _add_client(KvrtBot *k)
 
 	cl->fd = cfd;
 	cl->slot = slot;
-	cl->req_body = NULL;
+	cl->req_body_offt = 0;
 	cl->req_body_len = 0;
 	cl->req_body_json = NULL;
+	cl->req_total_len = 0;
 	cl->is_req_valid = 0;
 	cl->bytes = 0;
 	cl->state = STATE_REQUEST_HEADER;
@@ -408,21 +409,18 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 		return _state_response_prepare(k, client);
 	}
 
-	log_debug("remn_len: %zu", client->req_remn_len);
-
-	if (client->req_remn_len == 0) {
-		buf[client->bytes] = '\0';
+	/* request complete */
+	if (ret == 0) {
 		_state_request_body_parse(client);
-
 		return _state_response_prepare(k, client);
 	}
 
-	if (buffer_resize(&client->buffer_in, client->req_remn_len) < 0) {
+	/* need more data */
+	if (buffer_resize(&client->buffer_in, client->req_total_len) < 0) {
 		log_err(errno, "kvrt_bot: _state_request_header: buffer_resize");
 		return STATE_FINISH;
 	}
 
-	client->bytes = 0;
 	return STATE_REQUEST_BODY;
 }
 
@@ -446,10 +444,13 @@ _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[], si
 	if (diff_len > content_len)
 		return -1;
 
-	client->req_body = buffer + ret;
+	client->req_body_offt = ret;
 	client->req_body_len = content_len;
-	client->req_remn_len = content_len - diff_len;
-	return 0;
+	if ((content_len - diff_len) == 0)
+		return 0;
+
+	client->req_total_len = content_len + (size_t)ret;
+	return 1;
 }
 
 
@@ -461,9 +462,15 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	size_t secret_len = 0;
 	const char *scontent_len = NULL;
 	size_t scontent_len_len = 0; 
+	const char *host = NULL;
+	size_t host_len = 0;
+	const char *content_type = NULL;
+	size_t content_type_len = 0;
 
 
 #ifdef DEBUG
+	log_debug("method: |%.*s|", (int)req->method_len, req->method);
+	log_debug("path  : |%.*s|", (int)req->path_len, req->path);
 	for (size_t i = 0; i < req->hdr_len; i++) {
 		log_debug("Header: |%.*s:%.*s|", (int)req->hdrs[i].name_len, req->hdrs[i].name,
 			  (int)req->hdrs[i].value_len, req->hdrs[i].value);
@@ -485,6 +492,20 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	const size_t hdr_len = req->hdr_len;
 	for (size_t i = 0; i < hdr_len; i++) {
 		const struct phr_header *const hdr = &req->hdrs[i];
+		if (hdr->name_len == 4) {
+			if (strncasecmp(hdr->name, "Host", 4) == 0) {
+				host = hdr->value;
+				host_len = hdr->value_len;
+			}
+		}
+
+		if (hdr->name_len == 12) {
+			if (strncasecmp(hdr->name, "Content-Type", 12) == 0) {
+				content_type = hdr->value;
+				content_type_len = hdr->value_len;
+			}
+		}
+
 		if (hdr->name_len == 14) {
 			if (strncasecmp(hdr->name, "Content-Length", 14) == 0) {
 				scontent_len = hdr->value;
@@ -501,14 +522,23 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	}
 
 
-	if (secret == NULL)
+	if ((secret == NULL) || (secret_len != c->api_secret_len) ||
+	    (strncmp(c->api_secret, secret, secret_len) != 0)) {
 		return -1;
-	
-	if ((secret_len != c->api_secret_len) || (strncmp(c->api_secret, secret, secret_len) != 0))
-		return -1;
+	}
 	
 	if ((scontent_len == NULL) || (scontent_len_len >= sizeof(buffer)))
 		return -1;
+	
+	if ((host == NULL) || (host_len != c->hook_url_len) ||
+	    (strncasecmp(c->hook_url, host, host_len) != 0)) {
+		return -1;
+	}
+
+	if ((content_type == NULL) || (content_type_len != 16) ||
+	    (strncasecmp(content_type, "application/json", 16))) {
+		return -1;
+	}
 	
 	cstr_copy_n2(buffer, sizeof(buffer), scontent_len, scontent_len_len);
 	*content_len = (size_t)strtol(buffer, NULL, 10);
@@ -522,7 +552,10 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 static void
 _state_request_body_parse(KvrtBotClient *c)
 {
-	json_value_t *const json = json_parse(c->req_body, c->req_body_len);
+	const char *const body = c->buffer_in.mem + c->req_body_offt;
+	printf("----\n%.*s\n----\n", (int)c->req_body_len, body);
+
+	json_value_t *const json = json_parse(body, c->req_body_len);
 	if (json == NULL) {
 		log_err(0, "kvrt_bot: _state_request_body_verify: json_parse: failed to parse");
 		return;
@@ -536,8 +569,8 @@ _state_request_body_parse(KvrtBotClient *c)
 static int
 _state_request_body(KvrtBot *k, KvrtBotClient *client)
 {
-	char *const buf = client->req_body;
-	const size_t buf_len = client->req_remn_len;
+	char *const buf = client->buffer_in.mem;
+	const size_t buf_len = client->req_total_len;
 	size_t recvd = client->bytes;
 	if (recvd < buf_len) {
 		const ssize_t rv = recv(client->fd, buf + recvd, buf_len - recvd, 0);
@@ -561,10 +594,8 @@ _state_request_body(KvrtBot *k, KvrtBotClient *client)
 	if (recvd < buf_len)
 		return STATE_REQUEST_BODY;
 	
-	if (recvd == buf_len) {
-		buf[recvd] = '\0';
+	if (recvd == buf_len)
 		_state_request_body_parse(client);
-	}
 
 	return _state_response_prepare(k, client);
 }

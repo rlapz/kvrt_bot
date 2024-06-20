@@ -39,11 +39,6 @@ config_load_from_env(Config *c)
 		log_err(0, "config: config_load_from_env: no 'HOOK_URL'");
 		return -1;
 	}
-
-	if ((strlen(env) <= 8) || (strncasecmp(env, "https://", 8) != 0)) {
-		log_err(0, "config: config_load_from_env: invalid 'HOOK_URL'");
-		return -1;
-	}
 	c->hook_url = env;
 
 	if (((env = getenv("KVRT_BOT_HOOK_PATH")) == NULL) || (env[0] == '\0')) {

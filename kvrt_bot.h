@@ -18,9 +18,9 @@ typedef struct {
 	int           state;
 	int           is_buffer_ready;
 	int           is_req_valid;
-	char         *req_body;
+	int           req_body_offt;
 	size_t        req_body_len;
-	size_t        req_remn_len;
+	size_t        req_total_len;
 	json_value_t *req_body_json;
 	size_t        bytes;
 	Buffer        buffer_in;
