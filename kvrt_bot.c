@@ -118,6 +118,7 @@ kvrt_bot_run(KvrtBot *k)
 {
 	int ret = 0;
 	Config *const cfg = &k->config;
+	unsigned iter = 0;
 	config_dump(cfg);
 
 
@@ -128,10 +129,12 @@ kvrt_bot_run(KvrtBot *k)
 		return -1;
 	}
 
-	// test
-	for (unsigned i = 0; i < cfg->worker_threads_num; i++)
-		updates[i].__dummy = (int)i;
-	// test
+	for (; iter < cfg->worker_threads_num; iter++) {
+		if (update_init(&updates[iter]) < 0) {
+			ret = -1;
+			goto out0;
+		}
+	}
 
 	if (thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates,
 			     sizeof(Update), cfg->worker_jobs_min, cfg->worker_jobs_max) < 0) {
@@ -144,6 +147,9 @@ kvrt_bot_run(KvrtBot *k)
 	thrd_pool_destroy(&k->thrd_pool);
 
 out0:
+	while (iter--)
+		update_deinit(&updates[iter]);
+
 	free(updates);
 	return ret;
 }
@@ -641,15 +647,6 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 static void
 _request_handler_fn(void *ctx, void *udata)
 {
-	Update *const u = (Update *)ctx;
-	json_value_t *const json = (json_value_t *)udata;
-
-
-	log_debug("update ptr: %p", ctx);
-
-
-	usleep(100000);
-
-	/* TODO */
-	free(json);
+	if (update_handle((Update *)ctx, (json_value_t *)udata) < 0)
+		free(udata);
 }
