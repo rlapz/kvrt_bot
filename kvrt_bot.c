@@ -506,8 +506,7 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	
 	cstr_copy_n2(buffer, sizeof(buffer), scontent_len, scontent_len_len);
 	*content_len = (size_t)strtol(buffer, NULL, 10);
-	if (errno != 0)
-		return -1;
+	/* TODO: check error */
 	
 	/* TODO: add more validations */
 	return 0;
@@ -623,18 +622,18 @@ _state_response(KvrtBotClient *client)
 static void
 _state_finish(KvrtBot *k, KvrtBotClient *client)
 {
-	if ((client->is_req_valid == 0) || (client->req_body_json == NULL))
-		goto out0;
+	if ((client->is_req_valid == 0) || (client->req_body_json == NULL)) {
+		_del_client(k, client);
+		return;
+	}
 
+	/* add new job and transfer memory ownership of the `json` object */
 	if (thrd_pool_add_job(&k->thrd_pool, _request_handler_fn, client->req_body_json) < 0) {
 		log_err(errno, "kvrt_bot: _state_finish: thrd_pool_add_job");
 		free(client->req_body_json);
 	}
 
-	/* the ownership has been transferred */
 	client->req_body_json = NULL;
-
-out0:
 	_del_client(k, client);
 }
 
@@ -648,6 +647,8 @@ _request_handler_fn(void *ctx, void *udata)
 
 	log_debug("update ptr: %p", ctx);
 
+
+	usleep(100000);
 
 	/* TODO */
 	free(json);
