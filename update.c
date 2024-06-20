@@ -7,10 +7,10 @@
  * Public
  */
 int
-update_init(Update *u)
+update_init(Update *u, const char base_api[])
 {
-	if (str_init_alloc(&u->str, 256) < 0) {
-		log_err(errno, "update: update_init: str_ini_alloc");
+	if (tg_api_init(&u->api, base_api) < 0) {
+		log_err(errno, "update: update_init: tg_api_init");
 		return -1;
 	}
 
@@ -22,8 +22,8 @@ update_init(Update *u)
 void
 update_deinit(Update *u)
 {
+	tg_api_deinit(&u->api);
 	free(u->json);
-	str_deinit(&u->str);
 }
 
 

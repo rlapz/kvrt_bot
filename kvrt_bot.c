@@ -119,6 +119,7 @@ kvrt_bot_run(KvrtBot *k)
 	int ret = 0;
 	Config *const cfg = &k->config;
 	unsigned iter = 0;
+	Str str_api;
 	config_dump(cfg);
 
 
@@ -129,23 +130,39 @@ kvrt_bot_run(KvrtBot *k)
 		return -1;
 	}
 
+	ret = str_init_alloc(&str_api, 1024);
+	if (ret < 0) {
+		log_err(errno, "kvrt_bot: kvrt_bot_run: str_init_alloc: str api");
+		goto out0;
+	}
+
+	const char *const api = str_set_fmt(&str_api, "%s%s/", CFG_TELEGRAM_API, cfg->api_token);
+	if (api == NULL) {
+		log_err(errno, "kvrt_bot: kvrt_bot_run: str_set_fmt: str api");
+		ret = -1;
+		goto out1;
+	}
+
+	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
+
 	for (; iter < cfg->worker_threads_num; iter++) {
-		if (update_init(&updates[iter]) < 0) {
-			ret = -1;
-			goto out0;
-		}
+		ret = update_init(&updates[iter], api);
+		if (ret < 0)
+			goto out1;
 	}
 
 	if (thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates,
 			     sizeof(Update), cfg->worker_jobs_min, cfg->worker_jobs_max) < 0) {
 		ret = -1;
-		goto out0;
+		goto out1;
 	}
 
 	ret = _run_event_loop(k);
 
 	thrd_pool_destroy(&k->thrd_pool);
 
+out1:
+	str_deinit(&str_api);
 out0:
 	while (iter--)
 		update_deinit(&updates[iter]);
