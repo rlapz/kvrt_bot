@@ -4,7 +4,7 @@
 #include <threads.h>
 
 
-typedef void (*ThrdPoolFn) (void *udata0, void *udata1);
+typedef void (*ThrdPoolFn) (void *ctx, void *udata);
 typedef struct thrd_pool_job ThrdPoolJob;
 typedef struct thrd_pool_worker ThrdPoolWorker;
 

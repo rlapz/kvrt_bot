@@ -50,6 +50,7 @@ static int  _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char 
 					size_t len, size_t last_len);
 static int  _state_request_header_validate(const Config *c, const HttpRequest *req,
 					   size_t *content_len);
+static void _state_request_body_parse(KvrtBotClient *c);
 static int  _state_request_body(KvrtBot *k, KvrtBotClient *client);
 static int  _state_response_prepare(KvrtBot *k, KvrtBotClient *client);
 static int  _state_response(KvrtBotClient *client);
@@ -236,12 +237,11 @@ _run_event_loop(KvrtBot *k)
 		}
 
 		for (int i = 0; i < num; i++) {
-			if (events[i].data.ptr == k) {
+			void *const ptr = events[i].data.ptr;
+			if (ptr == k)
 				_add_client(k);
-				continue;
-			}
-
-			_handle_client_state(k, (KvrtBotClient *)events[i].data.ptr);
+			else
+				_handle_client_state(k, (KvrtBotClient *)ptr);
 		}
 	}
 
@@ -296,6 +296,8 @@ _add_client(KvrtBot *k)
 	cl->fd = cfd;
 	cl->slot = slot;
 	cl->req_body = NULL;
+	cl->req_body_len = 0;
+	cl->req_body_json = NULL;
 	cl->is_req_valid = 0;
 	cl->bytes = 0;
 	cl->state = STATE_REQUEST_HEADER;
@@ -320,29 +322,45 @@ _del_client(KvrtBot *k, KvrtBotClient *client)
 
 	close(client->fd);
 	client->fd = -1;
+
+	free(client->req_body_json);
 }
 
 
 static void
 _handle_client_state(KvrtBot *k, KvrtBotClient *client)
 {
-	switch (client->state) {
+	int state = client->state;
+	switch (state) {
 	case STATE_REQUEST_HEADER:
-		client->state = _state_request_header(k, client);
+		state = _state_request_header(k, client);
 		break;
 	case STATE_REQUEST_BODY:
-		client->state = _state_request_body(k, client);
+		state = _state_request_body(k, client);
 		break;
 	case STATE_RESPONSE:
-		client->state = _state_response(client);
+		state = _state_response(client);
 		break;
 	case STATE_FINISH:
 		_state_finish(k, client);
-		break;
+		/* FINISHED */
+		return;
 	default:
 		fprintf(stderr, "kvrt_bot: _handle_client_state: invalid state");
 		assert(0);
 	}
+
+	/* prepare finishing state */
+	if (state == STATE_FINISH) {
+		client->event.events = EPOLLIN | EPOLLOUT;
+		client->event.data.ptr = client;
+		if (epoll_ctl(k->event_fd, EPOLL_CTL_MOD, client->fd, &client->event) < 0) {
+			log_err(errno, "kvrt_bot: _state_response_prepare: epoll_ctl");
+			_del_client(k, client);
+		}
+	}
+
+	client->state = state;
 }
 
 
@@ -388,7 +406,8 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 
 	if (client->req_remn_len == 0) {
 		buf[client->bytes] = '\0';
-		client->is_req_valid = 1;
+		_state_request_body_parse(client);
+
 		return _state_response_prepare(k, client);
 	}
 
@@ -422,6 +441,7 @@ _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[], si
 		return -1;
 
 	client->req_body = buffer + ret;
+	client->req_body_len = content_len;
 	client->req_remn_len = content_len - diff_len;
 	return 0;
 }
@@ -494,6 +514,20 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 }
 
 
+static void
+_state_request_body_parse(KvrtBotClient *c)
+{
+	json_value_t *const json = json_parse(c->req_body, c->req_body_len);
+	if (json == NULL) {
+		log_err(0, "kvrt_bot: _state_request_body_verify: json_parse: failed to parse");
+		return;
+	}
+
+	c->req_body_json = json;
+	c->is_req_valid = 1;
+}
+
+
 static int
 _state_request_body(KvrtBot *k, KvrtBotClient *client)
 {
@@ -524,7 +558,7 @@ _state_request_body(KvrtBot *k, KvrtBotClient *client)
 	
 	if (recvd == buf_len) {
 		buf[recvd] = '\0';
-		client->is_req_valid = 1;
+		_state_request_body_parse(client);
 	}
 
 	return _state_response_prepare(k, client);
@@ -589,19 +623,16 @@ _state_response(KvrtBotClient *client)
 static void
 _state_finish(KvrtBot *k, KvrtBotClient *client)
 {
-	if (client->is_req_valid == 0)
+	if ((client->is_req_valid == 0) || (client->req_body_json == NULL))
 		goto out0;
 
-	char *const body = strdup(client->req_body);
-	if (body == NULL) {
-		log_err(errno, "kvrt_bot: _state_response: strdup: body");
-		goto out0;
+	if (thrd_pool_add_job(&k->thrd_pool, _request_handler_fn, client->req_body_json) < 0) {
+		log_err(errno, "kvrt_bot: _state_finish: thrd_pool_add_job");
+		free(client->req_body_json);
 	}
 
-	if (thrd_pool_add_job(&k->thrd_pool, _request_handler_fn, body) < 0) {
-		log_err(errno, "kvrt_bot: _state_response: thrd_pool_add_job");
-		free(body);
-	}
+	/* the ownership has been transferred */
+	client->req_body_json = NULL;
 
 out0:
 	_del_client(k, client);
@@ -609,15 +640,15 @@ out0:
 
 
 static void
-_request_handler_fn(void *update, void *json_obj)
+_request_handler_fn(void *ctx, void *udata)
 {
-	Update *const u = (Update *)update;
-	char *const body = (char *)json_obj;
+	Update *const u = (Update *)ctx;
+	json_value_t *const json = (json_value_t *)udata;
 
-	log_debug("ctx: %d, %p", u->__dummy, (void *)u);
+
+	log_debug("update ptr: %p", ctx);
+
 
 	/* TODO */
-	puts(body);
-	free(body);
-	sleep(1);
+	free(json);
 }

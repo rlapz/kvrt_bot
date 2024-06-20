@@ -7,21 +7,24 @@
 #include "thrd_pool.h"
 #include "config.h"
 #include "util.h"
+#include "json.h"
 
 
 typedef struct epoll_event Event;
 
 typedef struct {
-	int       fd;
-	unsigned  slot;
-	int       state;
-	int       is_buffer_ready;
-	int       is_req_valid;
-	char     *req_body;
-	size_t    req_remn_len;
-	size_t    bytes;
-	Buffer    buffer_in;
-	Event     event;
+	int           fd;
+	unsigned      slot;
+	int           state;
+	int           is_buffer_ready;
+	int           is_req_valid;
+	char         *req_body;
+	size_t        req_body_len;
+	size_t        req_remn_len;
+	json_value_t *req_body_json;
+	size_t        bytes;
+	Buffer        buffer_in;
+	Event         event;
 } KvrtBotClient;
 
 typedef struct {

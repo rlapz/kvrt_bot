@@ -47,7 +47,7 @@ thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thr
 	}
 
 	if (_jobs_init(t, jobs_init_size, jobs_max_size) < 0) {
-		log_err(ENOMEM, "thrd_pool: thrd_pool_create: _jobs_init: %zu:%zu", jobs_init_size, jobs_max_size);
+		log_err(errno, "thrd_pool: thrd_pool_create: _jobs_init: %zu:%zu", jobs_init_size, jobs_max_size);
 		return -1;
 	}
 	
@@ -67,7 +67,6 @@ thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thr
 		goto err2;
 	}
 
-	t->is_alive = 0;
 	t->workers_len = thrd_size;
 	if (_create_threads(t, thrd_ctx_arr, thrd_ctx_blk_size) < 0)
 		goto err3;
@@ -113,7 +112,7 @@ thrd_pool_add_job(ThrdPool *t, ThrdPoolFn func, void *udata)
 
 	ret = _jobs_enqueue(t, func, udata);
 	if (ret < 0) {
-		log_err(ENOMEM, "thrd_pool: thrd_pool_add_job: _jobs_enqueue");
+		log_err(errno, "thrd_pool: thrd_pool_add_job: _jobs_enqueue");
 		goto out0;
 	}
 
@@ -144,7 +143,7 @@ _create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size)
 
 		log_debug("thrd_pool: ctx: %p", wrk->context);
 
-		if (thrd_create(&t->workers[iter].thread, _worker_fn, wrk) != 0) {
+		if (thrd_create(&wrk->thread, _worker_fn, wrk) != 0) {
 			log_err(0, "thrd_pool: _create_threads: thrd_create: failed to create thread: %u", iter);
 			goto err0;
 		}
@@ -176,14 +175,17 @@ _stop(ThrdPool *t)
 static int
 _jobs_init(ThrdPool *t, unsigned init_size, unsigned max_size)
 {
-	if ((max_size == 0) || init_size > max_size)
+	if ((max_size == 0) || init_size > max_size) {
+		errno = EINVAL;
 		return -1;
+	}
 
 	t->jobs_pool = NULL;
 	for (unsigned i = 0; i < init_size; i++) {
 		ThrdPoolJob *const job = malloc(sizeof(ThrdPoolJob));
 		if (job == NULL) {
 			_jobs_pool_destroy(t);
+			errno = ENOMEM;
 			return -1;
 		}
 
@@ -217,8 +219,10 @@ _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *udata)
 	/* reuse allocated memory if any */
 	ThrdPoolJob *job = _jobs_pool_pop(t);
 	if (job == NULL) {
-		if (t->jobs_cap > t->jobs_max)
+		if (t->jobs_cap > t->jobs_max) {
+			errno = ENOMEM;
 			return -1;
+		}
 		
 		job = malloc(sizeof(ThrdPoolJob));
 		if (job == NULL)
