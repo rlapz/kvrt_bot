@@ -304,7 +304,9 @@ _add_client(KvrtBot *k)
 			goto err0;
 		}
 
-		log_debug("kvrt_bot: _add_client: buffer_init: %p", (void *)cl);
+		log_debug("kvrt_bot: _add_client: buffer_init: %p: %zu", (void *)cl,
+			  cl->buffer_in.size);
+
 		cl->is_buffer_ready = 1;
 	}
 
@@ -399,6 +401,11 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 		return STATE_FINISH;
 	}
 
+#ifdef DEBUG
+	if (ret == 1)
+		log_debug("kvrt_bot: _state_request_header: rebuffer_size 0: realloc: %zu", recvd);
+#endif
+
 	char *const buf = client->buffer_in.mem;
 	const size_t buf_size = client->buffer_in.size;
 	const ssize_t rv = recv(client->fd, buf + recvd, buf_size - recvd, 0);
@@ -436,6 +443,13 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 			log_err(ret, "kvrt_bot: _state_request_header: buffer_resize");
 			return STATE_FINISH;
 		}
+
+#ifdef DEBUG
+	if (ret == 1) {
+		log_debug("kvrt_bot: _state_request_header: buffer_resize 1: realloc: %zu",
+			  client->req_total_len);
+	}
+#endif
 
 		return STATE_REQUEST_BODY;
 	}
