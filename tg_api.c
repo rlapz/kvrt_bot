@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdlib.h>
 
 #include "tg_api.h"
@@ -6,11 +7,11 @@
 
 
 #define _COMPOSE_FMT(PTR, RET, ...)\
-	do {								\
-		RET = 0;						\
-		str_reset(&PTR->str, PTR->api_offt);			\
-		if (str_append_fmt(&PTR->str, __VA_ARGS__) == NULL)	\
-			RET = -1;					\
+	do {									\
+		RET = 0;							\
+		str_reset(&PTR->str_compose, PTR->api_offt);			\
+		if (str_append_fmt(&PTR->str_compose, __VA_ARGS__) == NULL)	\
+			RET = -errno;						\
 	} while (0)
 
 
@@ -26,26 +27,34 @@ static int    _curl_request_get(TgApi *t, const char url[]);
 int
 tg_api_init(TgApi *t, const char base_api[])
 {
-	int ret = str_init_alloc(&t->str, 1024);
+	int ret = str_init_alloc(&t->str_compose, 1024);
 	if (ret < 0) {
 		log_err(ret, "tg_api: tg_api_init: str_init_alloc");
 		return ret;
 	}
 
-	if (str_set_fmt(&t->str, "%s", base_api) == NULL) {
-		log_err(ret, "tg_api: tg_api_init: str_set_fmt: base api");
+	if (str_set_n(&t->str_compose, base_api, strlen(base_api)) == NULL) {
+		log_err(errno, "tg_api: tg_api_init: str_set_n: base api: |%s|", base_api);
+		goto err0;
+	}
+
+	ret = str_init_alloc(&t->str_response, 1024);
+	if (ret < 0) {
+		log_err(ret, "tg_api: tg_api_init: str_init_alloc: str_response");
 		goto err0;
 	}
 
 	if (_curl_init(t) < 0)
-		goto err0;
+		goto err1;
 
 	t->api = base_api;
-	t->api_offt = t->str.len;
+	t->api_offt = t->str_compose.len;
 	return 0;
 
+err1:
+	str_deinit(&t->str_response);
 err0:
-	str_deinit(&t->str);
+	str_deinit(&t->str_compose);
 	return -1;
 }
 
@@ -53,8 +62,9 @@ err0:
 void
 tg_api_deinit(TgApi *t)
 {
+	str_deinit(&t->str_response);
+	str_deinit(&t->str_compose);
 	_curl_deinit(t);
-	str_deinit(&t->str);
 }
 
 
@@ -68,13 +78,12 @@ tg_api_send_text_plain(TgApi *t, const char chat_id[], const char reply_to[], co
 
 	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%s&reply_to_message_id=%s&text=%s",
 		     chat_id, reply_to, e_text);
-
 	if (ret < 0) {
 		log_err(ret, "tg_api: tg_api_send_text_plain: _COMPOSE_FMT");
 		goto out0;
 	}
 
-	ret = _curl_request_get(t, t->str.cstr);
+	ret = _curl_request_get(t, t->str_compose.cstr);
 
 out0:
 	free(e_text);
@@ -109,7 +118,13 @@ _curl_deinit(TgApi *t)
 static size_t
 _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
 {
-	return 0;
+	const size_t real_size = size * nitems;
+	if (str_append_n((Str *)udata, buffer, real_size) == NULL) {
+		log_err(errno, "tg_api: _curl_writer_fn: str_append_n: failed to append");
+		return 0;
+	}
+
+	return real_size;
 }
 
 
@@ -119,7 +134,9 @@ _curl_request_get(TgApi *t, const char url[])
 	curl_easy_reset(t->curl);
 	curl_easy_setopt(t->curl, CURLOPT_URL, url);
 	curl_easy_setopt(t->curl, CURLOPT_WRITEFUNCTION, _curl_writer_fn);
-	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, t);
+
+	str_reset(&t->str_response, 0);
+	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str_response);
 
 	const CURLcode res = curl_easy_perform(t->curl);
 	if (res != CURLE_OK) {
@@ -127,5 +144,6 @@ _curl_request_get(TgApi *t, const char url[])
 		return -1;
 	}
 
+	puts(t->str_response.cstr);
 	return 0;
 }

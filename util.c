@@ -72,8 +72,10 @@ _str_resize(Str *s, size_t slen)
 	if (slen < remn_size)
 		return 0;
 
-	if (s->is_alloc == 0)
+	if (s->is_alloc == 0) {
+		errno = ENOMEM;
 		return -ENOMEM;
+	}
 
 	const size_t _rsize = (slen - remn_size) + size + 1;
 	char *const _new_cstr = realloc(s->cstr, _rsize);

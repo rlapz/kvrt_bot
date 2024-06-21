@@ -13,7 +13,8 @@ typedef struct {
 	const char *api;
 	size_t      api_offt;
 	CURL       *curl;
-	Str         str;
+	Str         str_compose;
+	Str         str_response;
 } TgApi;
 
 int  tg_api_init(TgApi *t, const char base_api[]);
