@@ -145,6 +145,6 @@ _curl_request_get(TgApi *t, const char url[])
 		return -1;
 	}
 
-	puts(t->str_response.cstr);
+	log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---", t->str_response.cstr);
 	return 0;
 }
