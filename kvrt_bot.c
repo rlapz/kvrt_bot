@@ -395,7 +395,7 @@ static int
 _state_request_header(KvrtBot *k, KvrtBotClient *client)
 {
 	const size_t recvd = client->bytes;
-	int ret = buffer_resize(&client->buffer_in, recvd);
+	int ret = buffer_resize(&client->buffer_in, recvd + 1);
 	if (ret < 0) {
 		log_err(ret, "kvrt_bot: _state_request_header: buffer_resize");
 		return STATE_FINISH;
@@ -439,17 +439,17 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 		return _state_response_prepare(k, client);
 	case 1:
 		/* need more data */
-		ret = buffer_resize(&client->buffer_in, client->req_total_len);
+		ret = buffer_resize(&client->buffer_in, client->req_total_len + 1);
 		if (ret < 0) {
 			log_err(ret, "kvrt_bot: _state_request_header: buffer_resize");
 			return STATE_FINISH;
 		}
 
 #ifdef DEBUG
-	if (ret == 1) {
-		log_debug("kvrt_bot: _state_request_header: buffer_resize 1: realloc: %zu",
-			  client->req_total_len);
-	}
+		if (ret == 1) {
+			log_debug("kvrt_bot: _state_request_header: buffer_resize 1: realloc: %zu",
+				  client->req_total_len);
+		}
 #endif
 
 		return STATE_REQUEST_BODY;
