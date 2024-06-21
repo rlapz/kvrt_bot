@@ -6,7 +6,7 @@ export KVRT_BOT_API_TOKEN='0000000000:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 export KVRT_BOT_API_SECRET='my-secret'
 export KVRT_BOT_LISTEN_HOST=''
 export KVRT_BOT_LISTEN_PORT=''
-export KVRT_BOT_HOOK_URL='https://example.com'
+export KVRT_BOT_HOOK_URL='example.com'
 export KVRT_BOT_HOOK_PATH='/bot'
 export KVRT_BOT_WORKER_THREADS_NUM=4
 export KVRT_BOT_WORKER_JOBS_MIN=8
@@ -16,7 +16,7 @@ export KVRT_BOT_WORKER_JOBS_MAX=32
 
 set_webhook() {
 	echo "setting up webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&secret_token=${KVRT_BOT_API_SECRET}"
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&secret_token=${KVRT_BOT_API_SECRET}"
 }
 
 del_webhook() {

@@ -106,7 +106,7 @@ config_dump(const Config *c)
 	printf("Api Secret     : *****************\n");
 #endif
 
-	printf("Hook URL       : %s\n", c->hook_url);
+	printf("Hook URL       : %s%s\n", c->hook_url, c->hook_path);
 
 	printf("Listen Host    : %s\n", c->listen_host);
 	printf("Listen Port    : %d\n", c->listen_port);
