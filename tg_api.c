@@ -6,8 +6,9 @@
 int
 tg_api_init(TgApi *t, const char base_api[])
 {
-	if (str_init_alloc(&t->str, 1024) < 0)
-		return -1;
+	int ret = str_init_alloc(&t->str, 1024);
+	if (ret < 0)
+		return ret;
 
 	return 0;
 }

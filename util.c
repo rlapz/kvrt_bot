@@ -78,7 +78,7 @@ _str_resize(Str *s, size_t slen)
 	const size_t _rsize = (slen - remn_size) + size + 1;
 	char *const _new_cstr = realloc(s->cstr, _rsize);
 	if (_new_cstr == NULL)
-		return -errno;
+		return -ENOMEM;
 
 	s->size = _rsize;
 	s->cstr = _new_cstr;
@@ -261,14 +261,12 @@ str_dup(Str *s)
 int
 buffer_init(Buffer *b, size_t init_size, size_t max_size)
 {
-	if (init_size > max_size) {
-		errno = EINVAL;
-		return -1;
-	}
+	if (init_size > max_size)
+		return -EINVAL;
 
 	char *const mem = malloc(init_size);
 	if (mem == NULL)
-		return -1;
+		return -ENOMEM;
 
 	mem[0] = '\0';
 	b->mem = mem;
@@ -292,14 +290,12 @@ buffer_resize(Buffer *b, size_t len)
 		return 0;
 	
 	const size_t new_size = b->size + len;
-	if (new_size >= b->max_size) {
-		errno = ENOMEM;
-		return -1;
-	}
+	if (new_size >= b->max_size)
+		return -ENOMEM;
 
 	char *const new_mem = realloc(b->mem, new_size);
 	if (new_mem == NULL)
-		return -1;
+		return -ENOMEM;
 	
 	b->mem = new_mem;
 	b->size = new_size;
@@ -381,7 +377,7 @@ int
 cstrmap_init(CstrMap *c, CstrMapItem items[], size_t size)
 {
 	if ((size == 0) || (size & 1) != 0)
-		return -1;
+		return -EINVAL;
 
 	c->is_alloc = 0;
 	c->mask = size - 1;
@@ -402,7 +398,7 @@ cstrmap_init_alloc(CstrMap *c, size_t size)
 
 	void *const items = calloc(size, sizeof(CstrMapItem));
 	if (items == NULL)
-		return -1;
+		return -ENOMEM;
 
 	c->is_alloc = 1;
 	c->mask = size - 1;

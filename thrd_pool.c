@@ -107,14 +107,12 @@ thrd_pool_destroy(ThrdPool *t)
 int
 thrd_pool_add_job(ThrdPool *t, ThrdPoolFn func, void *udata)
 {
-	int ret = -1;
+	int ret;
 	mtx_lock(&t->mtx_general); /* LOCK */
 
 	ret = _jobs_enqueue(t, func, udata);
-	if (ret < 0) {
-		log_err(errno, "thrd_pool: thrd_pool_add_job: _jobs_enqueue");
+	if (ret < 0)
 		goto out0;
-	}
 
 	cnd_signal(&t->cond_job);
 
@@ -219,14 +217,12 @@ _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *udata)
 	/* reuse allocated memory if any */
 	ThrdPoolJob *job = _jobs_pool_pop(t);
 	if (job == NULL) {
-		if (t->jobs_cap > t->jobs_max) {
-			errno = ENOMEM;
-			return -1;
-		}
+		if (t->jobs_cap > t->jobs_max)
+			return -ENOMEM;
 		
 		job = malloc(sizeof(ThrdPoolJob));
 		if (job == NULL)
-			return -1;
+			return -ENOMEM;
 		
 		t->jobs_cap++;
 	}

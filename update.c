@@ -9,9 +9,10 @@
 int
 update_init(Update *u, const char base_api[])
 {
-	if (tg_api_init(&u->api, base_api) < 0) {
-		log_err(errno, "update: update_init: tg_api_init");
-		return -1;
+	int ret = tg_api_init(&u->api, base_api);
+	if (ret < 0) {
+		log_err(ret, "update: update_init: tg_api_init");
+		return ret;
 	}
 
 	u->json = NULL;
