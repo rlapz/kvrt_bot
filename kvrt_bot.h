@@ -2,29 +2,30 @@
 #define __KVRT_BOT_H__
 
 
+#include <json.h>
+
 #include <sys/epoll.h>
 
 #include "thrd_pool.h"
 #include "config.h"
 #include "util.h"
-#include "json.h"
 
 
 typedef struct epoll_event Event;
 
 typedef struct {
-	int           fd;
-	unsigned      slot;
-	int           state;
-	int           is_buffer_ready;
-	int           is_req_valid;
-	int           req_body_offt;
-	size_t        req_body_len;
-	size_t        req_total_len;
-	json_value_t *req_body_json;
-	size_t        bytes;
-	Buffer        buffer_in;
-	Event         event;
+	int          fd;
+	unsigned     slot;
+	int          state;
+	int          is_buffer_ready;
+	int          is_req_valid;
+	int          req_body_offt;
+	size_t       req_body_len;
+	size_t       req_total_len;
+	json_object *req_body_json;
+	size_t       bytes;
+	Buffer       buffer_in;
+	Event        event;
 } KvrtBotClient;
 
 typedef struct {

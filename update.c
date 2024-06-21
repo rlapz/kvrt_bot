@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <json.h>
 
 #include "update.h"
 
@@ -22,15 +23,15 @@ void
 update_deinit(Update *u)
 {
 	tg_api_deinit(&u->api);
-	free(u->json);
+	json_object_put(u->json);
 }
 
 
 int
-update_handle(Update *u, json_value_t *json)
+update_handle(Update *u, json_object *json)
 {
 	if (u->json != NULL)
-		free(u->json);
+		json_object_put(u->json);
 
 	u->json = json;
 	return 0;

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <json.h>
 
 #include <arpa/inet.h>
 #include <sys/epoll.h>
@@ -14,7 +15,6 @@
 #include "config.h"
 #include "thrd_pool.h"
 #include "picohttpparser.h"
-#include "json.h"
 #include "update.h"
 
 
@@ -350,7 +350,7 @@ _del_client(KvrtBot *k, KvrtBotClient *client)
 	close(client->fd);
 	client->fd = -1;
 
-	free(client->req_body_json);
+	json_object_put(client->req_body_json);
 }
 
 
@@ -434,6 +434,7 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 		return _state_response_prepare(k, client);
 	case 0:
 		/* request complete */
+		buf[client->bytes] = '\0';
 		_state_request_body_parse(client);
 		return _state_response_prepare(k, client);
 	case 1:
@@ -591,9 +592,9 @@ _state_request_body_parse(KvrtBotClient *c)
 	const char *const body = c->buffer_in.mem + c->req_body_offt;
 	printf("----\n%.*s\n----\n", (int)c->req_body_len, body);
 
-	json_value_t *const json = json_parse(body, c->req_body_len);
+	json_object *const json = json_tokener_parse(body);
 	if (json == NULL) {
-		log_err(0, "kvrt_bot: _state_request_body_verify: json_parse: failed to parse");
+		log_err(0, "kvrt_bot: _state_request_body_verify: json_tokene_parse: failed to parse");
 		return;
 	}
 
@@ -630,8 +631,10 @@ _state_request_body(KvrtBot *k, KvrtBotClient *client)
 	if (recvd < buf_len)
 		return STATE_REQUEST_BODY;
 	
-	if (recvd == buf_len)
+	if (recvd == buf_len) {
+		buf[recvd] = '\0';
 		_state_request_body_parse(client);
+	}
 
 	return _state_response_prepare(k, client);
 }
@@ -704,7 +707,7 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 	const int ret = thrd_pool_add_job(&k->thrd_pool, _request_handler_fn, client->req_body_json);
 	if (ret < 0) {
 		log_err(ret, "kvrt_bot: _state_finish: thrd_pool_add_job");
-		free(client->req_body_json);
+		json_object_put(client->req_body_json);
 	}
 
 	client->req_body_json = NULL;
@@ -715,6 +718,6 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 static void
 _request_handler_fn(void *ctx, void *udata)
 {
-	if (update_handle((Update *)ctx, (json_value_t *)udata) < 0)
-		free(udata);
+	if (update_handle((Update *)ctx, (json_object *)udata) < 0)
+		json_object_put((json_object *)udata);
 }
