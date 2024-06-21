@@ -33,6 +33,9 @@ update_handle(Update *u, json_object *json)
 	if (u->json != NULL)
 		json_object_put(u->json);
 
+	log_debug("update: %p: update_handle: \n---\n%s\n---", (void *)u,
+		  json_object_to_json_string(json));
+
 	u->json = json;
 	return 0;
 }

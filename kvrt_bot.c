@@ -589,10 +589,7 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 static void
 _state_request_body_parse(KvrtBotClient *c)
 {
-	const char *const body = c->buffer_in.mem + c->req_body_offt;
-	printf("----\n%.*s\n----\n", (int)c->req_body_len, body);
-
-	json_object *const json = json_tokener_parse(body);
+	json_object *const json = json_tokener_parse(c->buffer_in.mem + c->req_body_offt);
 	if (json == NULL) {
 		log_err(0, "kvrt_bot: _state_request_body_verify: json_tokene_parse: failed to parse");
 		return;
