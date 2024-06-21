@@ -525,9 +525,9 @@ log_err(int errnum, const char fmt[], ...)
 
 	const char *const dt_now = _log_datetime_now(datetm, sizeof(datetm));
 	if (errnum != 0)
-		fprintf(stderr, "[ERROR]: [%s]: %s: %s\n", dt_now, buffer, strerror(abs(errnum)));
+		fprintf(stderr, "E: [%s]: %s: %s\n", dt_now, buffer, strerror(abs(errnum)));
 	else
-		fprintf(stderr, "[ERROR]: [%s]: %s\n", dt_now, buffer);
+		fprintf(stderr, "E: [%s]: %s\n", dt_now, buffer);
 
 	mtx_unlock(&_log_mutex); // unlock
 }
@@ -554,7 +554,7 @@ log_debug(const char fmt[], ...)
 		buffer[sizeof(buffer) - 1] = '\0';
 
 	mtx_lock(&_log_mutex); // lock
-	fprintf(stdout, "[DEBUG]: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), buffer);
+	fprintf(stdout, "D: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), buffer);
 	fflush(stdout);
 	mtx_unlock(&_log_mutex); // unlock
 #endif
@@ -581,7 +581,7 @@ log_info(const char fmt[], ...)
 		buffer[sizeof(buffer) - 1] = '\0';
 
 	mtx_lock(&_log_mutex); // lock
-	fprintf(stdout, "[INFO]: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), buffer);
+	fprintf(stdout, "I: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), buffer);
 	fflush(stdout);
 	mtx_unlock(&_log_mutex); // unlock
 }
