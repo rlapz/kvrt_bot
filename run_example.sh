@@ -27,9 +27,9 @@ del_webhook() {
 
 if [ -z "$*" ]; then
 	./kvrt
-elif [ "$*" = "set-webhook" ]; then
+elif [ "$*" = "webhook-set" ]; then
 	set_webhook
-elif [ "$*" = "del-webhook" ]; then
+elif [ "$*" = "webhook-del" ]; then
 	del_webhook
 else
 	echo "invalid argument!"
