@@ -34,6 +34,7 @@ char *str_set_n(Str *s, const char cstr[], size_t len);
 char *str_set_fmt(Str *s, const char fmt[], ...);
 char *str_append_fmt(Str *s, const char fmt[], ...);
 char *str_dup(Str *s);
+int   str_reset(Str *s, size_t offt);
 
 
 /*

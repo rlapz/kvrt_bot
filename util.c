@@ -255,6 +255,18 @@ str_dup(Str *s)
 }
 
 
+int
+str_reset(Str *s, size_t offt)
+{
+	if (offt >= s->len)
+		return -EINVAL;
+
+	s->cstr[offt] = '\0';
+	s->len = offt;
+	return 0;
+}
+
+
 /*
  * Buffer
  */
