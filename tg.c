@@ -102,21 +102,24 @@ tg_update_parse(TgUpdate *u, json_object *json)
 	if (json_object_object_get_ex(json, "update_id", &obj) == 0)
 		return -1;
 
+	if (json_object_object_get_ex(json, "message", &obj) != 0) {
+		if (_parse_message(&u->message, obj) < 0)
+			return -1;
+
+		u->has_message = 1;
+	}
+
 	u->id = json_object_get_int64(obj);
-
-	/* optional */
-	if (json_object_object_get_ex(json, "message", &obj) == 0)
-		return 0;
-	/* optional */
-
-	u->has_message = 1;
-	return _parse_message(&u->message, obj);
+	return 0;
 }
 
 
 void
 tg_update_free(TgUpdate *u)
 {
+	if (u->message.type == TG_MESSAGE_TYPE_PHOTO)
+		free(u->message.photo);
+
 	free(u->message.from);
 	free(u->message.entities);
 	free(u->message.reply_to);
@@ -258,7 +261,7 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 
 	if (json_object_object_get_ex(message_obj, "photo", &obj) != 0) {
 		m->type = TG_MESSAGE_TYPE_PHOTO;
-		_parse_message_type_photo(&m->photos, obj);
+		_parse_message_type_photo(&m->photo, obj);
 		return;
 	}
 
@@ -269,21 +272,104 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 static void
 _parse_message_type_audio(TgMessageAudio *a, json_object *audio_obj)
 {
-	/* TODO */
+	json_object *id_obj;
+	if (json_object_object_get_ex(audio_obj, "file_id", &id_obj) == 0)
+		return;
+
+	json_object *uid_obj;
+	if (json_object_object_get_ex(audio_obj, "file_unique_id", &uid_obj) == 0)
+		return;
+
+	json_object *duration_obj;
+	if (json_object_object_get_ex(audio_obj, "duration", &duration_obj) == 0)
+		return;
+
+	json_object *obj;
+	if (json_object_object_get_ex(audio_obj, "file_name", &obj) != 0)
+		a->name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(audio_obj, "title", &obj) != 0)
+		a->title = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(audio_obj, "performer", &obj) != 0)
+		a->perfomer = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(audio_obj, "mime_type", &obj) != 0)
+		a->mime_type = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(audio_obj, "file_size", &obj) != 0)
+		a->size = json_object_get_int64(obj);
+
+	a->id = json_object_get_string(id_obj);
+	a->uid = json_object_get_string(uid_obj);
+	a->duration = json_object_get_int64(duration_obj);
 }
 
 
 static void
 _parse_message_type_document(TgMessageDocument *d, json_object *doc_obj)
 {
-	/* TODO */
+	json_object *id_obj;
+	if (json_object_object_get_ex(doc_obj, "file_id", &id_obj) == 0)
+		return;
+
+	json_object *uid_obj;
+	if (json_object_object_get_ex(doc_obj, "file_unique_id", &uid_obj) == 0)
+		return;
+
+	json_object *obj;
+	if (json_object_object_get_ex(doc_obj, "file_name", &obj) != 0)
+		d->name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(doc_obj, "mime_type", &obj) != 0)
+		d->mime_type = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(doc_obj, "file_size", &obj) != 0)
+		d->size = json_object_get_int64(obj);
+
+	d->id = json_object_get_string(id_obj);
+	d->uid = json_object_get_string(uid_obj);
 }
 
 
 static void
 _parse_message_type_video(TgMessageVideo *v, json_object *video_obj)
 {
-	/* TODO */
+	json_object *id_obj;
+	if (json_object_object_get_ex(video_obj, "file_id", &id_obj) == 0)
+		return;
+
+	json_object *uid_obj;
+	if (json_object_object_get_ex(video_obj, "file_unique_id", &uid_obj) == 0)
+		return;
+
+	json_object *duration_obj;
+	if (json_object_object_get_ex(video_obj, "duration", &duration_obj) == 0)
+		return;
+
+	json_object *width_obj;
+	if (json_object_object_get_ex(video_obj, "width", &width_obj) == 0)
+		return;
+
+	json_object *height_obj;
+	if (json_object_object_get_ex(video_obj, "height", &height_obj) == 0)
+		return;
+
+	json_object *obj;
+	if (json_object_object_get_ex(video_obj, "file_name", &obj) != 0)
+		v->name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(video_obj, "mime_type", &obj) != 0)
+		v->mime_type = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(video_obj, "file_size", &obj) != 0)
+		v->size = json_object_get_int64(obj);
+
+	v->id = json_object_get_string(id_obj);
+	v->uid = json_object_get_string(uid_obj);
+	v->duration = json_object_get_int64(duration_obj);
+	v->width = json_object_get_int64(width_obj);
+	v->height = json_object_get_int64(height_obj);
 }
 
 
@@ -297,7 +383,48 @@ _parse_message_type_text(const char *t[], json_object *text_obj)
 static void
 _parse_message_type_photo(TgMessagePhotoSize *p[], json_object *photo_obj)
 {
-	/* TODO */
+	array_list *const list = json_object_get_array(photo_obj);
+	if (list == NULL)
+		return;
+
+	const size_t len = array_list_length(list) + 1; /* +1: NULL "id" */
+	TgMessagePhotoSize *const photo = calloc(len, sizeof(TgMessagePhotoSize));
+	if (photo == NULL)
+		return;
+
+	for (size_t i = 0, j = 0; j < len; j++) {
+		json_object *const obj = array_list_get_idx(list, j);
+		TgMessagePhotoSize *const _p = &photo[i];
+
+		json_object *id_obj;
+		if (json_object_object_get_ex(obj, "file_id", &id_obj) == 0)
+			continue;
+
+		json_object *uid_obj;
+		if (json_object_object_get_ex(obj, "file_unique_id", &uid_obj) == 0)
+			continue;
+
+		json_object *width_obj;
+		if (json_object_object_get_ex(obj, "width", &width_obj) == 0)
+			continue;
+
+		json_object *height_obj;
+		if (json_object_object_get_ex(obj, "height", &height_obj) == 0)
+			continue;
+
+		json_object *size_obj;
+		if (json_object_object_get_ex(obj, "file_size", &size_obj) != 0)
+			_p->size = json_object_get_int64(size_obj);
+
+		_p->id = json_object_get_string(id_obj);
+		_p->uid = json_object_get_string(uid_obj);
+		_p->width = json_object_get_int64(width_obj);
+		_p->height = json_object_get_int64(height_obj);
+
+		i++;
+	}
+
+	*p = photo;
 }
 
 
@@ -313,7 +440,7 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 		return;
 
 	const size_t len = array_list_length(list);
-	TgMessageEntity *const ents = malloc(sizeof(TgMessageEntity) * len);
+	TgMessageEntity *const ents = calloc(len, sizeof(TgMessageEntity));
 	if (ents == NULL)
 		return;
 
@@ -460,7 +587,6 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 	else
 		c->type = TG_CHAT_TYPE_UNKNOWN;
 
-	/* optionals */
 	json_object *obj;
 	if (json_object_object_get_ex(chat_obj, "title", &obj) != 0)
 		c->title = json_object_get_string(obj);
@@ -476,7 +602,6 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 
 	if (json_object_object_get_ex(chat_obj, "is_forum", &obj) != 0)
 		c->is_forum = json_object_get_boolean(obj);
-	/* optionals */
 
 	c->id = json_object_get_int64(id_obj);
 	return 0;

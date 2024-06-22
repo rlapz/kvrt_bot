@@ -98,39 +98,39 @@ typedef struct tg_message TgMessage;
 typedef struct {
 	const char *id;
 	const char *uid;
+	const char *name;
 	const char *perfomer;
 	const char *title;
-	const char *file_name;
 	const char *mime_type;
 	int64_t     duration;
-	int64_t     file_size;
+	int64_t     size;
 } TgMessageAudio;
 
 typedef struct {
 	const char *id;
 	const char *uid;
-	const char *file_name;
+	const char *name;
 	const char *mime_type;
-	int64_t     file_size;
+	int64_t     size;
 } TgMessageDocument;
 
 typedef struct {
 	const char *id;
 	const char *uid;
-	const char *file_name;
-	const char *mime_type;
-	int64_t     file_size;
+	int64_t     width;
+	int64_t     height;
+	int64_t     size;
 } TgMessagePhotoSize;
 
 typedef struct {
 	const char *id;
 	const char *uid;
-	const char *file_name;
+	const char *name;
 	const char *mime_type;
 	int64_t     width;
 	int64_t     height;
 	int64_t     duration;
-	int64_t     file_size;
+	int64_t     size;
 } TgMessageVideo;
 
 typedef struct tg_message {
@@ -147,7 +147,7 @@ typedef struct tg_message {
 		const char         *text;
 		TgMessageAudio      audio;
 		TgMessageDocument   document;
-		TgMessagePhotoSize *photos;	/* "NULL-terminated" array */
+		TgMessagePhotoSize *photo;	/* "NULL-terminated" array */
 		TgMessageVideo      video;
 	};
 } TgMessage;

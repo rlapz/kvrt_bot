@@ -46,7 +46,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 
 	log_debug("update: %p: update_handle: \n---\n%s\n---", (void *)u,
 		  json_object_to_json_string(json));
-	
+
 	// test
 	tg_api_send_text_plain(&u->api, "809925732", "",
 			       json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
@@ -111,7 +111,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 			const char *str = cht->title;
 			if (str != NULL)
 				log_info("title: %s", str);
-			
+
 			str = cht->username;
 			if (str != NULL)
 				log_info("username: %s", str);
@@ -131,6 +131,53 @@ update_manager_handle(UpdateManager *u, json_object *json)
 				break;
 			default:
 				break;
+			}
+
+			if (msg->type == TG_MESSAGE_TYPE_AUDIO) {
+				TgMessageAudio *const au = &msg->audio;
+				log_info("audio: id       : %s", au->id);
+				log_info("audio: uid      : %s", au->uid);
+				log_info("audio: name     : %s", au->name);
+				log_info("audio: title    : %s", au->title);
+				log_info("audio: performer: %s", au->perfomer);
+				log_info("audio: mime type: %s", au->mime_type);
+				log_info("audio: duration : %" PRIi64, au->size);
+				log_info("audio: size     : %" PRIi64, au->size);
+			}
+
+			if (msg->type == TG_MESSAGE_TYPE_VIDEO) {
+				TgMessageVideo *const vid = &msg->video;
+				log_info("video: id       : %s", vid->id);
+				log_info("video: uid      : %s", vid->uid);
+				log_info("video: name     : %s", vid->name);
+				log_info("video: mime type: %s", vid->mime_type);
+				log_info("video: width    : %" PRIi64, vid->width);
+				log_info("video: height   : %" PRIi64, vid->height);
+				log_info("video: duration : %" PRIi64, vid->duration);
+				log_info("video: size     : %" PRIi64, vid->size);
+			}
+
+			if (msg->type == TG_MESSAGE_TYPE_DOCUMENT) {
+				TgMessageDocument *const doc = &msg->document;
+				log_info("document: id       : %s", doc->id);
+				log_info("document: uid      : %s", doc->uid);
+				log_info("document: name     : %s", doc->name);
+				log_info("document: mime type: %s", doc->mime_type);
+				log_info("document: size     : %" PRIi64, doc->size);
+			}
+
+			if (msg->type == TG_MESSAGE_TYPE_PHOTO) {
+				for (size_t i = 0; ; i++) {
+					TgMessagePhotoSize *ph = &msg->photo[i];
+					if (ph->id == NULL)
+						break;
+
+					log_info("photo: id    : %s", ph->id);
+					log_info("photo: uid   : %s", ph->uid);
+					log_info("photo: width : %" PRIi64, ph->width);
+					log_info("photo: height: %" PRIi64, ph->height);
+					log_info("photo: size  : %" PRIi64, ph->size);
+				}
 			}
 		}
 
