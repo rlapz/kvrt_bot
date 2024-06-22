@@ -72,10 +72,8 @@ _str_resize(Str *s, size_t slen)
 	if (slen < remn_size)
 		return 0;
 
-	if (s->is_alloc == 0) {
-		errno = ENOMEM;
+	if (s->is_alloc == 0)
 		return -ENOMEM;
-	}
 
 	const size_t _rsize = (slen - remn_size) + size + 1;
 	char *const _new_cstr = realloc(s->cstr, _rsize);
@@ -113,12 +111,7 @@ str_init_alloc(Str *s, size_t size)
 	if (cstr == NULL)
 		return -ENOMEM;
 
-	const int ret = str_init(s, cstr, size);
-	if (ret < 0) {
-		free(cstr);
-		return ret;
-	}
-
+	str_init(s, cstr, size);
 	s->is_alloc = 1;
 	return 0;
 }
@@ -138,8 +131,11 @@ str_append_n(Str *s, const char cstr[], size_t len)
 	if (len == 0)
 		return s->cstr;
 
-	if (_str_resize(s, len) < 0)
+	const int ret = _str_resize(s, len);
+	if (ret < 0) {
+		errno = -ret;
 		return NULL;
+	}
 
 	size_t slen = s->len;
 	memcpy(s->cstr + slen, cstr, len);
@@ -160,8 +156,11 @@ str_set_n(Str *s, const char cstr[], size_t len)
 		return s->cstr;
 	}
 
-	if (_str_resize(s, len) < 0)
+	const int ret = _str_resize(s, len);
+	if (ret < 0) {
+		errno = -ret;
 		return NULL;
+	}
 
 	memcpy(s->cstr, cstr, len);
 	s->len = len;
@@ -192,8 +191,11 @@ str_set_fmt(Str *s, const char fmt[], ...)
 		return s->cstr;
 	}
 
-	if (_str_resize(s, cstr_len) < 0)
+	ret = _str_resize(s, cstr_len);
+	if (ret < 0) {
+		errno = -ret;
 		return NULL;
+	}
 
 	va_start(va, fmt);
 	ret = vsnprintf(s->cstr, cstr_len + 1, fmt, va);
@@ -227,8 +229,11 @@ str_append_fmt(Str *s, const char fmt[], ...)
 	if (cstr_len == 0)
 		return s->cstr;
 
-	if (_str_resize(s, cstr_len) < 0)
+	ret = _str_resize(s, cstr_len);
+	if (ret < 0) {
+		errno = -ret;
 		return NULL;
+	}
 
 	size_t len = s->len;
 	va_start(va, fmt);

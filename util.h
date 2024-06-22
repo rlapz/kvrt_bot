@@ -21,8 +21,8 @@ void cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
  */
 typedef struct {
 	int     is_alloc;
-	size_t  size;
 	size_t  len;
+	size_t  size;
 	char   *cstr;
 } Str;
 
