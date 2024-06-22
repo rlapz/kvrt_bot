@@ -20,7 +20,6 @@ typedef struct {
 	int          is_buffer_ready;
 	int          is_req_valid;
 	int          req_body_offt;
-	size_t       req_body_len;
 	size_t       req_total_len;
 	json_object *req_body_json;
 	size_t       bytes;

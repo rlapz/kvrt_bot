@@ -323,7 +323,6 @@ _add_client(KvrtBot *k)
 	cl->fd = cfd;
 	cl->slot = slot;
 	cl->req_body_offt = 0;
-	cl->req_body_len = 0;
 	cl->req_body_json = NULL;
 	cl->req_total_len = 0;
 	cl->is_req_valid = 0;
@@ -480,7 +479,6 @@ _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[], si
 		return -1;
 
 	client->req_body_offt = ret;
-	client->req_body_len = content_len;
 	if ((content_len - diff_len) == 0)
 		return 0;
 
