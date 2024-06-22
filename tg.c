@@ -24,6 +24,7 @@ static void   _parse_message_type_video(TgMessage *m, json_object *video_obj);
 static void   _parse_message_type_text(TgMessage *m, json_object *text_obj);
 static void   _parse_message_type_photo(TgMessage *m, json_object *photo_obj);
 static void   _parse_message_entities(TgMessage *m, json_object *message_obj);
+static void   _parse_user(TgUser **u, json_object *user_obj);
 static int    _parse_chat(TgChat *c, json_object *chat_obj);
 static int    _api_curl_init(TgApi *t);
 static void   _api_curl_deinit(TgApi *t);
@@ -49,7 +50,7 @@ tg_chat_type_str(int type)
 
 
 const char *
-tg_entity_type_str(int type)
+tg_message_entity_type_str(int type)
 {
 	switch (type) {
 	case TG_MESSAGE_ENTITY_TYPE_MENTION: return "mention";
@@ -305,15 +306,89 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 		return;
 	
 	const size_t len = array_list_length(list);
-	//Entity *const ents = malloc(sizeof(Entity) * len);
-	//if (ents == NULL)
-	//	return;
+	TgMessageEntity *const ents = malloc(sizeof(TgMessageEntity) * len);
+	if (ents == NULL)
+		return;
+
+	size_t i = 0;
+	for (size_t j = 0; j < len; j++) {
+		json_object *const obj = array_list_get_idx(list, j);
+		TgMessageEntity *const e = &ents[i];
+
+		json_object *res;
+		if (json_object_object_get_ex(obj, "type", &res) == 0)
+			continue;
+
+		const char *const type = json_object_get_string(res);
+		if (strcmp(type, "mention") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_MENTION;
+		} else if (strcmp(type, "hashtag") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_HASHTAG;
+		} else if (strcmp(type, "cashtag") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_CASHTAG;
+		} else if (strcmp(type, "bot_command") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_BOT_CMD;
+		} else if (strcmp(type, "url") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_URL;
+		} else if (strcmp(type, "email") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_EMAIL;
+		} else if (strcmp(type, "phone_number") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_PHONE;
+		} else if (strcmp(type, "spoiler") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_SPOILER;
+		} else if (strcmp(type, "bold") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_BOLD;
+		} else if (strcmp(type, "italic") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_ITALIC;
+		} else if (strcmp(type, "underline") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_UNDERLINE;
+		} else if (strcmp(type, "strikethrough") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_STRIKETHROUGH;
+		} else if (strcmp(type, "blockquote") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_BLOCKQUOTE;
+		} else if (strcmp(type, "expandable_blockquote") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_BLOCKQUOTE_X;
+		} else if (strcmp(type, "code") == 0) {
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_CODE;
+		} else if (strcmp(type, "pre") == 0) {
+			if (json_object_object_get_ex(obj, "language", &res) != 0)
+				e->lang = json_object_get_string(res);
+
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_PRE;
+		} else if (strcmp(type, "text_mention") == 0) {
+			if (json_object_object_get_ex(obj, "user", &res) != 0)
+				_parse_user(&e->user, res);
+
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION;
+		} else if (strcmp(type, "text_link") == 0) {
+			if (json_object_object_get_ex(obj, "url", &res) != 0)
+				e->url = json_object_get_string(res);
+
+			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_LINK;
+		} else if (strcmp(type, "custom_emoji") == 0) {
+			if (json_object_object_get_ex(obj, "custom_emoji_id", &res) != 0)
+				e->custom_emoji_id = json_object_get_string(res);
+
+			e->type = TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI;
+		} else {
+			e->type = TG_MESSAGE_ENTITY_TYPE_UNKNOWN;
+		}
 	
-	//for (size_t i = 0; i < len; i++) {
-	//	Entity *const e = &ents[i];
-	//}
-	
-	m->entities_len = len;
+		if (json_object_object_get_ex(obj, "offset", &res) == 0)
+			continue;
+
+		e->offset = json_object_get_int64(res);
+
+		if (json_object_object_get_ex(obj, "length", &res) == 0)
+			continue;
+
+		e->length = json_object_get_int64(res);
+
+		i++;
+	}
+
+	m->entities = ents;
+	m->entities_len = i;
 }
 
 
@@ -356,11 +431,16 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 
 	if (json_object_object_get_ex(chat_obj, "is_forum", &obj) != 0)
 		c->is_forum = json_object_get_boolean(obj);
-
-	c->id = json_object_get_int64(id_obj);
 	/* optionals */
 
+	c->id = json_object_get_int64(id_obj);
 	return 0;
+}
+
+
+static void
+_parse_user(TgUser **u, json_object *user_obj)
+{
 }
 
 

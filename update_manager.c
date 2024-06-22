@@ -60,6 +60,28 @@ update_manager_handle(UpdateManager *u, json_object *json)
 			log_info("chat id: %" PRIi64, msg->chat.id);
 			log_info("chat type: %s", tg_chat_type_str(msg->chat.type));
 
+			TgMessageEntity *ent = msg->entities;
+			for (size_t i = 0; i < msg->entities_len; i++) {
+				log_info("ent type: %s", tg_message_entity_type_str(ent[i].type));
+				log_info("offt    : %" PRIi64, ent[i].offset);
+				log_info("length  : %" PRIi64, ent[i].length);
+
+				switch (ent[i].type) {
+				case TG_MESSAGE_ENTITY_TYPE_TEXT_PRE:
+					log_info("lang: %s", ent[i].lang);
+					break;
+				case TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION:
+					log_info("user: TODO");
+					break;
+				case TG_MESSAGE_ENTITY_TYPE_TEXT_LINK:
+					log_info("url: %s", ent[i].url);
+					break;
+				case TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI:
+					log_info("emoji: %s", ent[i].custom_emoji_id);
+					break;
+				}
+			}
+
 			TgChat *cht = &msg->chat;
 			const char *str = cht->title;
 			if (str != NULL)

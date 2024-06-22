@@ -58,6 +58,7 @@ enum {
 	TG_MESSAGE_ENTITY_TYPE_TEXT_BOLD,
 	TG_MESSAGE_ENTITY_TYPE_TEXT_ITALIC,
 	TG_MESSAGE_ENTITY_TYPE_TEXT_UNDERLINE,
+	TG_MESSAGE_ENTITY_TYPE_TEXT_STRIKETHROUGH,
 	TG_MESSAGE_ENTITY_TYPE_TEXT_BLOCKQUOTE,
 	TG_MESSAGE_ENTITY_TYPE_TEXT_BLOCKQUOTE_X,
 	TG_MESSAGE_ENTITY_TYPE_TEXT_CODE,
@@ -76,11 +77,11 @@ typedef struct {
 		const char *url;		/* text_link only */
 		const char *lang;		/* 'pre' only */
 		TgUser     *user;		/* text_mention only */
-		int64_t     custom_emoji_id;	/* custom_emoji only */
+		const char *custom_emoji_id;	/* custom_emoji only */
 	};
 } TgMessageEntity;
 
-const char *tg_entity_type_str(int type);
+const char *tg_message_entity_type_str(int type);
 
 
 enum {
