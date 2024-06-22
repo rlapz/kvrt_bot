@@ -15,7 +15,7 @@
 #include "config.h"
 #include "thrd_pool.h"
 #include "picohttpparser.h"
-#include "update.h"
+#include "update_manager.h"
 
 
 #define HTTP_REQUEST_HEADER_LEN (16)
@@ -123,10 +123,10 @@ kvrt_bot_run(KvrtBot *k)
 	config_dump(cfg);
 
 
-	/* Add 'update' for each worker threads */
-	Update *const updates = malloc(sizeof(Update) * cfg->worker_threads_num);
-	if (updates == NULL) {
-		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: updates");
+	/* Add 'update_manager' for each worker threads */
+	UpdateManager *const upm = malloc(sizeof(UpdateManager) * cfg->worker_threads_num);
+	if (upm == NULL) {
+		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: update_manager");
 		return -1;
 	}
 
@@ -146,13 +146,14 @@ kvrt_bot_run(KvrtBot *k)
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
 
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = update_init(&updates[iter], api);
+		ret = update_manager_init(&upm[iter], api);
 		if (ret < 0)
 			goto out1;
 	}
 
-	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates, sizeof(Update),
-			       cfg->worker_jobs_min, cfg->worker_jobs_max);
+	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, upm,
+			       sizeof(UpdateManager), cfg->worker_jobs_min,
+			       cfg->worker_jobs_max);
 	if (ret < 0)
 		goto out1;
 
@@ -164,9 +165,9 @@ out1:
 	str_deinit(&str_api);
 out0:
 	while (iter--)
-		update_deinit(&updates[iter]);
+		update_manager_deinit(&upm[iter]);
 
-	free(updates);
+	free(upm);
 	return ret;
 }
 
@@ -715,6 +716,6 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 static void
 _request_handler_fn(void *ctx, void *udata)
 {
-	if (update_handle((Update *)ctx, (json_object *)udata) < 0)
+	if (update_manager_handle((UpdateManager *)ctx, (json_object *)udata) < 0)
 		json_object_put((json_object *)udata);
 }
