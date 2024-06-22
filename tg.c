@@ -18,12 +18,13 @@
 
 static int    _parse_message(TgMessage *m, json_object *message_obj);
 static void   _parse_message_type(TgMessage *m, json_object *message_obj);
-static void   _parse_message_type_audio(TgMessage *m, json_object *audio_obj);
-static void   _parse_message_type_document(TgMessage *m, json_object *doc_obj);
-static void   _parse_message_type_video(TgMessage *m, json_object *video_obj);
-static void   _parse_message_type_text(TgMessage *m, json_object *text_obj);
-static void   _parse_message_type_photo(TgMessage *m, json_object *photo_obj);
+static void   _parse_message_type_audio(TgMessageAudio *a, json_object *audio_obj);
+static void   _parse_message_type_document(TgMessageDocument *d, json_object *doc_obj);
+static void   _parse_message_type_video(TgMessageVideo *v, json_object *video_obj);
+static void   _parse_message_type_text(const char *t[], json_object *text_obj);
+static void   _parse_message_type_photo(TgMessagePhotoSize *p[], json_object *photo_obj);
 static void   _parse_message_entities(TgMessage *m, json_object *message_obj);
+static void   _parse_message_reply_to(TgMessage *m, json_object *message_obj);
 static void   _parse_user(TgUser **u, json_object *user_obj);
 static int    _parse_chat(TgChat *c, json_object *chat_obj);
 static int    _api_curl_init(TgApi *t);
@@ -100,7 +101,7 @@ tg_update_parse(TgUpdate *u, json_object *json)
 	json_object *obj;
 	if (json_object_object_get_ex(json, "update_id", &obj) == 0)
 		return -1;
-	
+
 	u->id = json_object_get_int64(obj);
 
 	/* optional */
@@ -116,6 +117,7 @@ tg_update_parse(TgUpdate *u, json_object *json)
 void
 tg_update_free(TgUpdate *u)
 {
+	free(u->message.from);
 	free(u->message.entities);
 	free(u->message.reply_to);
 }
@@ -209,12 +211,17 @@ _parse_message(TgMessage *m, json_object *message_obj)
 	json_object *capt_obj;
 	if (json_object_object_get_ex(message_obj, "caption", &capt_obj) != 0)
 		m->caption = json_object_get_string(capt_obj);
-	
+
+	json_object *from_obj;
+	if (json_object_object_get_ex(message_obj, "from", &from_obj) != 0)
+		_parse_user(&m->from, from_obj);
+
 	m->id = json_object_get_int64(id_obj);
 	m->date = json_object_get_int64(date_obj);
 
 	_parse_message_entities(m, message_obj);
 	_parse_message_type(m, message_obj);
+	_parse_message_reply_to(m, message_obj);
 	return _parse_chat(&m->chat, chat_obj);
 }
 
@@ -226,71 +233,71 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 
 	/* guess all possibilities */
 	if (json_object_object_get_ex(message_obj, "audio", &obj) != 0) {
-		_parse_message_type_audio(m, obj);
+		m->type = TG_MESSAGE_TYPE_AUDIO;
+		_parse_message_type_audio(&m->audio, obj);
 		return;
 	}
 
 	if (json_object_object_get_ex(message_obj, "document", &obj) != 0) {
-		_parse_message_type_document(m, obj);
+		m->type = TG_MESSAGE_TYPE_DOCUMENT;
+		_parse_message_type_document(&m->document, obj);
 		return;
 	}
 
 	if (json_object_object_get_ex(message_obj, "video", &obj) != 0) {
-		_parse_message_type_video(m, obj);
+		m->type = TG_MESSAGE_TYPE_VIDEO;
+		_parse_message_type_video(&m->video, obj);
 		return;
 	}
 
 	if (json_object_object_get_ex(message_obj, "text", &obj) != 0) {
-		_parse_message_type_text(m, obj);
+		m->type = TG_MESSAGE_TYPE_TEXT;
+		_parse_message_type_text(&m->text, obj);
 		return;
 	}
-	
+
 	if (json_object_object_get_ex(message_obj, "photo", &obj) != 0) {
-		_parse_message_type_photo(m, obj);
+		m->type = TG_MESSAGE_TYPE_PHOTO;
+		_parse_message_type_photo(&m->photos, obj);
 		return;
 	}
-	
+
 	m->type = TG_MESSAGE_TYPE_UNKNOWN;
 }
 
 
 static void
-_parse_message_type_audio(TgMessage *m, json_object *audio_obj)
+_parse_message_type_audio(TgMessageAudio *a, json_object *audio_obj)
 {
 	/* TODO */
-	m->type = TG_MESSAGE_TYPE_AUDIO;
 }
 
 
 static void
-_parse_message_type_document(TgMessage *m, json_object *doc_obj)
+_parse_message_type_document(TgMessageDocument *d, json_object *doc_obj)
 {
 	/* TODO */
-	m->type = TG_MESSAGE_TYPE_DOCUMENT;
 }
 
 
 static void
-_parse_message_type_video(TgMessage *m, json_object *video_obj)
+_parse_message_type_video(TgMessageVideo *v, json_object *video_obj)
 {
 	/* TODO */
-	m->type = TG_MESSAGE_TYPE_VIDEO;
 }
 
 
 static void
-_parse_message_type_text(TgMessage *m, json_object *text_obj)
+_parse_message_type_text(const char *t[], json_object *text_obj)
 {
-	m->type = TG_MESSAGE_TYPE_TEXT;
-	m->text = json_object_get_string(text_obj);
+	*t = json_object_get_string(text_obj);
 }
 
 
 static void
-_parse_message_type_photo(TgMessage *m, json_object *photo_obj)
+_parse_message_type_photo(TgMessagePhotoSize *p[], json_object *photo_obj)
 {
 	/* TODO */
-	m->type = TG_MESSAGE_TYPE_PHOTO;
 }
 
 
@@ -300,11 +307,11 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 	json_object *ents_obj;
 	if (json_object_object_get_ex(message_obj, "entities", &ents_obj) == 0)
 		return;
-	
+
 	array_list *const list = json_object_get_array(ents_obj);
 	if (list == NULL)
 		return;
-	
+
 	const size_t len = array_list_length(list);
 	TgMessageEntity *const ents = malloc(sizeof(TgMessageEntity) * len);
 	if (ents == NULL)
@@ -373,7 +380,7 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 		} else {
 			e->type = TG_MESSAGE_ENTITY_TYPE_UNKNOWN;
 		}
-	
+
 		if (json_object_object_get_ex(obj, "offset", &res) == 0)
 			continue;
 
@@ -392,6 +399,44 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 }
 
 
+static void
+_parse_message_reply_to(TgMessage *m, json_object *message_obj)
+{
+	json_object *reply_to_obj;
+	if (json_object_object_get_ex(message_obj, "reply_to_message", &reply_to_obj) == 0)
+		return;
+
+	json_object *id_obj;
+	if (json_object_object_get_ex(reply_to_obj, "message_id", &id_obj) == 0)
+		return;
+
+	json_object *date_obj;
+	if (json_object_object_get_ex(reply_to_obj, "date", &date_obj) == 0)
+		return;
+
+	json_object *chat_obj;
+	if (json_object_object_get_ex(reply_to_obj, "chat", &chat_obj) == 0)
+		return;
+
+	TgMessage *const reply_to = calloc(1, sizeof(TgMessage));
+	if (reply_to == NULL)
+		return;
+
+	json_object *capt_obj;
+	if (json_object_object_get_ex(reply_to_obj, "caption", &capt_obj) != 0)
+		m->caption = json_object_get_string(capt_obj);
+
+	reply_to->id = json_object_get_int64(id_obj);
+	reply_to->date = json_object_get_int64(date_obj);
+
+	_parse_message_entities(reply_to, reply_to_obj);
+	_parse_message_type(reply_to, reply_to_obj);
+	_parse_chat(&reply_to->chat, chat_obj);
+
+	m->reply_to = reply_to;
+}
+
+
 static int
 _parse_chat(TgChat *c, json_object *chat_obj)
 {
@@ -402,7 +447,7 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 	json_object *type_obj;
 	if (json_object_object_get_ex(chat_obj, "type", &type_obj) == 0)
 		return -1;
-	
+
 	const char *const type_str = json_object_get_string(type_obj);
 	if (strcmp(type_str, "private") == 0)
 		c->type = TG_CHAT_TYPE_PRIVATE;
@@ -414,12 +459,12 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 		c->type = TG_CHAT_TYPE_CHANNEL;
 	else
 		c->type = TG_CHAT_TYPE_UNKNOWN;
-	
+
 	/* optionals */
 	json_object *obj;
 	if (json_object_object_get_ex(chat_obj, "title", &obj) != 0)
 		c->title = json_object_get_string(obj);
-	
+
 	if (json_object_object_get_ex(chat_obj, "username", &obj) != 0)
 		c->username = json_object_get_string(obj);
 
@@ -441,6 +486,32 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 static void
 _parse_user(TgUser **u, json_object *user_obj)
 {
+	json_object *id_obj;
+	if (json_object_object_get_ex(user_obj, "id", &id_obj) == 0)
+		return;
+
+	json_object *is_bot_obj;
+	if (json_object_object_get_ex(user_obj, "is_bot", &is_bot_obj) == 0)
+		return;
+
+	TgUser *const user = calloc(1, sizeof(TgUser));
+	if (user == NULL)
+		return;
+
+	json_object *obj;
+	if (json_object_object_get_ex(user_obj, "username", &obj) != 0)
+		user->username = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(user_obj, "first_name", &obj) != 0)
+		user->first_name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(user_obj, "last_name", &obj) != 0)
+		user->last_name = json_object_get_string(obj);
+
+	user->id = json_object_get_int64(id_obj);
+	user->is_bot = json_object_get_boolean(is_bot_obj);
+
+	*u = user;
 }
 
 

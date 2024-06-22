@@ -48,6 +48,9 @@ update_manager_handle(UpdateManager *u, json_object *json)
 		  json_object_to_json_string(json));
 	
 	// test
+	tg_api_send_text_plain(&u->api, "809925732", "",
+			       json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
+
 	TgUpdate update;
 	if (tg_update_parse(&update, json) == 0) {
 		log_info("id    : %" PRIi64, update.id);
@@ -80,6 +83,28 @@ update_manager_handle(UpdateManager *u, json_object *json)
 					log_info("emoji: %s", ent[i].custom_emoji_id);
 					break;
 				}
+			}
+
+			TgUser *usr = msg->from;
+			if (usr != NULL) {
+				log_info("from: id: %" PRIi64, usr->id);
+				log_info("from: is_bot: %d", usr->is_bot);
+				if (usr->username != NULL)
+					log_info("from: username: %s", usr->username);
+				if (usr->first_name != NULL)
+					log_info("from: first_name: %s", usr->first_name);
+				if (usr->last_name != NULL)
+					log_info("from: last_name: %s", usr->last_name);
+			}
+
+			TgMessage *rpl = msg->reply_to;
+			if (rpl != NULL) {
+				log_info("reply_to: msg_id: %" PRIi64, rpl->id);
+				log_info("reply_to: message type: %s", tg_message_type_str(rpl->type));
+				log_info("reply_to: entities len: %zu", rpl->entities_len);
+				log_info("reply_to: date  : %" PRIi64, rpl->date);
+				log_info("reply_to: chat id: %" PRIi64, rpl->chat.id);
+				log_info("reply_to: chat type: %s", tg_chat_type_str(rpl->chat.type));
 			}
 
 			TgChat *cht = &msg->chat;

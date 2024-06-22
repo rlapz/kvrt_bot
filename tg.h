@@ -137,7 +137,7 @@ typedef struct tg_message {
 	int              type;
 	int64_t          id;
 	int64_t          date;
-	TgUser           from;
+	TgUser          *from;
 	TgChat           chat;
 	TgMessage       *reply_to;
 	size_t           entities_len;
