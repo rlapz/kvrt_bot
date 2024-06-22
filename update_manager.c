@@ -48,9 +48,6 @@ update_manager_handle(UpdateManager *u, json_object *json)
 		  json_object_to_json_string(json));
 
 	// test
-	tg_api_send_text_plain(&u->api, "809925732", "",
-			       json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-
 	TgUpdate update;
 	if (tg_update_parse(&update, json) == 0) {
 		log_info("id    : %" PRIi64, update.id);
@@ -183,6 +180,10 @@ update_manager_handle(UpdateManager *u, json_object *json)
 
 		tg_update_free(&update);
 	}
+
+	tg_api_send_text_plain(&u->api, "809925732", "",
+			       json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
+
 	// test
 
 	u->json = json;

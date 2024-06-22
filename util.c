@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
@@ -32,7 +33,7 @@ cstr_copy_n(char dest[], size_t size, const char src[])
 {
 	if (size == 0)
 		return;
-	
+
 	if (size == 1) {
 		dest[0] = '\0';
 		return;
@@ -41,7 +42,7 @@ cstr_copy_n(char dest[], size_t size, const char src[])
 	size_t slen = strlen(src);
 	if (slen >= size)
 		slen = size - 1;
-	
+
 	memcpy(dest, src, slen);
 	dest[slen] = '\0';
 }
@@ -52,7 +53,7 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 {
 	if (size <= len)
 		len = size - 1;
-	
+
 	memcpy(dest, src, len);
 	dest[len] = '\0';
 }
@@ -307,7 +308,7 @@ buffer_resize(Buffer *b, size_t len)
 {
 	if (len < b->size)
 		return 0;
-	
+
 	const size_t new_size = b->size + len;
 	if (new_size >= b->max_size)
 		return -ENOMEM;
@@ -315,7 +316,7 @@ buffer_resize(Buffer *b, size_t len)
 	char *const new_mem = realloc(b->mem, new_size);
 	if (new_mem == NULL)
 		return -ENOMEM;
-	
+
 	b->mem = new_mem;
 	b->size = new_size;
 	return 1;
@@ -509,7 +510,7 @@ log_init(void)
 {
 	if (mtx_init(&_log_mutex, mtx_plain) != 0)
 		return -1;
-	
+
 	return 0;
 }
 
@@ -553,7 +554,7 @@ log_err(int errnum, const char fmt[], ...)
 
 
 void
-log_debug(const char fmt[], ...)
+log_debug(__attribute_maybe_unused__ const char fmt[], ...)
 {
 #ifdef DEBUG
 	int ret;

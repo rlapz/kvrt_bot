@@ -26,7 +26,7 @@ del_webhook() {
 
 
 if [ -z "$*" ]; then
-	./kvrt
+	./kvrt_bot
 elif [ "$*" = "webhook-set" ]; then
 	set_webhook
 elif [ "$*" = "webhook-del" ]; then

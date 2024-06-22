@@ -52,4 +52,5 @@ Mkfile.old
 dkms.conf
 
 kvrt
+kvrt_bot
 run.sh

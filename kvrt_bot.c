@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <strings.h>
 #include <json.h>
 
 #include <arpa/inet.h>
@@ -79,7 +80,7 @@ kvrt_bot_init(KvrtBot *k)
 
 	if (config_load_from_env(&k->config) < 0)
 		goto err0;
-	
+
 	k->listen_fd = -1;
 	k->event_fd = -1;
 	return 0;
@@ -98,7 +99,7 @@ kvrt_bot_deinit(KvrtBot *k)
 		KvrtBotClient *const client = &k->clients.list[i];
 		if (client->is_buffer_ready)
 			buffer_deinit(&client->buffer_in);
-		
+
 		if (client->fd > 0)
 			close(client->fd);
 	}
@@ -412,7 +413,7 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 	if (rv < 0) {
 		if (errno == EAGAIN)
 			return STATE_REQUEST_HEADER;
-		
+
 		log_err(errno, "kvrt_bot: _state_request_header: recv");
 		return STATE_FINISH;
 	}
@@ -469,11 +470,11 @@ _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[], si
 					  &req.hdr_len, last_len);
 	if (ret < 0)
 		return ret;
-	
+
 	size_t content_len;
 	if (_state_request_header_validate(&k->config, &req, &content_len) < 0)
 		return -1;
-	
+
 	const size_t diff_len = len - (size_t)ret;
 	if (diff_len > content_len)
 		return -1;
@@ -494,7 +495,7 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	const char *secret = NULL;
 	size_t secret_len = 0;
 	const char *scontent_len = NULL;
-	size_t scontent_len_len = 0; 
+	size_t scontent_len_len = 0;
 	const char *host = NULL;
 	size_t host_len = 0;
 	const char *content_type = NULL;
@@ -512,13 +513,13 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 
 	if (req->method_len != 4)
 		return -1;
-	
+
 	if (strncasecmp(req->method, "POST", 4) != 0)
 		return -1;
 
 	if (c->hook_path_len != req->path_len)
 		return -1;
-	
+
 	if (strncasecmp(c->hook_path, req->path, c->hook_path_len) != 0)
 		return -1;
 
@@ -559,10 +560,10 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	    (strncmp(c->api_secret, secret, secret_len) != 0)) {
 		return -1;
 	}
-	
+
 	if ((scontent_len == NULL) || (scontent_len_len >= sizeof(buffer)))
 		return -1;
-	
+
 	if ((host == NULL) || (host_len != c->hook_url_len) ||
 	    (strncasecmp(c->hook_url, host, host_len) != 0)) {
 		return -1;
@@ -572,14 +573,14 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 	    (strncasecmp(content_type, "application/json", 16))) {
 		return -1;
 	}
-	
+
 	cstr_copy_n2(buffer, sizeof(buffer), scontent_len, scontent_len_len);
 
 	errno = 0;
 	*content_len = (size_t)strtol(buffer, NULL, 10);
 	if (errno != 0)
 		return -1;
-	
+
 	/* TODO: add more validations */
 	return 0;
 }
@@ -626,7 +627,7 @@ _state_request_body(KvrtBot *k, KvrtBotClient *client)
 
 	if (recvd < buf_len)
 		return STATE_REQUEST_BODY;
-	
+
 	if (recvd == buf_len) {
 		buf[recvd] = '\0';
 		_state_request_body_parse(client);
@@ -667,7 +668,7 @@ _state_response(KvrtBotClient *client)
 		if (sn < 0) {
 			if (errno == EAGAIN)
 				return STATE_RESPONSE;
-			
+
 			log_err(errno, "kvrt_bot: _state_response: send");
 			return STATE_FINISH;
 		}
