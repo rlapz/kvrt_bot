@@ -96,19 +96,19 @@ tg_update_parse(TgUpdate *u, json_object *json)
 {
 	memset(u, 0, sizeof(*u));
 
-	json_object *const id_obj = json_object_object_get(json, "update_id");
-	if (id_obj == NULL)
+	json_object *obj;
+	if (json_object_object_get_ex(json, "update_id", &obj) == 0)
 		return -1;
 	
-	u->id = json_object_get_int64(id_obj);
+	u->id = json_object_get_int64(obj);
 
 	/* optional */
-	json_object *const message_obj = json_object_object_get(json, "message");
-	if (message_obj == NULL)
+	if (json_object_object_get_ex(json, "message", &obj) == 0)
 		return 0;
+	/* optional */
 
 	u->has_message = 1;
-	return _parse_message(&u->message, message_obj);
+	return _parse_message(&u->message, obj);
 }
 
 
@@ -193,20 +193,20 @@ out0:
 static int
 _parse_message(TgMessage *m, json_object *message_obj)
 {
-	json_object *const id_obj = json_object_object_get(message_obj, "message_id");
-	if (id_obj == NULL)
+	json_object *id_obj;
+	if (json_object_object_get_ex(message_obj, "message_id", &id_obj) == 0)
 		return -1;
 
-	json_object *const date_obj = json_object_object_get(message_obj, "date");
-	if (date_obj == NULL)
+	json_object *date_obj;
+	if (json_object_object_get_ex(message_obj, "date", &date_obj) == 0)
 		return -1;
-	
-	json_object *const chat_obj = json_object_object_get(message_obj, "chat");
-	if (chat_obj == NULL)
+
+	json_object *chat_obj;
+	if (json_object_object_get_ex(message_obj, "chat", &chat_obj) == 0)
 		return -1;
-	
-	json_object *const capt_obj = json_object_object_get(message_obj, "caption");
-	if (capt_obj != NULL)
+
+	json_object *capt_obj;
+	if (json_object_object_get_ex(message_obj, "caption", &capt_obj) != 0)
 		m->caption = json_object_get_string(capt_obj);
 	
 	m->id = json_object_get_int64(id_obj);
@@ -221,33 +221,30 @@ _parse_message(TgMessage *m, json_object *message_obj)
 static void
 _parse_message_type(TgMessage *m, json_object *message_obj)
 {
+	json_object *obj;
+
 	/* guess all possibilities */
-	json_object *obj = json_object_object_get(message_obj, "audio");
-	if (obj != NULL) {
+	if (json_object_object_get_ex(message_obj, "audio", &obj) != 0) {
 		_parse_message_type_audio(m, obj);
 		return;
 	}
 
-	obj = json_object_object_get(message_obj, "document");
-	if (obj != NULL) {
+	if (json_object_object_get_ex(message_obj, "document", &obj) != 0) {
 		_parse_message_type_document(m, obj);
 		return;
 	}
 
-	obj = json_object_object_get(message_obj, "video");
-	if (obj != NULL) {
+	if (json_object_object_get_ex(message_obj, "video", &obj) != 0) {
 		_parse_message_type_video(m, obj);
 		return;
 	}
 
-	obj = json_object_object_get(message_obj, "text");
-	if (obj != NULL) {
+	if (json_object_object_get_ex(message_obj, "text", &obj) != 0) {
 		_parse_message_type_text(m, obj);
 		return;
 	}
 	
-	obj = json_object_object_get(message_obj, "photo");
-	if (obj != NULL) {
+	if (json_object_object_get_ex(message_obj, "photo", &obj) != 0) {
 		_parse_message_type_photo(m, obj);
 		return;
 	}
@@ -259,6 +256,7 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 static void
 _parse_message_type_audio(TgMessage *m, json_object *audio_obj)
 {
+	/* TODO */
 	m->type = TG_MESSAGE_TYPE_AUDIO;
 }
 
@@ -266,6 +264,7 @@ _parse_message_type_audio(TgMessage *m, json_object *audio_obj)
 static void
 _parse_message_type_document(TgMessage *m, json_object *doc_obj)
 {
+	/* TODO */
 	m->type = TG_MESSAGE_TYPE_DOCUMENT;
 }
 
@@ -273,6 +272,7 @@ _parse_message_type_document(TgMessage *m, json_object *doc_obj)
 static void
 _parse_message_type_video(TgMessage *m, json_object *video_obj)
 {
+	/* TODO */
 	m->type = TG_MESSAGE_TYPE_VIDEO;
 }
 
@@ -288,16 +288,16 @@ _parse_message_type_text(TgMessage *m, json_object *text_obj)
 static void
 _parse_message_type_photo(TgMessage *m, json_object *photo_obj)
 {
+	/* TODO */
 	m->type = TG_MESSAGE_TYPE_PHOTO;
-
 }
 
 
 static void
 _parse_message_entities(TgMessage *m, json_object *message_obj)
 {
-	json_object *const ents_obj = json_object_object_get(message_obj, "entities");
-	if (ents_obj == NULL)
+	json_object *ents_obj;
+	if (json_object_object_get_ex(message_obj, "entities", &ents_obj) == 0)
 		return;
 	
 	array_list *const list = json_object_get_array(ents_obj);
@@ -320,12 +320,12 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 static int
 _parse_chat(TgChat *c, json_object *chat_obj)
 {
-	json_object *const id_obj = json_object_object_get(chat_obj, "id");
-	if (id_obj == NULL)
+	json_object *id_obj;
+	if (json_object_object_get_ex(chat_obj, "id", &id_obj) == 0)
 		return -1;
 
-	json_object *const type_obj = json_object_object_get(chat_obj, "type");
-	if (type_obj == NULL)
+	json_object *type_obj;
+	if (json_object_object_get_ex(chat_obj, "type", &type_obj) == 0)
 		return -1;
 	
 	const char *const type_str = json_object_get_string(type_obj);
@@ -341,24 +341,20 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 		c->type = TG_CHAT_TYPE_UNKNOWN;
 	
 	/* optionals */
-	json_object *obj = json_object_object_get(chat_obj, "title");
-	if (obj != NULL)
+	json_object *obj;
+	if (json_object_object_get_ex(chat_obj, "title", &obj) != 0)
 		c->title = json_object_get_string(obj);
 	
-	obj = json_object_object_get(chat_obj, "username");
-	if (obj != NULL)
+	if (json_object_object_get_ex(chat_obj, "username", &obj) != 0)
 		c->username = json_object_get_string(obj);
 
-	obj = json_object_object_get(chat_obj, "first_name");
-	if (obj != NULL)
+	if (json_object_object_get_ex(chat_obj, "first_name", &obj) != 0)
 		c->first_name = json_object_get_string(obj);
 
-	obj = json_object_object_get(chat_obj, "last_name");
-	if (obj != NULL)
+	if (json_object_object_get_ex(chat_obj, "last_name", &obj) != 0)
 		c->last_name = json_object_get_string(obj);
 
-	obj = json_object_object_get(chat_obj, "is_forum");
-	if (obj != NULL)
+	if (json_object_object_get_ex(chat_obj, "is_forum", &obj) != 0)
 		c->is_forum = json_object_get_boolean(obj);
 
 	c->id = json_object_get_int64(id_obj);
