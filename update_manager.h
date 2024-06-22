@@ -5,7 +5,7 @@
 #include <json.h>
 
 #include "util.h"
-#include "tg_api.h"
+#include "tg.h"
 
 
 typedef struct {
