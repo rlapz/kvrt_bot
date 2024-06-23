@@ -13,7 +13,8 @@
 
 typedef struct epoll_event Event;
 
-typedef struct {
+typedef struct kvrt_bot_client KvrtBotClient;
+struct kvrt_bot_client {
 	int          fd;
 	unsigned     slot;
 	int          state;
@@ -25,22 +26,24 @@ typedef struct {
 	size_t       bytes;
 	Buffer       buffer_in;
 	Event        event;
-} KvrtBotClient;
+};
 
-typedef struct {
+typedef struct kvrt_bot_client_stack KvrtBotClientStack;
+struct kvrt_bot_client_stack {
 	unsigned      count;
 	unsigned      slots[CFG_CLIENTS_MAX];
 	KvrtBotClient list[CFG_CLIENTS_MAX];
-} KvrtBotClientStack;
+};
 
-typedef struct {
+typedef struct kvrt_bot KvrtBot;
+struct kvrt_bot {
 	volatile int       is_alive;
 	int                listen_fd;
 	int                event_fd;
 	Config             config;
 	ThrdPool           thrd_pool;
 	KvrtBotClientStack clients;
-} KvrtBot;
+};
 
 int  kvrt_bot_init(KvrtBot *k);
 void kvrt_bot_deinit(KvrtBot *k);

@@ -11,7 +11,10 @@ VERSION = 0.0.1
 
 PREFIX = /usr
 CC     = cc
-CFLAGS = -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L -O3
+#CFLAGS = -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L -O3
+CFLAGS = -g -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L -DDEBUG
+#LFLAGS = -lcurl -ljson-c
+LFLAGS = -lcurl -ljson-c -fsanitize=address -fsanitize=undefined
 
 SRC    = util.c config.c thrd_pool.c tg.c update_manager.c picohttpparser.c kvrt_bot.c main.c
 OBJ    = $(SRC:.c=.o)
@@ -24,7 +27,7 @@ kvrt_bot.o: $(TARGET).c
 
 $(TARGET): $(OBJ)
 	@printf "\n%s\n" "Linking: $(^)..."
-	$(CC) -o $(@) $(^) -lcurl -ljson-c
+	$(CC) -o $(@) $(^) $(LFLAGS)
 
 options:
 	@echo $(TARGET) build options:

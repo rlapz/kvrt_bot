@@ -30,7 +30,8 @@ enum {
 };
 
 
-typedef struct {
+typedef struct http_request HttpRequest;
+struct http_request {
 	const char        *method;
 	size_t             method_len;
 	const char        *path;
@@ -38,7 +39,7 @@ typedef struct {
 	int                min_ver;
 	struct phr_header  hdrs[HTTP_REQUEST_HEADER_LEN];
 	size_t             hdr_len;
-} HttpRequest;
+};
 
 
 static int  _create_listener(KvrtBot *k);

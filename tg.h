@@ -12,13 +12,14 @@
 
 
 /* User */
-typedef struct {
+typedef struct tg_user TgUser;
+struct tg_user {
 	int64_t     id;
 	int         is_bot;
 	const char *username;
 	const char *first_name;
 	const char *last_name;
-} TgUser;
+};
 
 
 /* Chat */
@@ -30,7 +31,8 @@ enum {
 	TG_CHAT_TYPE_UNKNOWN,
 };
 
-typedef struct {
+typedef struct tg_chat TgChat;
+struct tg_chat {
 	int64_t     id;
 	int         type;
 	int         is_forum;
@@ -38,7 +40,7 @@ typedef struct {
 	const char *username;
 	const char *first_name;
 	const char *last_name;
-} TgChat;
+};
 
 const char *tg_chat_type_str(int type);
 
@@ -69,7 +71,8 @@ enum {
 	TG_MESSAGE_ENTITY_TYPE_UNKNOWN,
 };
 
-typedef struct {
+typedef struct tg_message_entity TgMessageEntity;
+struct tg_message_entity {
 	int     type;
 	int64_t offset;
 	int64_t length;
@@ -79,7 +82,7 @@ typedef struct {
 		TgUser     *user;		/* text_mention only */
 		const char *custom_emoji_id;	/* custom_emoji only */
 	};
-} TgMessageEntity;
+};
 
 const char *tg_message_entity_type_str(int type);
 
@@ -93,9 +96,8 @@ enum {
 	TG_MESSAGE_TYPE_UNKNOWN,
 };
 
-typedef struct tg_message TgMessage;
-
-typedef struct {
+typedef struct tg_message_audio TgMessageAudio;
+struct tg_message_audio {
 	const char *id;
 	const char *uid;
 	const char *name;
@@ -104,25 +106,28 @@ typedef struct {
 	const char *mime_type;
 	int64_t     duration;
 	int64_t     size;
-} TgMessageAudio;
+};
 
-typedef struct {
+typedef struct tg_message_document TgMessageDocument;
+struct tg_message_document {
 	const char *id;
 	const char *uid;
 	const char *name;
 	const char *mime_type;
 	int64_t     size;
-} TgMessageDocument;
+};
 
-typedef struct {
+typedef struct tg_message_photo_size TgMessagePhotoSize;
+struct tg_message_photo_size {
 	const char *id;
 	const char *uid;
 	int64_t     width;
 	int64_t     height;
 	int64_t     size;
-} TgMessagePhotoSize;
+};
 
-typedef struct {
+typedef struct tg_message_video TgMessageVideo;
+struct tg_message_video {
 	const char *id;
 	const char *uid;
 	const char *name;
@@ -131,9 +136,10 @@ typedef struct {
 	int64_t     height;
 	int64_t     duration;
 	int64_t     size;
-} TgMessageVideo;
+};
 
-typedef struct tg_message {
+typedef struct tg_message TgMessage;
+struct tg_message {
 	int              type;
 	int64_t          id;
 	int64_t          date;
@@ -150,7 +156,7 @@ typedef struct tg_message {
 		TgMessagePhotoSize *photo;	/* "NULL-terminated" array */
 		TgMessageVideo      video;
 	};
-} TgMessage;
+};
 
 const char *tg_message_type_str(int type);
 
@@ -158,11 +164,12 @@ const char *tg_message_type_str(int type);
 /*
  * Update
  */
-typedef struct {
+typedef struct tg_update TgUpdate;
+struct tg_update {
 	int       has_message;
 	int64_t   id;
 	TgMessage message;
-} TgUpdate;
+};
 
 int  tg_update_parse(TgUpdate *u, json_object *json);
 void tg_update_free(TgUpdate *u);
@@ -171,13 +178,14 @@ void tg_update_free(TgUpdate *u);
 /*
  * Api
  */
-typedef struct {
+typedef struct tg_api TgApi;
+struct tg_api {
 	const char *api;
 	size_t      api_offt;
 	CURL       *curl;
 	Str         str_compose;
 	Str         str_response;
-} TgApi;
+};
 
 int  tg_api_init(TgApi *t, const char base_api[]);
 void tg_api_deinit(TgApi *t);

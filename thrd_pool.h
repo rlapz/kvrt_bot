@@ -8,7 +8,8 @@ typedef void (*ThrdPoolFn) (void *ctx, void *udata);
 typedef struct thrd_pool_job ThrdPoolJob;
 typedef struct thrd_pool_worker ThrdPoolWorker;
 
-typedef struct thrd_pool {
+typedef struct thrd_pool ThrdPool;
+struct thrd_pool {
 	volatile int    is_alive;
 	ThrdPoolJob    *job_first;
 	ThrdPoolJob    *job_last;
@@ -20,7 +21,7 @@ typedef struct thrd_pool {
 	ThrdPoolWorker *workers;
 	cnd_t           cond_job;
 	mtx_t           mtx_general;
-} ThrdPool;
+};
 
 int  thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thrd_ctx_blk_size,
 		      unsigned jobs_init_size, unsigned jobs_max_size);

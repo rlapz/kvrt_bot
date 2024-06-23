@@ -7,19 +7,19 @@
 #include "thrd_pool.h"
 #include "util.h"
 
+typedef struct thrd_pool_job ThrdPoolJob;
+struct thrd_pool_job {
+	ThrdPoolFn   func;
+	void        *udata;
+	ThrdPoolJob *next;
+};
 
-typedef struct thrd_pool_job {
-	ThrdPoolFn            func;
-	void                 *udata;
-	struct thrd_pool_job *next;
-} ThrdPoolJob;
-
-
-typedef struct thrd_pool_worker {
+typedef struct thrd_pool_worker ThrdPoolWorker;
+struct thrd_pool_worker {
 	ThrdPool *parent;
 	void     *context;
 	thrd_t    thread;
-} ThrdPoolWorker;
+};
 
 
 static int          _create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size);
@@ -50,7 +50,7 @@ thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thr
 		log_err(errno, "thrd_pool: thrd_pool_create: _jobs_init: %zu:%zu", jobs_init_size, jobs_max_size);
 		return -1;
 	}
-	
+
 	if (mtx_init(&t->mtx_general, mtx_plain) != 0) {
 		log_err(0, "thrd_pool: thrd_pool_create: mtx_init: failed to init");
 		goto err0;
@@ -219,11 +219,11 @@ _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *udata)
 	if (job == NULL) {
 		if (t->jobs_cap > t->jobs_max)
 			return -ENOMEM;
-		
+
 		job = malloc(sizeof(ThrdPoolJob));
 		if (job == NULL)
 			return -ENOMEM;
-		
+
 		t->jobs_cap++;
 	}
 
@@ -284,7 +284,7 @@ _jobs_pool_destroy(ThrdPool *t)
 	ThrdPoolJob *job;
 	while ((job = _jobs_pool_pop(t)) != NULL)
 		free(job);
-	
+
 	t->jobs_pool = NULL;
 }
 

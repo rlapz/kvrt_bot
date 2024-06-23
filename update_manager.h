@@ -8,11 +8,12 @@
 #include "tg.h"
 
 
-typedef struct {
+typedef struct update_manager UpdateManager;
+struct update_manager {
 	TgApi        api;
 	Str          str;
 	json_object *json;
-} UpdateManager;
+};
 
 int  update_manager_init(UpdateManager *u, const char base_api[]);
 void update_manager_deinit(UpdateManager *u);

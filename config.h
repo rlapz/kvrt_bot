@@ -17,7 +17,8 @@
 #define CFG_TELEGRAM_API               "https://api.telegram.org/bot"
 
 
-typedef struct {
+typedef struct config Config;
+struct config {
 	const char *hook_url;
 	size_t      hook_url_len;
 	const char *hook_path;
@@ -31,7 +32,7 @@ typedef struct {
 	unsigned    worker_threads_num;
 	unsigned    worker_jobs_min;
 	unsigned    worker_jobs_max;
-} Config;
+};
 
 int  config_load_from_env(Config *c);
 void config_dump(const Config *c);
