@@ -5,7 +5,7 @@
 #include <json.h>
 
 #include "util.h"
-#include "tg.h"
+#include "tg_api.h"
 
 
 typedef struct update_manager UpdateManager;
