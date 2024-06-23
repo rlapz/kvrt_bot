@@ -562,6 +562,9 @@ _parse_user(TgUser **u, json_object *user_obj)
 	if (json_object_object_get_ex(user_obj, "last_name", &obj) != 0)
 		user->last_name = json_object_get_string(obj);
 
+	if (json_object_object_get_ex(user_obj, "is_premium", &obj) != 0)
+		user->is_premium = json_object_get_boolean(obj);
+
 	user->id = json_object_get_int64(id_obj);
 	user->is_bot = json_object_get_boolean(is_bot_obj);
 

@@ -16,6 +16,7 @@ typedef struct tg_user TgUser;
 struct tg_user {
 	int64_t     id;
 	int         is_bot;
+	int         is_premium;
 	const char *username;
 	const char *first_name;
 	const char *last_name;

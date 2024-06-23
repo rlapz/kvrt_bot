@@ -93,6 +93,8 @@ update_manager_handle(UpdateManager *u, json_object *json)
 					log_info("from: first_name: %s", usr->first_name);
 				if (usr->last_name != NULL)
 					log_info("from: last_name: %s", usr->last_name);
+				log_info("from: is_premium: %d", usr->is_premium);
+
 			}
 
 			TgMessage *rpl = msg->reply_to;
