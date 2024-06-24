@@ -127,14 +127,14 @@ update_manager_handle(UpdateManager *u, json_object *json)
 			log_info("is_forum: %d", cht->is_forum);
 			switch (msg->type) {
 			case TG_MESSAGE_TYPE_TEXT:
-				log_info("text: %s", msg->text);
+				log_info("text: %s", msg->text.text);
 				break;
 			default:
 				break;
 			}
 
 			if (msg->type == TG_MESSAGE_TYPE_AUDIO) {
-				TgMessageAudio *const au = &msg->audio;
+				TgAudio *const au = &msg->audio;
 				log_info("audio: id       : %s", au->id);
 				log_info("audio: uid      : %s", au->uid);
 				log_info("audio: name     : %s", au->name);
@@ -146,7 +146,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 			}
 
 			if (msg->type == TG_MESSAGE_TYPE_VIDEO) {
-				TgMessageVideo *const vid = &msg->video;
+				TgVideo *const vid = &msg->video;
 				log_info("video: id       : %s", vid->id);
 				log_info("video: uid      : %s", vid->uid);
 				log_info("video: name     : %s", vid->name);
@@ -158,7 +158,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 			}
 
 			if (msg->type == TG_MESSAGE_TYPE_DOCUMENT) {
-				TgMessageDocument *const doc = &msg->document;
+				TgDocument *const doc = &msg->document;
 				log_info("document: id       : %s", doc->id);
 				log_info("document: uid      : %s", doc->uid);
 				log_info("document: name     : %s", doc->name);
@@ -168,7 +168,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 
 			if (msg->type == TG_MESSAGE_TYPE_PHOTO) {
 				for (size_t i = 0; ; i++) {
-					TgMessagePhotoSize *ph = &msg->photo[i];
+					TgPhotoSize *ph = &msg->photo[i];
 					if (ph->id == NULL)
 						break;
 

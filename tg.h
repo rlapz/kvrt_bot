@@ -45,6 +45,68 @@ const char *tg_chat_type_str(TgChatType type);
 
 
 /*
+ * Text
+ */
+typedef struct tg_text {
+	const char *text;
+} TgText;
+
+
+/*
+ * Audio
+ */
+typedef struct tg_audio {
+	const char *id;
+	const char *uid;
+	const char *name;
+	const char *perfomer;
+	const char *title;
+	const char *mime_type;
+	int64_t     duration;
+	int64_t     size;
+} TgAudio;
+
+
+/*
+ * Document
+ */
+typedef struct tg_document {
+	const char *id;
+	const char *uid;
+	const char *name;
+	const char *mime_type;
+	int64_t     size;
+} TgDocument;
+
+
+/*
+ * PhotoSize
+ */
+typedef struct tg_photo_size {
+	const char *id;
+	const char *uid;
+	int64_t     width;
+	int64_t     height;
+	int64_t     size;
+} TgPhotoSize;
+
+
+/*
+ * Video
+ */
+typedef struct tg_video {
+	const char *id;
+	const char *uid;
+	const char *name;
+	const char *mime_type;
+	int64_t     width;
+	int64_t     height;
+	int64_t     duration;
+	int64_t     size;
+} TgVideo;
+
+
+/*
  * Message
  */
 typedef enum tg_message_entity_type {
@@ -94,44 +156,6 @@ typedef enum tg_mesage_type {
 	TG_MESSAGE_TYPE_UNKNOWN,
 } TgMessageType;
 
-typedef struct tg_message_audio {
-	const char *id;
-	const char *uid;
-	const char *name;
-	const char *perfomer;
-	const char *title;
-	const char *mime_type;
-	int64_t     duration;
-	int64_t     size;
-} TgMessageAudio;
-
-typedef struct tg_message_document {
-	const char *id;
-	const char *uid;
-	const char *name;
-	const char *mime_type;
-	int64_t     size;
-} TgMessageDocument;
-
-typedef struct tg_message_photo_size {
-	const char *id;
-	const char *uid;
-	int64_t     width;
-	int64_t     height;
-	int64_t     size;
-} TgMessagePhotoSize;
-
-typedef struct tg_message_video {
-	const char *id;
-	const char *uid;
-	const char *name;
-	const char *mime_type;
-	int64_t     width;
-	int64_t     height;
-	int64_t     duration;
-	int64_t     size;
-} TgMessageVideo;
-
 typedef struct tg_message {
 	int                type;
 	int64_t            id;
@@ -143,11 +167,11 @@ typedef struct tg_message {
 	size_t             entities_len;
 	const char        *caption;
 	union {
-		const char         *text;
-		TgMessageAudio      audio;
-		TgMessageDocument   document;
-		TgMessagePhotoSize *photo;	/* "NULL-terminated" array */
-		TgMessageVideo      video;
+		TgText       text;
+		TgAudio      audio;
+		TgDocument   document;
+		TgPhotoSize *photo;	/* "NULL-terminated" array */
+		TgVideo      video;
 	};
 } TgMessage;
 
