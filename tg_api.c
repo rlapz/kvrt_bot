@@ -17,10 +17,10 @@
 	} while (0)
 
 
-static int    _api_curl_init(TgApi *t);
-static void   _api_curl_deinit(TgApi *t);
-static size_t _api_curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
-static int    _api_curl_request_get(TgApi *t, const char url[]);
+static int    _curl_init(TgApi *t);
+static void   _curl_deinit(TgApi *t);
+static size_t _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
+static int    _curl_request_get(TgApi *t, const char url[]);
 
 
 /*
@@ -46,7 +46,7 @@ tg_api_init(TgApi *t, const char base_api[])
 		goto err0;
 	}
 
-	if (_api_curl_init(t) < 0)
+	if (_curl_init(t) < 0)
 		goto err1;
 
 	t->api = base_api;
@@ -66,7 +66,7 @@ tg_api_deinit(TgApi *t)
 {
 	str_deinit(&t->str_response);
 	str_deinit(&t->str_compose);
-	_api_curl_deinit(t);
+	_curl_deinit(t);
 }
 
 
@@ -75,8 +75,10 @@ tg_api_send_text_plain(TgApi *t, const char chat_id[], const char reply_to[], co
 {
 	int ret;
 	char *const e_text = curl_easy_escape(t->curl, text, 0);
-	if (e_text == NULL)
+	if (e_text == NULL) {
+		log_err(0, "tg_api: tg_api_send_text_plain: curl_easy_escape: failed");
 		return -1;
+	}
 
 	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%s&reply_to_message_id=%s&text=%s",
 		     chat_id, reply_to, e_text);
@@ -85,7 +87,7 @@ tg_api_send_text_plain(TgApi *t, const char chat_id[], const char reply_to[], co
 		goto out0;
 	}
 
-	ret = _api_curl_request_get(t, t->str_compose.cstr);
+	ret = _curl_request_get(t, t->str_compose.cstr);
 
 out0:
 	free(e_text);
@@ -97,7 +99,7 @@ out0:
  * Private
  */
 static int
-_api_curl_init(TgApi *t)
+_curl_init(TgApi *t)
 {
 	CURL *const curl = curl_easy_init();
 	if (curl == NULL) {
@@ -111,14 +113,14 @@ _api_curl_init(TgApi *t)
 
 
 static void
-_api_curl_deinit(TgApi *t)
+_curl_deinit(TgApi *t)
 {
 	curl_easy_cleanup(t->curl);
 }
 
 
 static size_t
-_api_curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
+_curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
 {
 	const size_t real_size = size * nitems;
 	if (str_append_n((Str *)udata, buffer, real_size) == NULL) {
@@ -131,11 +133,11 @@ _api_curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
 
 
 static int
-_api_curl_request_get(TgApi *t, const char url[])
+_curl_request_get(TgApi *t, const char url[])
 {
 	curl_easy_reset(t->curl);
 	curl_easy_setopt(t->curl, CURLOPT_URL, url);
-	curl_easy_setopt(t->curl, CURLOPT_WRITEFUNCTION, _api_curl_writer_fn);
+	curl_easy_setopt(t->curl, CURLOPT_WRITEFUNCTION, _curl_writer_fn);
 
 	str_reset(&t->str_response, 0);
 	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str_response);

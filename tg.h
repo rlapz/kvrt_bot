@@ -147,8 +147,8 @@ struct tg_message {
 	TgUser          *from;
 	TgChat           chat;
 	TgMessage       *reply_to;
-	size_t           entities_len;
 	TgMessageEntity *entities;
+	size_t           entities_len;
 	const char      *caption;
 	union {
 		const char         *text;

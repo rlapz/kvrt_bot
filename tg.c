@@ -7,17 +7,17 @@
 #include "util.h"
 
 
-static int    _parse_message(TgMessage *m, json_object *message_obj);
-static void   _parse_message_type(TgMessage *m, json_object *message_obj);
-static void   _parse_message_type_audio(TgMessageAudio *a, json_object *audio_obj);
-static void   _parse_message_type_document(TgMessageDocument *d, json_object *doc_obj);
-static void   _parse_message_type_video(TgMessageVideo *v, json_object *video_obj);
-static void   _parse_message_type_text(const char *t[], json_object *text_obj);
-static void   _parse_message_type_photo(TgMessagePhotoSize *p[], json_object *photo_obj);
-static void   _parse_message_entities(TgMessage *m, json_object *message_obj);
-static void   _parse_user(TgUser **u, json_object *user_obj);
-static int    _parse_chat(TgChat *c, json_object *chat_obj);
-static void   _free_message(TgMessage *m);
+static int  _parse_message(TgMessage *m, json_object *message_obj);
+static void _parse_message_type(TgMessage *m, json_object *message_obj);
+static void _parse_message_type_audio(TgMessageAudio *a, json_object *audio_obj);
+static void _parse_message_type_document(TgMessageDocument *d, json_object *doc_obj);
+static void _parse_message_type_video(TgMessageVideo *v, json_object *video_obj);
+static void _parse_message_type_text(const char *t[], json_object *text_obj);
+static void _parse_message_type_photo(TgMessagePhotoSize *p[], json_object *photo_obj);
+static void _parse_message_entities(TgMessage *m, json_object *message_obj);
+static void _parse_user(TgUser **u, json_object *user_obj);
+static int  _parse_chat(TgChat *c, json_object *chat_obj);
+static void _free_message(TgMessage *m);
 
 
 /*

@@ -7,6 +7,7 @@
 #include "thrd_pool.h"
 #include "util.h"
 
+
 typedef struct thrd_pool_job ThrdPoolJob;
 struct thrd_pool_job {
 	ThrdPoolFn   func;
@@ -139,8 +140,7 @@ _create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size)
 		wrk->parent = t;
 		wrk->context = &ctx_mem[iter * ctx_blk_size];
 
-		log_debug("thrd_pool: ctx: %p", wrk->context);
-
+		log_debug("thrd_pool: _create_threads: ctx: %p", wrk->context);
 		if (thrd_create(&wrk->thread, _worker_fn, wrk) != 0) {
 			log_err(0, "thrd_pool: _create_threads: thrd_create: failed to create thread: %u", iter);
 			goto err0;
@@ -299,8 +299,7 @@ _worker_fn(void *udata)
 	void *tmp_udata;
 
 
-	log_debug("worker_fn: ctx: %p: %p", udata, (void *)w->context);
-
+	log_debug("thrd_pool: worker_fn: ctx: %p: %p", udata, (void *)w->context);
 
 	mtx_lock(&t->mtx_general); /* LOCK */
 	while (t->is_alive) {
