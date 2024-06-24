@@ -7,15 +7,6 @@
 #include "util.h"
 
 
-#define _COMPOSE_FMT(PTR, RET, ...)\
-	do {									\
-		RET = 0;							\
-		str_reset(&PTR->str_compose, PTR->api_offt);			\
-		if (str_append_fmt(&PTR->str_compose, __VA_ARGS__) == NULL)	\
-			RET = -errno;						\
-	} while (0)
-
-
 static int    _parse_message(TgMessage *m, json_object *message_obj);
 static void   _parse_message_type(TgMessage *m, json_object *message_obj);
 static void   _parse_message_type_audio(TgMessageAudio *a, json_object *audio_obj);
