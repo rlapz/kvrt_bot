@@ -179,6 +179,29 @@ update_manager_handle(UpdateManager *u, json_object *json)
 					log_info("photo: size  : %" PRIi64, ph->size);
 				}
 			}
+
+			if (msg->type == TG_MESSAGE_TYPE_STICKER) {
+				TgSticker *const stc = &msg->sticker;
+				log_info("sticker: id           : %s", stc->id);
+				log_info("sticker: uid          : %s", stc->uid);
+				log_info("sticker: name         : %s", stc->name);
+				log_info("sticker: width        : %" PRIi64, stc->width);
+				log_info("sticker: height       : %" PRIi64, stc->height);
+				log_info("sticker: size         : %" PRIi64, stc->size);
+				log_info("sticker: is_animated  : %d", stc->is_animated);
+				log_info("sticker: is_video     : %d", stc->is_video);
+				log_info("sticker: emoji        : %s", stc->emoji);
+				log_info("sticker: name         : %s", stc->name);
+				log_info("sticker: cust emoji id: %s", stc->custom_emoji_id);
+				if (stc->thumbnail != NULL) {
+					TgPhotoSize *const ps = stc->thumbnail;
+					log_info("sticker thumb: id    : %s", ps->id);
+					log_info("sticker thumb: uid   : %s", ps->uid);
+					log_info("sticker thumb: width : %" PRIi64, stc->width);
+					log_info("sticker thumb: height: %" PRIi64, stc->height);
+					log_info("sticker thumb: size  : %" PRIi64, stc->size);
+				}
+			}
 		}
 
 		tg_update_free(&update);

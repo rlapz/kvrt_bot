@@ -14,6 +14,7 @@ static void _parse_document(TgDocument *d, json_object *doc_obj);
 static void _parse_video(TgVideo *v, json_object *video_obj);
 static void _parse_text(TgText *t, json_object *text_obj);
 static void _parse_photo(TgPhotoSize *p[], json_object *photo_obj);
+static void _parse_sticker(TgSticker *s, json_object *sticker_obj);
 static void _parse_message_entities(TgMessage *m, json_object *message_obj);
 static void _parse_user(TgUser **u, json_object *user_obj);
 static int  _parse_chat(TgChat *c, json_object *chat_obj);
@@ -31,6 +32,20 @@ tg_chat_type_str(TgChatType type)
 	case TG_CHAT_TYPE_GROUP: return "group";
 	case TG_CHAT_TYPE_SUPERGROUP: return "supergroup";
 	case TG_CHAT_TYPE_CHANNEL: return "channel";
+	default: break;
+	}
+
+	return "unknown";
+}
+
+
+const char *
+tg_sticker_type_str(TgStickerType type)
+{
+	switch (type) {
+	case TG_STICKER_TYPE_REGULAR: return "regular";
+	case TG_STICKER_TYPE_MASK: return "mask";
+	case TG_STICKER_TYPE_CUSTOM_EMOJI: return "custom emoji";
 	default: break;
 	}
 
@@ -194,6 +209,12 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 		return;
 	}
 
+	if (json_object_object_get_ex(message_obj, "sticker", &obj) != 0) {
+		m->type = TG_MESSAGE_TYPE_STICKER;
+		_parse_sticker(&m->sticker, obj);
+		return;
+	}
+
 	m->type = TG_MESSAGE_TYPE_UNKNOWN;
 }
 
@@ -354,6 +375,93 @@ _parse_photo(TgPhotoSize *p[], json_object *photo_obj)
 	}
 
 	*p = photo;
+}
+
+
+static void
+_parse_sticker(TgSticker *s, json_object *sticker_obj)
+{
+	json_object *id_obj;
+	if (json_object_object_get_ex(sticker_obj, "file_id", &id_obj) == 0)
+		return;
+
+	json_object *uid_obj;
+	if (json_object_object_get_ex(sticker_obj, "file_unique_id", &uid_obj) == 0)
+		return;
+
+	json_object *type_obj;
+	if (json_object_object_get_ex(sticker_obj, "type", &type_obj) == 0)
+		return;
+
+	json_object *width_obj;
+	if (json_object_object_get_ex(sticker_obj, "width", &width_obj) == 0)
+		return;
+
+	json_object *height_obj;
+	if (json_object_object_get_ex(sticker_obj, "height", &height_obj) == 0)
+		return;
+
+	json_object *is_animated_obj;
+	if (json_object_object_get_ex(sticker_obj, "is_animated", &is_animated_obj) == 0)
+		return;
+
+	json_object *is_video_obj;
+	if (json_object_object_get_ex(sticker_obj, "is_video", &is_video_obj) == 0)
+		return;
+
+	json_object *obj;
+	if (json_object_object_get_ex(sticker_obj, "thumbnail", &obj) != 0) {
+		/* TODO */
+		TgPhotoSize *const thumbn = calloc(1, sizeof(TgPhotoSize));
+		if (thumbn != NULL) {
+			json_object *oo;
+			if (json_object_object_get_ex(obj, "file_id", &oo) != 0)
+				thumbn->id = json_object_get_string(oo);
+
+			if (json_object_object_get_ex(obj, "file_unique_id", &oo) != 0)
+				thumbn->uid = json_object_get_string(oo);
+
+			if (json_object_object_get_ex(obj, "width", &oo) != 0)
+				thumbn->width = json_object_get_int64(oo);
+
+			if (json_object_object_get_ex(obj, "height", &oo) != 0)
+				thumbn->height = json_object_get_int64(oo);
+
+			if (json_object_object_get_ex(obj, "file_size", &oo) != 0)
+				thumbn->size = json_object_get_int64(oo);
+		}
+
+		s->thumbnail = thumbn;
+	}
+
+	if (json_object_object_get_ex(sticker_obj, "emoji", &obj) != 0)
+		s->emoji = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(sticker_obj, "set_name", &obj) != 0)
+		s->name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(sticker_obj, "custom_emoji_id", &obj) != 0)
+		s->custom_emoji_id = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(sticker_obj, "file_size", &obj) != 0)
+		s->size = json_object_get_int64(obj);
+
+	const char *const type = json_object_get_string(type_obj);
+	if (strcmp(type, "regular") == 0)
+		s->type = TG_STICKER_TYPE_REGULAR;
+	else if (strcmp(type, "mask") == 0)
+		s->type = TG_STICKER_TYPE_MASK;
+	else if (strcmp(type, "custom_emoji") == 0)
+		s->type = TG_STICKER_TYPE_CUSTOM_EMOJI;
+	else
+		s->type = TG_STICKER_TYPE_UNKNWON;
+
+	s->id = json_object_get_string(id_obj);
+	s->uid = json_object_get_string(uid_obj);
+	s->width = json_object_get_int64(width_obj);
+	s->height = json_object_get_int64(height_obj);
+	s->is_animated = json_object_get_boolean(is_animated_obj);
+	s->is_video = json_object_get_boolean(is_video_obj);
 }
 
 
@@ -538,6 +646,9 @@ _free_message(TgMessage *m)
 {
 	if (m->type == TG_MESSAGE_TYPE_PHOTO)
 		free(m->photo);
+
+	if (m->type == TG_MESSAGE_TYPE_STICKER)
+		free(m->sticker.thumbnail);
 
 	free(m->from);
 	free(m->entities);

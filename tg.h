@@ -107,6 +107,34 @@ typedef struct tg_video {
 
 
 /*
+ * Sticker
+ */
+typedef enum tg_sticker_type {
+	TG_STICKER_TYPE_REGULAR,
+	TG_STICKER_TYPE_MASK,
+	TG_STICKER_TYPE_CUSTOM_EMOJI,
+	TG_STICKER_TYPE_UNKNWON,
+} TgStickerType;
+
+typedef struct tg_sticker {
+	int          type;
+	const char  *id;
+	const char  *uid;
+	int64_t      width;
+	int64_t      height;
+	int          is_animated;
+	int          is_video;
+	TgPhotoSize *thumbnail;
+	const char  *emoji;
+	const char  *name;
+	const char  *custom_emoji_id;
+	int64_t      size;
+} TgSticker;
+
+const char * tg_sticker_type_str(TgStickerType type);
+
+
+/*
  * Message
  */
 typedef enum tg_message_entity_type {
@@ -153,6 +181,7 @@ typedef enum tg_mesage_type {
 	TG_MESSAGE_TYPE_VIDEO,
 	TG_MESSAGE_TYPE_TEXT,
 	TG_MESSAGE_TYPE_PHOTO,
+	TG_MESSAGE_TYPE_STICKER,
 	TG_MESSAGE_TYPE_UNKNOWN,
 } TgMessageType;
 
@@ -172,6 +201,7 @@ typedef struct tg_message {
 		TgDocument   document;
 		TgPhotoSize *photo;	/* "NULL-terminated" array */
 		TgVideo      video;
+		TgSticker    sticker;
 	};
 } TgMessage;
 
