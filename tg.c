@@ -24,13 +24,14 @@ static void _free_message(TgMessage *m);
  * Public
  */
 const char *
-tg_chat_type_str(int type)
+tg_chat_type_str(TgChatType type)
 {
 	switch (type) {
 	case TG_CHAT_TYPE_PRIVATE: return "private";
 	case TG_CHAT_TYPE_GROUP: return "group";
 	case TG_CHAT_TYPE_SUPERGROUP: return "supergroup";
 	case TG_CHAT_TYPE_CHANNEL: return "channel";
+	default: break;
 	}
 
 	return "unknown";
@@ -38,7 +39,7 @@ tg_chat_type_str(int type)
 
 
 const char *
-tg_message_entity_type_str(int type)
+tg_message_entity_type_str(TgMessageEntityType type)
 {
 	switch (type) {
 	case TG_MESSAGE_ENTITY_TYPE_MENTION: return "mention";
@@ -59,6 +60,7 @@ tg_message_entity_type_str(int type)
 	case TG_MESSAGE_ENTITY_TYPE_TEXT_LINK: return "text link";
 	case TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION: return "text metion";
 	case TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI: return "custom emoji";
+	default: break;
 	}
 
 	return "unknown";
@@ -66,7 +68,7 @@ tg_message_entity_type_str(int type)
 
 
 const char *
-tg_message_type_str(int type)
+tg_message_type_str(TgMessageType type)
 {
 	switch (type) {
 	case TG_MESSAGE_TYPE_AUDIO: return "audio";
@@ -74,6 +76,7 @@ tg_message_type_str(int type)
 	case TG_MESSAGE_TYPE_VIDEO: return "video";
 	case TG_MESSAGE_TYPE_TEXT: return "text";
 	case TG_MESSAGE_TYPE_PHOTO: return "photo";
+	default: break;
 	}
 
 	return "unknown";

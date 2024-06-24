@@ -12,28 +12,26 @@
 
 
 /* User */
-typedef struct tg_user TgUser;
-struct tg_user {
+typedef struct tg_user {
 	int64_t     id;
 	int         is_bot;
 	int         is_premium;
 	const char *username;
 	const char *first_name;
 	const char *last_name;
-};
+} TgUser;
 
 
 /* Chat */
-enum {
+typedef enum tg_chat_type {
 	TG_CHAT_TYPE_PRIVATE,
 	TG_CHAT_TYPE_GROUP,
 	TG_CHAT_TYPE_SUPERGROUP,
 	TG_CHAT_TYPE_CHANNEL,
 	TG_CHAT_TYPE_UNKNOWN,
-};
+} TgChatType;
 
-typedef struct tg_chat TgChat;
-struct tg_chat {
+typedef struct tg_chat {
 	int64_t     id;
 	int         type;
 	int         is_forum;
@@ -41,15 +39,15 @@ struct tg_chat {
 	const char *username;
 	const char *first_name;
 	const char *last_name;
-};
+} TgChat;
 
-const char *tg_chat_type_str(int type);
+const char *tg_chat_type_str(TgChatType type);
 
 
 /*
  * Message
  */
-enum {
+typedef enum tg_message_entity_type {
 	TG_MESSAGE_ENTITY_TYPE_MENTION,
 	TG_MESSAGE_ENTITY_TYPE_HASHTAG,
 	TG_MESSAGE_ENTITY_TYPE_CASHTAG,
@@ -70,10 +68,9 @@ enum {
 	TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION,
 	TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI,
 	TG_MESSAGE_ENTITY_TYPE_UNKNOWN,
-};
+} TgMessageEntityType;
 
-typedef struct tg_message_entity TgMessageEntity;
-struct tg_message_entity {
+typedef struct tg_message_entity {
 	int     type;
 	int64_t offset;
 	int64_t length;
@@ -83,22 +80,21 @@ struct tg_message_entity {
 		TgUser     *user;		/* text_mention only */
 		const char *custom_emoji_id;	/* custom_emoji only */
 	};
-};
+} TgMessageEntity;
 
-const char *tg_message_entity_type_str(int type);
+const char *tg_message_entity_type_str(TgMessageEntityType type);
 
 
-enum {
+typedef enum tg_mesage_type {
 	TG_MESSAGE_TYPE_AUDIO,
 	TG_MESSAGE_TYPE_DOCUMENT,
 	TG_MESSAGE_TYPE_VIDEO,
 	TG_MESSAGE_TYPE_TEXT,
 	TG_MESSAGE_TYPE_PHOTO,
 	TG_MESSAGE_TYPE_UNKNOWN,
-};
+} TgMessageType;
 
-typedef struct tg_message_audio TgMessageAudio;
-struct tg_message_audio {
+typedef struct tg_message_audio {
 	const char *id;
 	const char *uid;
 	const char *name;
@@ -107,28 +103,25 @@ struct tg_message_audio {
 	const char *mime_type;
 	int64_t     duration;
 	int64_t     size;
-};
+} TgMessageAudio;
 
-typedef struct tg_message_document TgMessageDocument;
-struct tg_message_document {
+typedef struct tg_message_document {
 	const char *id;
 	const char *uid;
 	const char *name;
 	const char *mime_type;
 	int64_t     size;
-};
+} TgMessageDocument;
 
-typedef struct tg_message_photo_size TgMessagePhotoSize;
-struct tg_message_photo_size {
+typedef struct tg_message_photo_size {
 	const char *id;
 	const char *uid;
 	int64_t     width;
 	int64_t     height;
 	int64_t     size;
-};
+} TgMessagePhotoSize;
 
-typedef struct tg_message_video TgMessageVideo;
-struct tg_message_video {
+typedef struct tg_message_video {
 	const char *id;
 	const char *uid;
 	const char *name;
@@ -137,19 +130,18 @@ struct tg_message_video {
 	int64_t     height;
 	int64_t     duration;
 	int64_t     size;
-};
+} TgMessageVideo;
 
-typedef struct tg_message TgMessage;
-struct tg_message {
-	int              type;
-	int64_t          id;
-	int64_t          date;
-	TgUser          *from;
-	TgChat           chat;
-	TgMessage       *reply_to;
-	TgMessageEntity *entities;
-	size_t           entities_len;
-	const char      *caption;
+typedef struct tg_message {
+	int                type;
+	int64_t            id;
+	int64_t            date;
+	TgUser            *from;
+	TgChat             chat;
+	struct tg_message *reply_to;
+	TgMessageEntity   *entities;
+	size_t             entities_len;
+	const char        *caption;
 	union {
 		const char         *text;
 		TgMessageAudio      audio;
@@ -157,20 +149,19 @@ struct tg_message {
 		TgMessagePhotoSize *photo;	/* "NULL-terminated" array */
 		TgMessageVideo      video;
 	};
-};
+} TgMessage;
 
-const char *tg_message_type_str(int type);
+const char *tg_message_type_str(TgMessageType type);
 
 
 /*
  * Update
  */
-typedef struct tg_update TgUpdate;
-struct tg_update {
+typedef struct tg_update {
 	int       has_message;
 	int64_t   id;
 	TgMessage message;
-};
+} TgUpdate;
 
 int  tg_update_parse(TgUpdate *u, json_object *json);
 void tg_update_free(TgUpdate *u);
