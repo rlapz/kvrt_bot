@@ -24,9 +24,9 @@ static void   _parse_message_type_video(TgMessageVideo *v, json_object *video_ob
 static void   _parse_message_type_text(const char *t[], json_object *text_obj);
 static void   _parse_message_type_photo(TgMessagePhotoSize *p[], json_object *photo_obj);
 static void   _parse_message_entities(TgMessage *m, json_object *message_obj);
-static void   _parse_message_reply_to(TgMessage *m, json_object *message_obj);
 static void   _parse_user(TgUser **u, json_object *user_obj);
 static int    _parse_chat(TgChat *c, json_object *chat_obj);
+static void   _free_message(TgMessage *m);
 
 
 /*
@@ -102,6 +102,15 @@ tg_update_parse(TgUpdate *u, json_object *json)
 		if (_parse_message(&u->message, obj) < 0)
 			return -1;
 
+		json_object *reply_to_obj;
+		if (json_object_object_get_ex(obj, "reply_to_message", &reply_to_obj) != 0) {
+			TgMessage *const reply_to = calloc(1, sizeof(TgMessage));
+			if (_parse_message(reply_to, reply_to_obj) == 0)
+				u->message.reply_to = reply_to;
+			else
+				free(reply_to);
+		}
+
 		u->has_message = 1;
 	}
 
@@ -113,12 +122,10 @@ tg_update_parse(TgUpdate *u, json_object *json)
 void
 tg_update_free(TgUpdate *u)
 {
-	if (u->message.type == TG_MESSAGE_TYPE_PHOTO)
-		free(u->message.photo);
+	if (u->message.reply_to != NULL)
+		_free_message(u->message.reply_to);
 
-	free(u->message.from);
-	free(u->message.entities);
-	free(u->message.reply_to);
+	_free_message(&u->message);
 }
 
 
@@ -153,7 +160,6 @@ _parse_message(TgMessage *m, json_object *message_obj)
 
 	_parse_message_entities(m, message_obj);
 	_parse_message_type(m, message_obj);
-	_parse_message_reply_to(m, message_obj);
 	return _parse_chat(&m->chat, chat_obj);
 }
 
@@ -376,12 +382,11 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 	size_t i = 0;
 	for (size_t j = 0; j < len; j++) {
 		json_object *const obj = array_list_get_idx(list, j);
-		TgMessageEntity *const e = &ents[i];
-
 		json_object *res;
 		if (json_object_object_get_ex(obj, "type", &res) == 0)
 			continue;
 
+		TgMessageEntity *const e = &ents[i];
 		const char *const type = json_object_get_string(res);
 		if (strcmp(type, "mention") == 0) {
 			e->type = TG_MESSAGE_ENTITY_TYPE_MENTION;
@@ -452,44 +457,6 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 
 	m->entities = ents;
 	m->entities_len = i;
-}
-
-
-static void
-_parse_message_reply_to(TgMessage *m, json_object *message_obj)
-{
-	json_object *reply_to_obj;
-	if (json_object_object_get_ex(message_obj, "reply_to_message", &reply_to_obj) == 0)
-		return;
-
-	json_object *id_obj;
-	if (json_object_object_get_ex(reply_to_obj, "message_id", &id_obj) == 0)
-		return;
-
-	json_object *date_obj;
-	if (json_object_object_get_ex(reply_to_obj, "date", &date_obj) == 0)
-		return;
-
-	json_object *chat_obj;
-	if (json_object_object_get_ex(reply_to_obj, "chat", &chat_obj) == 0)
-		return;
-
-	TgMessage *const reply_to = calloc(1, sizeof(TgMessage));
-	if (reply_to == NULL)
-		return;
-
-	json_object *capt_obj;
-	if (json_object_object_get_ex(reply_to_obj, "caption", &capt_obj) != 0)
-		m->caption = json_object_get_string(capt_obj);
-
-	reply_to->id = json_object_get_int64(id_obj);
-	reply_to->date = json_object_get_int64(date_obj);
-
-	_parse_message_entities(reply_to, reply_to_obj);
-	_parse_message_type(reply_to, reply_to_obj);
-	_parse_chat(&reply_to->chat, chat_obj);
-
-	m->reply_to = reply_to;
 }
 
 
@@ -569,4 +536,16 @@ _parse_user(TgUser **u, json_object *user_obj)
 	user->is_bot = json_object_get_boolean(is_bot_obj);
 
 	*u = user;
+}
+
+
+static void
+_free_message(TgMessage *m)
+{
+	if (m->type == TG_MESSAGE_TYPE_PHOTO)
+		free(m->photo);
+
+	free(m->from);
+	free(m->entities);
+	free(m->reply_to);
 }
