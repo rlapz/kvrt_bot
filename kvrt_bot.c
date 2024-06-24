@@ -66,7 +66,7 @@ static void _request_handler_fn(void *json_obj, void *udata1);
 int
 kvrt_bot_init(KvrtBot *k)
 {
-	if (log_init() < 0) {
+	if (log_init(CFG_LOG_BUFFER_SIZE) < 0) {
 		fprintf(stderr, "kvrt_bot: kvrt_bot_init: log_init: failed to initialize\n");
 		return -1;
 	}

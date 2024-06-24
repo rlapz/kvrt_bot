@@ -8,6 +8,7 @@
 #define CFG_DEFAULT_WORKER_JOBS_MIN    (8)
 #define CFG_DEFAULT_WORKER_JOBS_MAX    (32)
 
+#define CFG_LOG_BUFFER_SIZE            (1024 * 1024)
 #define CFG_CLIENTS_MAX                (32)
 #define CFG_CLIENT_BUFFER_IN_MIN       (2048)
 #define CFG_CLIENT_BUFFER_IN_MAX       (1024 * 1024)

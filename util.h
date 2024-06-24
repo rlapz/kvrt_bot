@@ -99,7 +99,7 @@ void *cstrmap_del(CstrMap *c, const char key[]);
 /*
  * Log
  */
-int  log_init(void);
+int  log_init(size_t buffer_size);
 void log_deinit(void);
 void log_err(int errnum, const char fmt[], ...);
 void log_debug(const char fmt[], ...);

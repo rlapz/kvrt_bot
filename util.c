@@ -477,7 +477,9 @@ cstrmap_del(CstrMap *c, const char key[])
 /*
  * Log
  */
-static mtx_t _log_mutex;
+static char   *_log_buffer;
+static size_t  _log_buffer_size;
+static mtx_t   _log_mutex;
 
 
 static const char *
@@ -506,11 +508,19 @@ out0:
 
 
 int
-log_init(void)
+log_init(size_t buffer_size)
 {
-	if (mtx_init(&_log_mutex, mtx_plain) != 0)
+	char *const buffer = malloc(buffer_size);
+	if (buffer == NULL)
 		return -1;
 
+	if (mtx_init(&_log_mutex, mtx_plain) != 0) {
+		free(buffer);
+		return -1;
+	}
+
+	_log_buffer = buffer;
+	_log_buffer_size = buffer_size;
 	return 0;
 }
 
@@ -519,6 +529,8 @@ void
 log_deinit(void)
 {
 	mtx_destroy(&_log_mutex);
+	free(_log_buffer);
+	_log_buffer_size = 0;
 }
 
 
@@ -528,26 +540,25 @@ log_err(int errnum, const char fmt[], ...)
 	int ret;
 	va_list va;
 	char datetm[32];
-	char buffer[1024];
 
-
-	va_start(va, fmt);
-	ret = vsnprintf(buffer, sizeof(buffer), fmt, va);
-	va_end(va);
-
-	if (ret <= 0)
-		buffer[0] = '\0';
-
-	if ((size_t)ret >= sizeof(buffer))
-		buffer[sizeof(buffer) - 1] = '\0';
 
 	mtx_lock(&_log_mutex); // lock
 
+	va_start(va, fmt);
+	ret = vsnprintf(_log_buffer, _log_buffer_size, fmt, va);
+	va_end(va);
+
+	if (ret <= 0)
+		_log_buffer[0] = '\0';
+
+	if ((size_t)ret >= _log_buffer_size)
+		_log_buffer[_log_buffer_size - 1] = '\0';
+
 	const char *const dt_now = _log_datetime_now(datetm, sizeof(datetm));
 	if (errnum != 0)
-		fprintf(stderr, "E: [%s]: %s: %s\n", dt_now, buffer, strerror(abs(errnum)));
+		fprintf(stderr, "E: [%s]: %s: %s\n", dt_now, _log_buffer, strerror(abs(errnum)));
 	else
-		fprintf(stderr, "E: [%s]: %s\n", dt_now, buffer);
+		fprintf(stderr, "E: [%s]: %s\n", dt_now, _log_buffer);
 
 	mtx_unlock(&_log_mutex); // unlock
 }
@@ -560,22 +571,23 @@ log_debug(__attribute_maybe_unused__ const char fmt[], ...)
 	int ret;
 	va_list va;
 	char datetm[32];
-	char buffer[1024];
 
+
+	mtx_lock(&_log_mutex); // lock
 
 	va_start(va, fmt);
-	ret = vsnprintf(buffer, sizeof(buffer), fmt, va);
+	ret = vsnprintf(_log_buffer, _log_buffer_size, fmt, va);
 	va_end(va);
 
 	if (ret <= 0)
-		buffer[0] = '\0';
+		_log_buffer[0] = '\0';
 
-	if ((size_t)ret >= sizeof(buffer))
-		buffer[sizeof(buffer) - 1] = '\0';
+	if ((size_t)ret >= _log_buffer_size)
+		_log_buffer[_log_buffer_size - 1] = '\0';
 
-	mtx_lock(&_log_mutex); // lock
-	fprintf(stdout, "D: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), buffer);
+	fprintf(stdout, "D: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), _log_buffer);
 	fflush(stdout);
+
 	mtx_unlock(&_log_mutex); // unlock
 #endif
 }
@@ -587,22 +599,23 @@ log_info(const char fmt[], ...)
 	int ret;
 	va_list va;
 	char datetm[32];
-	char buffer[1024];
 
+
+	mtx_lock(&_log_mutex); // lock
 
 	va_start(va, fmt);
-	ret = vsnprintf(buffer, sizeof(buffer), fmt, va);
+	ret = vsnprintf(_log_buffer, _log_buffer_size, fmt, va);
 	va_end(va);
 
 	if (ret <= 0)
-		buffer[0] = '\0';
+		_log_buffer[0] = '\0';
 
-	if ((size_t)ret >= sizeof(buffer))
-		buffer[sizeof(buffer) - 1] = '\0';
+	if ((size_t)ret >= _log_buffer_size)
+		_log_buffer[_log_buffer_size - 1] = '\0';
 
-	mtx_lock(&_log_mutex); // lock
-	fprintf(stdout, "I: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), buffer);
+	fprintf(stdout, "I: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), _log_buffer);
 	fflush(stdout);
+
 	mtx_unlock(&_log_mutex); // unlock
 }
 
