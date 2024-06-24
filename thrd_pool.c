@@ -8,19 +8,17 @@
 #include "util.h"
 
 
-typedef struct thrd_pool_job ThrdPoolJob;
-struct thrd_pool_job {
+typedef struct thrd_pool_job {
 	ThrdPoolFn   func;
 	void        *udata;
 	ThrdPoolJob *next;
-};
+} ThrdPoolJob;
 
-typedef struct thrd_pool_worker ThrdPoolWorker;
-struct thrd_pool_worker {
+typedef struct thrd_pool_worker {
 	ThrdPool *parent;
 	void     *context;
 	thrd_t    thread;
-};
+} ThrdPoolWorker;
 
 
 static int          _create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size);

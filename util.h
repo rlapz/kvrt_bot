@@ -19,13 +19,12 @@ void cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
 /*
  * Str
  */
-typedef struct str Str;
-struct str {
+typedef struct str {
 	int     is_alloc;
 	size_t  len;
 	size_t  size;
 	char   *cstr;
-};
+} Str;
 
 int   str_init(Str *s, char buffer[], size_t size);
 int   str_init_alloc(Str *s, size_t size);
@@ -41,12 +40,11 @@ int   str_reset(Str *s, size_t offt);
 /*
  * Buffer
  */
-typedef struct buffer Buffer;
-struct buffer {
+typedef struct buffer {
 	char   *mem;
 	size_t  size;
 	size_t  max_size;
-};
+} Buffer;
 
 int  buffer_init(Buffer *b, size_t init_size, size_t max_size);
 void buffer_deinit(Buffer *b);
@@ -56,15 +54,13 @@ int  buffer_resize(Buffer *b, size_t len);
 /*
  * SList
  */
-typedef struct slist_node SListNode;
-struct slist_node {
-	SListNode *prev;
-};
+typedef struct slist_node {
+	struct slist_node *prev;
+} SListNode;
 
-typedef struct slist SList;
-struct slist {
+typedef struct slist {
 	SListNode *last;
-};
+} SList;
 
 void       slist_init(SList *s);
 void       slist_push(SList *s, SListNode *new_node);
@@ -74,19 +70,17 @@ SListNode *slist_pop(SList *s);
 /*
  * CstrMap
  */
-typedef struct cstrmap_item CstrMapItem;
-struct cstrmap_item {
+typedef struct cstrmap_item {
 	const char *key;
 	void       *val;
-};
+} CstrMapItem;
 
-typedef struct cstrmap CstrMap;
-struct cstrmap {
+typedef struct cstrmap {
 	int          is_alloc;
 	size_t       mask;
 	size_t       size;
 	CstrMapItem *items;
-};
+} CstrMap;
 
 int   cstrmap_init(CstrMap *c, CstrMapItem items[], size_t size);
 int   cstrmap_init_alloc(CstrMap *c, size_t size);
