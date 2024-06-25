@@ -103,16 +103,17 @@ tg_update_parse(TgUpdate *u, json_object *json)
 {
 	memset(u, 0, sizeof(*u));
 
-	json_object *obj;
-	if (json_object_object_get_ex(json, "update_id", &obj) == 0)
+	json_object *update_id_obj;
+	if (json_object_object_get_ex(json, "update_id", &update_id_obj) == 0)
 		return -1;
 
-	if (json_object_object_get_ex(json, "message", &obj) != 0) {
-		if (_parse_message(&u->message, obj) < 0)
+	json_object *message_obj;
+	if (json_object_object_get_ex(json, "message", &message_obj) != 0) {
+		if (_parse_message(&u->message, message_obj) < 0)
 			return -1;
 
 		json_object *reply_to_obj;
-		if (json_object_object_get_ex(obj, "reply_to_message", &reply_to_obj) != 0) {
+		if (json_object_object_get_ex(message_obj, "reply_to_message", &reply_to_obj) != 0) {
 			TgMessage *const reply_to = calloc(1, sizeof(TgMessage));
 			if (_parse_message(reply_to, reply_to_obj) == 0)
 				u->message.reply_to = reply_to;
@@ -123,7 +124,7 @@ tg_update_parse(TgUpdate *u, json_object *json)
 		u->has_message = 1;
 	}
 
-	u->id = json_object_get_int64(obj);
+	u->id = json_object_get_int64(update_id_obj);
 	return 0;
 }
 

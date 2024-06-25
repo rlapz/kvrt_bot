@@ -51,7 +51,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 	// test
 	TgUpdate update;
 	if (tg_update_parse(&update, json) == 0) {
-		log_info("id    : %" PRIi64, update.id);
+		log_info("update id: %" PRIi64, update.id);
 		if (update.has_message) {
 			TgMessage *msg = &update.message;
 			log_info("msg_id: %" PRIi64, msg->id);
