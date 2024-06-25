@@ -524,10 +524,14 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 		return -1;
 
 	const size_t hdr_len = req->hdr_len;
+	size_t found = 0;
 	for (size_t i = 0; i < hdr_len; i++) {
 		const struct phr_header *const hdr = &req->hdrs[i];
 		if (hdr->name_len == 4) {
 			if (strncasecmp(hdr->name, "Host", 4) == 0) {
+				if (host == NULL)
+					found++;
+
 				host = hdr->value;
 				host_len = hdr->value_len;
 			}
@@ -535,6 +539,9 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 
 		if (hdr->name_len == 12) {
 			if (strncasecmp(hdr->name, "Content-Type", 12) == 0) {
+				if (content_type == NULL)
+					found++;
+
 				content_type = hdr->value;
 				content_type_len = hdr->value_len;
 			}
@@ -542,6 +549,9 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 
 		if (hdr->name_len == 14) {
 			if (strncasecmp(hdr->name, "Content-Length", 14) == 0) {
+				if (scontent_len == NULL)
+					found++;
+
 				scontent_len = hdr->value;
 				scontent_len_len = hdr->value_len;
 			}
@@ -549,10 +559,16 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 
 		if (hdr->name_len == 31) {
 			if (strncasecmp(hdr->name, "X-Telegram-Bot-Api-Secret-Token", 31) == 0) {
+				if (secret == NULL)
+					found++;
+
 				secret = hdr->value;
 				secret_len = hdr->value_len;
 			}
 		}
+
+		if (found == 4)
+			break;
 	}
 
 
