@@ -13,7 +13,7 @@ static void _parse_audio(TgAudio *a, json_object *audio_obj);
 static void _parse_document(TgDocument *d, json_object *doc_obj);
 static void _parse_video(TgVideo *v, json_object *video_obj);
 static void _parse_text(TgText *t, json_object *text_obj);
-static void _parse_photo(TgPhotoSize *p[], json_object *photo_obj);
+static int  _parse_photo(TgPhotoSize *p, json_object *photo_obj);
 static void _parse_sticker(TgSticker *s, json_object *sticker_obj);
 static void _parse_message_entities(TgMessage *m, json_object *message_obj);
 static void _parse_user(TgUser **u, json_object *user_obj);
@@ -205,7 +205,24 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 
 	if (json_object_object_get_ex(message_obj, "photo", &obj) != 0) {
 		m->type = TG_MESSAGE_TYPE_PHOTO;
-		_parse_photo(&m->photo, obj);
+
+		array_list *const list = json_object_get_array(obj);
+		if (list == NULL)
+			return;
+
+		const size_t len = array_list_length(list) + 1; /* +1: NULL "id" */
+		TgPhotoSize *const photo = calloc(len, sizeof(TgPhotoSize));
+		if (photo != NULL) {
+			for (size_t i = 0, j = 0; j < len; j++) {
+				json_object *const _obj = array_list_get_idx(list, j);
+				if (_parse_photo(&photo[i], _obj) < 0)
+					continue;
+
+				i++;
+			}
+		}
+
+		m->photo = photo;
 		return;
 	}
 
@@ -330,51 +347,34 @@ _parse_text(TgText *t, json_object *text_obj)
 }
 
 
-static void
-_parse_photo(TgPhotoSize *p[], json_object *photo_obj)
+static int
+_parse_photo(TgPhotoSize *p, json_object *photo_obj)
 {
-	array_list *const list = json_object_get_array(photo_obj);
-	if (list == NULL)
-		return;
+	json_object *id_obj;
+	if (json_object_object_get_ex(photo_obj, "file_id", &id_obj) == 0)
+		return -1;
 
-	const size_t len = array_list_length(list) + 1; /* +1: NULL "id" */
-	TgPhotoSize *const photo = calloc(len, sizeof(TgPhotoSize));
-	if (photo == NULL)
-		return;
+	json_object *uid_obj;
+	if (json_object_object_get_ex(photo_obj, "file_unique_id", &uid_obj) == 0)
+		return -1;
 
-	for (size_t i = 0, j = 0; j < len; j++) {
-		json_object *const obj = array_list_get_idx(list, j);
-		TgPhotoSize *const _p = &photo[i];
+	json_object *width_obj;
+	if (json_object_object_get_ex(photo_obj, "width", &width_obj) == 0)
+		return -1;
 
-		json_object *id_obj;
-		if (json_object_object_get_ex(obj, "file_id", &id_obj) == 0)
-			continue;
+	json_object *height_obj;
+	if (json_object_object_get_ex(photo_obj, "height", &height_obj) == 0)
+		return -1;
 
-		json_object *uid_obj;
-		if (json_object_object_get_ex(obj, "file_unique_id", &uid_obj) == 0)
-			continue;
+	json_object *size_obj;
+	if (json_object_object_get_ex(photo_obj, "file_size", &size_obj) != 0)
+		p->size = json_object_get_int64(size_obj);
 
-		json_object *width_obj;
-		if (json_object_object_get_ex(obj, "width", &width_obj) == 0)
-			continue;
-
-		json_object *height_obj;
-		if (json_object_object_get_ex(obj, "height", &height_obj) == 0)
-			continue;
-
-		json_object *size_obj;
-		if (json_object_object_get_ex(obj, "file_size", &size_obj) != 0)
-			_p->size = json_object_get_int64(size_obj);
-
-		_p->id = json_object_get_string(id_obj);
-		_p->uid = json_object_get_string(uid_obj);
-		_p->width = json_object_get_int64(width_obj);
-		_p->height = json_object_get_int64(height_obj);
-
-		i++;
-	}
-
-	*p = photo;
+	p->id = json_object_get_string(id_obj);
+	p->uid = json_object_get_string(uid_obj);
+	p->width = json_object_get_int64(width_obj);
+	p->height = json_object_get_int64(height_obj);
+	return 0;
 }
 
 
@@ -411,24 +411,12 @@ _parse_sticker(TgSticker *s, json_object *sticker_obj)
 
 	json_object *obj;
 	if (json_object_object_get_ex(sticker_obj, "thumbnail", &obj) != 0) {
-		/* TODO */
-		TgPhotoSize *const thumbn = calloc(1, sizeof(TgPhotoSize));
+		TgPhotoSize *thumbn = calloc(1, sizeof(TgPhotoSize));
 		if (thumbn != NULL) {
-			json_object *oo;
-			if (json_object_object_get_ex(obj, "file_id", &oo) != 0)
-				thumbn->id = json_object_get_string(oo);
-
-			if (json_object_object_get_ex(obj, "file_unique_id", &oo) != 0)
-				thumbn->uid = json_object_get_string(oo);
-
-			if (json_object_object_get_ex(obj, "width", &oo) != 0)
-				thumbn->width = json_object_get_int64(oo);
-
-			if (json_object_object_get_ex(obj, "height", &oo) != 0)
-				thumbn->height = json_object_get_int64(oo);
-
-			if (json_object_object_get_ex(obj, "file_size", &oo) != 0)
-				thumbn->size = json_object_get_int64(oo);
+			if (_parse_photo(thumbn, obj) < 0) {
+				free(thumbn);
+				thumbn = NULL;
+			}
 		}
 
 		s->thumbnail = thumbn;
