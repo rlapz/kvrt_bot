@@ -192,6 +192,7 @@ update_manager_handle(UpdateManager *u, json_object *json)
 				log_info("sticker: is_video     : %d", stc->is_video);
 				log_info("sticker: emoji        : %s", stc->emoji);
 				log_info("sticker: name         : %s", stc->name);
+				log_info("sticker: type         : %s", tg_sticker_type_str(stc->type));
 				log_info("sticker: cust emoji id: %s", stc->custom_emoji_id);
 				if (stc->thumbnail != NULL) {
 					TgPhotoSize *const ps = stc->thumbnail;
