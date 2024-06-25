@@ -524,8 +524,7 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 		return -1;
 
 	const size_t hdr_len = req->hdr_len;
-	size_t found = 0;
-	for (size_t i = 0; i < hdr_len; i++) {
+	for (size_t i = 0, found = 0; (i < hdr_len) && (found < 4); i++) {
 		const struct phr_header *const hdr = &req->hdrs[i];
 		if (hdr->name_len == 4) {
 			if (strncasecmp(hdr->name, "Host", 4) == 0) {
@@ -566,9 +565,6 @@ _state_request_header_validate(const Config *c, const HttpRequest *req, size_t *
 				secret_len = hdr->value_len;
 			}
 		}
-
-		if (found == 4)
-			break;
 	}
 
 
