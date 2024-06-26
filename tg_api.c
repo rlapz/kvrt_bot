@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -71,7 +72,7 @@ tg_api_deinit(TgApi *t)
 
 
 int
-tg_api_send_text_plain(TgApi *t, const char chat_id[], const char reply_to[], const char text[])
+tg_api_send_text_plain(TgApi *t, int64_t chat_id, int64_t reply_to, const char text[])
 {
 	int ret;
 	char *const e_text = curl_easy_escape(t->curl, text, 0);
@@ -80,7 +81,7 @@ tg_api_send_text_plain(TgApi *t, const char chat_id[], const char reply_to[], co
 		return -1;
 	}
 
-	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%s&reply_to_message_id=%s&text=%s",
+	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%" PRIi64 "&reply_to_message_id=%" PRIi64 "&text=%s",
 		     chat_id, reply_to, e_text);
 	if (ret < 0) {
 		log_err(ret, "tg_api: tg_api_send_text_plain: _COMPOSE_FMT");

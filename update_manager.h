@@ -9,9 +9,8 @@
 
 
 typedef struct update_manager {
-	TgApi        api;
-	Str          str;
-	json_object *json;
+	TgApi api;
+	Str   str;
 } UpdateManager;
 
 int  update_manager_init(UpdateManager *u, const char base_api[]);

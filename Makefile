@@ -16,7 +16,8 @@ CFLAGS = -g -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SO
 #LFLAGS = -lcurl -ljson-c
 LFLAGS = -lcurl -ljson-c -fsanitize=address -fsanitize=undefined
 
-SRC    = util.c config.c thrd_pool.c tg.c tg_api.c update_manager.c picohttpparser.c kvrt_bot.c main.c
+SRC    = util.c config.c thrd_pool.c tg.c tg_api.c update_manager.c \
+		 builtin/anime_schedule.c picohttpparser.c kvrt_bot.c main.c
 OBJ    = $(SRC:.c=.o)
 ########
 
