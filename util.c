@@ -59,6 +59,20 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 }
 
 
+int
+cstr_cmp_n(const char a[], const char b[], size_t b_len)
+{
+	const size_t a_len = strlen(a);
+	if (a_len < b_len)
+		return -1;
+
+	if (a_len > b_len)
+		return 1;
+
+	return strncmp(a, b, b_len);
+}
+
+
 /*
  * Str
  */

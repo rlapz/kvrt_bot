@@ -6,7 +6,7 @@
 #include "../tg_api.h"
 
 
-void anime_schedule(TgApi *t, const TgMessage *m);
+void anime_schedule(TgApi *t, const TgMessage *message, const char args[]);
 
 
 #endif

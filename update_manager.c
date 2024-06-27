@@ -7,13 +7,17 @@
 #include "tg.h"
 #include "tg_api.h"
 
+#include "builtin/general.h"
 #include "builtin/anime_schedule.h"
 
 
 static void _handle(UpdateManager *u, const TgMessage *t);
 static void _handle_command(UpdateManager *u, const TgMessage *t);
 static void _handle_text_plain(UpdateManager *u, const TgMessage *t);
+
+#ifdef DEBUG
 static void _dump_message(const TgMessage *t);
+#endif
 
 
 /*
@@ -103,13 +107,32 @@ _handle_text_plain(UpdateManager *u, const TgMessage *t)
 static void
 _handle_command(UpdateManager *u, const TgMessage *t)
 {
-	if (strcmp(t->text.text, "/anime_schedule") == 0) {
-		anime_schedule(&u->api, t);
-		return;
+	size_t len;
+	const char *args;
+	const char *const text = t->text.text;
+
+
+	const char *const cmd_end = strchr(text, ' ');
+	if (cmd_end != NULL) {
+		len = (cmd_end - text);
+		args = cmd_end + 1;
+	} else {
+		len = strlen(text);
+		args = "";
 	}
+
+	if (cstr_cmp_n("/start", text, len) == 0)
+		general_start(&u->api, t, args);
+	else if (cstr_cmp_n("/help", text, len) == 0)
+		general_help(&u->api, t, args);
+	else if (cstr_cmp_n("/anime_schedule", text, len) == 0)
+		anime_schedule(&u->api, t, args);
+
+	/* TODO: call external module */
 }
 
 
+#ifdef DEBUG
 static void
 _dump_message(const TgMessage *t)
 {
@@ -263,3 +286,4 @@ _dump_message(const TgMessage *t)
 		}
 	}
 }
+#endif

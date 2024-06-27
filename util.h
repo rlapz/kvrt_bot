@@ -14,6 +14,7 @@
 void cstr_copy(char dest[], const char src[]);
 void cstr_copy_n(char dest[], size_t size, const char src[]);
 void cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
+int  cstr_cmp_n(const char a[], const char b[], size_t b_len);
 
 
 /*

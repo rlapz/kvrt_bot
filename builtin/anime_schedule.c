@@ -5,11 +5,12 @@
 
 
 void
-anime_schedule(TgApi *t, const TgMessage *m)
+anime_schedule(TgApi *t, const TgMessage *message, const char args[])
 {
-	(void)m;
 	log_debug("builtin: anime_schedule");
 
-	if (m->from != NULL)
-		tg_api_send_text_plain(t, m->chat.id, m->id, "hello");
+	if (message->from != NULL)
+		tg_api_send_text_plain(t, message->chat.id, message->id, "hello");
+
+	log_debug("anime_schedule: args: %s", args);
 }
