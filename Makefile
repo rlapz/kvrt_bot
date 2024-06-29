@@ -27,22 +27,30 @@ else
 endif
 
 
-all: options $(TARGET)
-kvrt_bot.o: $(TARGET).c
-	@printf "\n%s\n" "Compiling: $(<)..."
+build: options $(TARGET)
+
+options:
+	@echo \'$(TARGET)\' build options:
+	@echo "CFLAGS =" $(CFLAGS)
+	@echo "CC     =" $(CC)
+
+$(TARGET).o: $(TARGET).c
+	@printf "\n%s\n--------------------\n" "Compiling..."
 	$(CC) $(CFLAGS) -c -o $(@) $(<)
 
 $(TARGET): $(OBJ)
-	@printf "\n%s\n" "Linking: $(^)..."
+	@printf "\n%s\n--------------------\n" "Linking..."
 	$(CC) -o $(@) $(^) $(LFLAGS)
-
-options:
-	@echo $(TARGET) build options:
-	@echo "CFLAGS" = $(CFLAGS)
-	@echo "CC"     = $(CC)
 
 clean:
 	@echo cleaning...
 	rm -f $(OBJ) $(TARGET)
 
-.PHONY: all clean
+run: build runner
+	@printf "\n%s\n--------------------\n" "Running..."
+	./run.sh
+
+runner:
+	@cp -u run_example.sh run.sh
+
+.PHONY: build run clean
