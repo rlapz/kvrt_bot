@@ -7,8 +7,8 @@
 #include "tg.h"
 #include "tg_api.h"
 
-#include "builtin/general.h"
-#include "builtin/anime_schedule.h"
+#include "module/general.h"
+#include "module/anime_schedule.h"
 
 
 static void _handle(UpdateManager *u, const TgMessage *t);

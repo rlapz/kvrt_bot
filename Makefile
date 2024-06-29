@@ -6,21 +6,26 @@
 #
 # See LICENSE file for license details
 
-TARGET  = kvrt_bot
-VERSION = 0.0.1
+TARGET  := kvrt_bot
+VERSION := 0.0.1
 
-PREFIX = /usr
-CC     = cc
-#CFLAGS = -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L -O3
-CFLAGS = -g -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L -DDEBUG
-#LFLAGS = -lcurl -ljson-c
-LFLAGS = -lcurl -ljson-c -fsanitize=address -fsanitize=undefined
+IS_DEBUG ?= 0
+PREFIX   := /usr
+CC       := cc
+CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L
+LFLAGS   := -lcurl -ljson-c
+SRC      := main.c kvrt_bot.c util.c config.c thrd_pool.c tg.c tg_api.c update_manager.c picohttpparser.c \
+		    module/anime_schedule.c module/general.c
+OBJ      := $(SRC:.c=.o)
 
-SRC    = util.c config.c thrd_pool.c tg.c tg_api.c update_manager.c \
-		 builtin/anime_schedule.c builtin/general.c \
-		 picohttpparser.c kvrt_bot.c main.c
-OBJ    = $(SRC:.c=.o)
-########
+
+ifeq ($(IS_DEBUG), 1)
+	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
+	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined
+else
+	CFLAGS := $(CFLAGS) -O2
+endif
+
 
 all: options $(TARGET)
 kvrt_bot.o: $(TARGET).c
