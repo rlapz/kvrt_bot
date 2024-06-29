@@ -26,19 +26,19 @@ static void _dump_message(const TgMessage *t);
 int
 update_manager_init(UpdateManager *u, const char base_api[])
 {
-	int ret = str_init_alloc(&u->module.str, 1024);
+	int ret = tg_api_init(&u->api, base_api);
 	if (ret < 0) {
-		log_err(ret, "update_manager: update_manager_init: str_init_alloc");
+		str_deinit(&u->module.str);
 		return -1;
 	}
 
-	ret = tg_api_init(&u->api, base_api);
+	ret = module_init(&u->module, &u->api);
 	if (ret < 0) {
-		str_deinit(&u->module.str);
-		return ret;
+		log_err(ret, "update_manager: update_manager_init: module_init");
+		tg_api_deinit(&u->api);
+		return -1;
 	}
 
-	u->module.api = &u->api;
 	return 0;
 }
 
@@ -47,7 +47,7 @@ void
 update_manager_deinit(UpdateManager *u)
 {
 	tg_api_deinit(&u->api);
-	str_deinit(&u->module.str);
+	module_deinit(&u->module);
 }
 
 
