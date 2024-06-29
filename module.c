@@ -7,6 +7,7 @@
 
 #include "builtin/general.h"
 #include "builtin/anime_schedule.h"
+#include "builtin/anti_lewd.h"
 
 
 int
@@ -27,6 +28,14 @@ void
 module_deinit(Module *m)
 {
 	str_deinit(&m->str);
+}
+
+
+void
+module_builtin_handle_text(Module *m, const TgMessage *msg, const char text[])
+{
+	log_debug("module: module_builtin_handle_text: %s", text);
+	anti_lewd_detect(m, msg, text);
 }
 
 

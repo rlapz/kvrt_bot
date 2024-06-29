@@ -10,7 +10,6 @@
 
 static void _handle(UpdateManager *u, const TgMessage *t);
 static void _handle_command(UpdateManager *u, const TgMessage *t);
-static void _handle_text_plain(UpdateManager *u, const TgMessage *t);
 static void _dump_message(const TgMessage *t);
 
 
@@ -83,18 +82,8 @@ _handle(UpdateManager *u, const TgMessage *t)
 		}
 	}
 
-	if (t->type == TG_MESSAGE_TYPE_TEXT) {
-		_handle_text_plain(u, t);
-		return;
-	}
-}
-
-
-static void
-_handle_text_plain(UpdateManager *u, const TgMessage *t)
-{
-	(void)u;
-	log_debug("text: %s", t->text.text);
+	if (t->type == TG_MESSAGE_TYPE_TEXT)
+		module_builtin_handle_text(&u->module, t, t->text.text);
 }
 
 
