@@ -5,12 +5,13 @@
 #include <json.h>
 
 #include "util.h"
+#include "module.h"
 #include "tg_api.h"
 
 
 typedef struct update_manager {
-	TgApi api;
-	Str   str;
+	TgApi  api;
+	Module module;
 } UpdateManager;
 
 int  update_manager_init(UpdateManager *u, const char base_api[]);

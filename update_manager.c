@@ -26,7 +26,7 @@ static void _dump_message(const TgMessage *t);
 int
 update_manager_init(UpdateManager *u, const char base_api[])
 {
-	int ret = str_init_alloc(&u->str, 1024);
+	int ret = str_init_alloc(&u->module.str, 1024);
 	if (ret < 0) {
 		log_err(ret, "update_manager: update_manager_init: str_init_alloc");
 		return -1;
@@ -34,10 +34,11 @@ update_manager_init(UpdateManager *u, const char base_api[])
 
 	ret = tg_api_init(&u->api, base_api);
 	if (ret < 0) {
-		str_deinit(&u->str);
+		str_deinit(&u->module.str);
 		return ret;
 	}
 
+	u->module.api = &u->api;
 	return 0;
 }
 
@@ -46,7 +47,7 @@ void
 update_manager_deinit(UpdateManager *u)
 {
 	tg_api_deinit(&u->api);
-	str_deinit(&u->str);
+	str_deinit(&u->module.str);
 }
 
 
@@ -110,6 +111,8 @@ _handle_command(UpdateManager *u, const TgMessage *t)
 	size_t len;
 	const char *args;
 	const char *const text = t->text.text;
+	Module *const module = &u->module;
+	str_reset(&module->str, 0);
 
 
 	const char *const cmd_end = strchr(text, ' ');
@@ -122,11 +125,11 @@ _handle_command(UpdateManager *u, const TgMessage *t)
 	}
 
 	if (cstr_cmp_n("/start", text, len) == 0)
-		general_start(&u->api, t, args);
+		general_start(module, t, args);
 	else if (cstr_cmp_n("/help", text, len) == 0)
-		general_help(&u->api, t, args);
+		general_help(module, t, args);
 	else if (cstr_cmp_n("/anime_schedule", text, len) == 0)
-		anime_schedule(&u->api, t, args);
+		anime_schedule(module, t, args);
 
 	/* TODO: call external module */
 }

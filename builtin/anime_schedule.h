@@ -3,10 +3,10 @@
 
 
 #include "../tg.h"
-#include "../tg_api.h"
+#include "../module.h"
 
 
-void anime_schedule(TgApi *t, const TgMessage *message, const char args[]);
+void anime_schedule(Module *m, const TgMessage *message, const char args[]);
 
 
 #endif

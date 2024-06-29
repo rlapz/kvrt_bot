@@ -3,11 +3,11 @@
 
 
 #include "../tg.h"
-#include "../tg_api.h"
+#include "../module.h"
 
 
-void general_start(TgApi *t, const TgMessage *message, const char args[]);
-void general_help(TgApi *t, const TgMessage *message, const char args[]);
+void general_start(Module *m, const TgMessage *message, const char args[]);
+void general_help(Module *m, const TgMessage *message, const char args[]);
 
 
 #endif

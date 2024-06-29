@@ -2,22 +2,24 @@
 
 
 void
-general_start(TgApi *t, const TgMessage *message, const char args[])
+general_start(Module *m, const TgMessage *message, const char args[])
 {
 	(void)args;
 	log_debug("builtin: general_start");
 
+	const char *const resp = str_set_fmt(&m->str, "Hello! How can I help you? :)");
 	if (message->from != NULL)
-		tg_api_send_text_plain(t, message->chat.id, message->id, "hello :)");
+		tg_api_send_text_plain(m->api, message->chat.id, message->id, resp);
 }
 
 
 void
-general_help(TgApi *t, const TgMessage *message, const char args[])
+general_help(Module *m, const TgMessage *message, const char args[])
 {
 	(void)args;
 	log_debug("builtin: general_help");
 
+	const char *const resp = str_set_fmt(&m->str, "`I` can't *help* `you`\\! :\\(");
 	if (message->from != NULL)
-		tg_api_send_text_plain(t, message->chat.id, message->id, "I can't help you! :(");
+		tg_api_send_text_format(m->api, message->chat.id, message->id, resp);
 }

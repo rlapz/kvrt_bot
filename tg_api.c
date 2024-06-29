@@ -96,6 +96,32 @@ out0:
 }
 
 
+int
+tg_api_send_text_format(TgApi *t, int64_t chat_id, int64_t reply_to, const char text[])
+{
+	int ret;
+	char *const e_text = curl_easy_escape(t->curl, text, 0);
+	if (e_text == NULL) {
+		log_err(0, "tg_api: tg_api_send_text_format: curl_easy_escape: failed");
+		return -1;
+	}
+
+	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%" PRIi64 "&reply_to_message_id=%" PRIi64
+		    "&parse_mode=MarkdownV2&text=%s",
+		     chat_id, reply_to, e_text);
+	if (ret < 0) {
+		log_err(ret, "tg_api: tg_api_send_text_format: _COMPOSE_FMT");
+		goto out0;
+	}
+
+	ret = _curl_request_get(t, t->str_compose.cstr);
+
+out0:
+	free(e_text);
+	return ret;
+}
+
+
 /*
  * Private
  */
