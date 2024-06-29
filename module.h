@@ -2,6 +2,7 @@
 #define __MODULE_H__
 
 
+#include "tg.h"
 #include "tg_api.h"
 #include "util.h"
 
@@ -11,22 +12,10 @@ typedef struct module {
 	Str    str;
 } Module;
 
-static inline int
-module_init(Module *m, TgApi *api)
-{
-	if (str_init_alloc(&m->str, 1024) < 0)
-		return -1;
-
-	m->api = api;
-	return 0;
-}
-
-
-static inline void
-module_deinit(Module *m)
-{
-	str_deinit(&m->str);
-}
+int  module_init(Module *m, TgApi *api);
+void module_deinit(Module *m);
+void module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
+				   const char args[]);
 
 
 #endif
