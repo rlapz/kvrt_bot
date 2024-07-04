@@ -35,6 +35,7 @@ typedef struct db_chat {
 
 typedef struct db {
 	const char *path;
+	sqlite3    *sql;
 } Db;
 
 int  db_init(Db *d, const char path[]);

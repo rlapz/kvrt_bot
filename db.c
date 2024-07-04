@@ -1,7 +1,8 @@
 #include "db.h"
+#include "util.h"
 
 
-int _create_tables(Db *d);
+static int _create_tables(sqlite3 *s);
 
 
 /*
@@ -10,6 +11,19 @@ int _create_tables(Db *d);
 int
 db_init(Db *d, const char path[])
 {
+	sqlite3 *sql;
+	if (sqlite3_open(path, &sql) != 0) {
+		log_err(0, "db: db_init: sqlite3_open: %s: %s", path, sqlite3_errmsg(sql));
+		sqlite3_close(sql);
+		return -1;
+	}
+
+	if (_create_tables(sql) < 0) {
+		sqlite3_close(sql);
+		return -1;
+	}
+
+	d->sql = sql;
 	return 0;
 }
 
@@ -17,6 +31,7 @@ db_init(Db *d, const char path[])
 void
 db_deinit(Db *d)
 {
+	sqlite3_close(d->sql);
 }
 
 
@@ -100,8 +115,61 @@ db_command_get_by_name(Db *d, DbCommand *cmd, const char name[])
 /*
  * Private
  */
-int
-_create_tables(Db *d)
+static int
+_create_tables(sqlite3 *s)
 {
+	const char *const chat_table = "CREATE TABLE IF NOT EXISTS Chat("
+				       "id BIGINT PRIMARY KEY NOT NULL,"
+				       "type VARCHAR(16) NOT NULL,"
+				       "name VARCHAR(255) NULL,"
+				       "admin_list JSON NULL,"
+				       "allowed_commands JSON NULL,"
+				       "blocked_users JSON NULL);";
+
+	const char *const command_table = "CREATE TABLE IF NOT EXISTS Command("
+					  "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+					  "name VARCHAR(255) NOT NULL,"
+					  "executable_file VARCHAR(4096) NOT NULL,"
+					  "args JSON NULL);";
+
+	const char *const command_name_unique = "CREATE UNIQUE INDEX IF NOT EXISTS "
+						"CommandNameUnique ON Command(name);";
+
+	const char *const command_name_index = "CREATE INDEX IF NOT EXISTS "
+					       "CommandNameIndex ON Command(name);";
+
+	const char *const chat_name_index = "CREATE INDEX IF NOT EXISTS ChatNameIndex ON Chat(name);";
+
+
+	char *err_msg;
+	if (sqlite3_exec(s, chat_table, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: chat_table: %s", err_msg);
+		goto err0;
+	}
+
+	if (sqlite3_exec(s, command_table, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: command_table: %s", err_msg);
+		goto err0;
+	}
+
+	if (sqlite3_exec(s, command_name_unique, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: command_name_unique: %s", err_msg);
+		goto err0;
+	}
+
+	if (sqlite3_exec(s, command_name_index, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: command_name_index: %s", err_msg);
+		goto err0;
+	}
+
+	if (sqlite3_exec(s, chat_name_index, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: chat_name_index: %s", err_msg);
+		goto err0;
+	}
+
 	return 0;
+
+err0:
+	sqlite3_free(err_msg);
+	return -1;
 }

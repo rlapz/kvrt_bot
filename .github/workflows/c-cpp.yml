@@ -14,6 +14,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install Depedencies
-      run: sudo apt update -y --fix-missing; sudo apt install -y libjson-c-dev libcurl4-openssl-dev
+      run: sudo apt update -y --fix-missing; sudo apt install -y libjson-c-dev libcurl4-openssl-dev libsqlite3-dev
     - name: make
       run: make
