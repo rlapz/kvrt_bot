@@ -54,3 +54,4 @@ dkms.conf
 kvrt
 kvrt_bot
 run.sh
+db.sql

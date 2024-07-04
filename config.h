@@ -7,6 +7,7 @@
 #define CFG_DEFAULT_WORKER_THREADS_NUM (8)
 #define CFG_DEFAULT_WORKER_JOBS_MIN    (8)
 #define CFG_DEFAULT_WORKER_JOBS_MAX    (32)
+#define CFG_DEFAULT_DB_FILE            "db.sql"
 
 #define CFG_LOG_BUFFER_SIZE            (1024 * 1024)
 #define CFG_CLIENTS_MAX                (32)
@@ -32,6 +33,7 @@ typedef struct config {
 	unsigned    worker_threads_num;
 	unsigned    worker_jobs_min;
 	unsigned    worker_jobs_max;
+	const char *db_file;
 } Config;
 
 int  config_load_from_env(Config *c);

@@ -51,13 +51,13 @@ config_load_from_env(Config *c)
 		c->listen_host = env;
 	else
 		c->listen_host = CFG_DEFAULT_LISTEN_HOST;
-	
+
 	const char *port;
 	if (((env = getenv("KVRT_BOT_LISTEN_PORT")) != NULL) && (env[0] != '\0'))
 		port = env;
 	else
 		port = CFG_DEFAULT_LISTEN_PORT;
-	
+
 	c->listen_port = atoi(port);
 
 	if (((env = getenv("KVRT_BOT_WORKER_THREADS_NUM")) != NULL) && (env[0] != '\0')) {
@@ -83,6 +83,11 @@ config_load_from_env(Config *c)
 	} else {
 		c->worker_jobs_max = CFG_DEFAULT_WORKER_JOBS_MAX;
 	}
+
+	if (((env = getenv("KVRT_BOT_DB_FILE")) != NULL) && (env[0] != '\0'))
+		c->db_file = env;
+	else
+		c->db_file = CFG_DEFAULT_DB_FILE;
 
 
 	c->hook_url_len = strlen(c->hook_url);

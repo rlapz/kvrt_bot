@@ -94,34 +94,6 @@ void *cstrmap_del(CstrMap *c, const char key[]);
 
 
 /*
- * Scsv - semi-colon-separated values
- *
- * TOOD:
- *  - simplify
- *  - support escape chars
- */
-typedef struct scsv_cell {
-	char   *cstr;
-	size_t  len;
-} ScsvCell;
-
-typedef struct scsv_row {
-	ScsvCell *cells;
-	size_t    count;
-} ScsvRow;
-
-typedef struct scsv_sheet {
-	ScsvRow *rows;
-	size_t   count;
-	char    *buffer;
-} Scsv;
-
-int  scsv_parse(Scsv *s, const char file_path[], size_t max_fsize);
-void scsv_free(Scsv *s);
-
-
-
-/*
  * Log
  */
 int  log_init(size_t buffer_size);
