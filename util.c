@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,7 +12,9 @@
 #include <threads.h>
 #include <unistd.h>
 
+#include <sys/mman.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 
 #include "util.h"
 
@@ -70,6 +73,40 @@ cstr_cmp_n(const char a[], const char b[], size_t b_len)
 		return 1;
 
 	return strncmp(a, b, b_len);
+}
+
+
+char *
+cstr_trim_l(char dest[])
+{
+	char *ret = dest;
+	while (*ret != '\0') {
+		if (isblank(*ret) == 0)
+			break;
+
+		ret++;
+	}
+
+	return ret;
+}
+
+
+char *
+cstr_trim_r(char dest[])
+{
+	char *ptr = dest;
+	if (*ptr == '\0')
+		return ptr;
+
+	ptr += (strlen(ptr) - 1);
+	while ((*ptr != '\0') && (ptr > dest)) {
+		if (isblank(*ptr) == 0)
+			break;
+
+		*(ptr--) = '\0';
+	}
+
+	return dest;
 }
 
 
@@ -485,6 +522,187 @@ cstrmap_del(CstrMap *c, const char key[])
 	item->key = NULL;
 	item->val = NULL;
 	return val;
+}
+
+
+/*
+ * Scsv
+ */
+static size_t
+_scsv_delimiter_count(const char buffer[], int chr)
+{
+	size_t count = 0;
+	const char *buff = buffer;
+	while (1) {
+		const char *const tmp = buff;
+		if ((buff = strchr(buff, chr)) == NULL) {
+			buff = tmp;
+			break;
+		}
+
+		buff++;
+		count++;
+	}
+
+	if (*buff != '\0')
+		count++;
+
+	return count;
+}
+
+
+/* TODO: simplify */
+static void
+_scsv_cells_set(ScsvCell c[], size_t len, char buffer[])
+{
+	char *buff = buffer;
+	for (size_t i = 0; i < len; i++) {
+		c[i].cstr = buff;
+		buff = strchr(buff, ';');
+		if (buff == NULL)
+			break;
+
+		*(buff++) = '\0';
+	}
+
+	for (size_t i = 0; i < len; i++) {
+		char *const tmp = cstr_trim_l(cstr_trim_r(c[i].cstr));
+		c[i].cstr = tmp;
+		c[i].len = strlen(tmp);
+	}
+}
+
+
+static int
+_scsv_parse_cells(ScsvRow *s)
+{
+	char *const buffer = (char *)s->cells;
+	const size_t cells_count = _scsv_delimiter_count(buffer, ';');
+	ScsvCell *const cells = malloc(sizeof(ScsvCell) * cells_count);
+	if (cells == NULL)
+		return -errno;
+
+	_scsv_cells_set(cells, cells_count, buffer);
+	s->cells = cells;
+	s->count = cells_count;
+	return 0;
+}
+
+
+static void
+_scsv_rows_set(ScsvRow r[], size_t len, char buffer[])
+{
+	char *buff = buffer;
+	for (size_t i = 0; i < len; i++) {
+		/* watch out! */
+		r[i].cells = (ScsvCell *)buff;
+
+		buff = strchr(buff, '\n');
+		if (buff == NULL)
+			break;
+
+		*(buff++) = '\0';
+	}
+}
+
+
+static int
+_scsv_parse_rows(Scsv *s, char buffer[])
+{
+	const size_t rows_count = _scsv_delimiter_count(buffer, '\n');
+	if (rows_count == 0)
+		return -EINVAL;
+
+	ScsvRow *const rows = malloc(sizeof(ScsvRow) * rows_count);
+	if (rows == NULL)
+		return -errno;
+
+	_scsv_rows_set(rows, rows_count, buffer);
+
+	int ret = 0;
+	for (size_t i = 0; i < rows_count; i++) {
+		ret = _scsv_parse_cells(&rows[i]);
+		if (ret < 0)
+			goto err0;
+	}
+
+	s->rows = rows;
+	s->count = rows_count;
+	return 0;
+
+err0:
+	free(rows);
+	return ret;
+}
+
+
+int
+scsv_parse(Scsv *s, const char file_path[], size_t max_fsize)
+{
+	memset(s, 0, sizeof(*s));
+
+	const int fd = open(file_path, O_RDONLY);
+	if (fd < 0)
+		return -errno;
+
+	int ret;
+	struct stat st;
+	if (fstat(fd, &st) < 0) {
+		ret = -errno;
+		goto out0;
+	}
+
+	const size_t size = (size_t)st.st_size;
+	if (size >= max_fsize) {
+		ret = -EINVAL;
+		goto out0;
+	}
+
+	char *const buffer = malloc(size + 1);
+	if (buffer == NULL) {
+		ret = -errno;
+		goto out0;
+	}
+
+	size_t rd = 0;
+	while (rd < size) {
+		const ssize_t r = read(fd, buffer + rd, size - rd);
+		if (r < 0) {
+			ret = -errno;
+			goto out1;
+		}
+
+		if (r == 0)
+			break;
+
+		rd += (size_t)r;
+	}
+
+	buffer[rd] = '\0';
+	ret = _scsv_parse_rows(s, buffer);
+
+out1:
+	if (ret < 0)
+		free(buffer);
+	else
+		s->buffer = buffer;
+
+out0:
+	close(fd);
+	return ret;
+}
+
+
+void
+scsv_free(Scsv *s)
+{
+	for (size_t i = 0; i < s->count; i++) {
+		ScsvRow *const r = &s->rows[i];
+		free(r->cells);
+	}
+
+	free(s->buffer);
+	free(s->rows);
 }
 
 

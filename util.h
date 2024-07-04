@@ -11,10 +11,12 @@
 /*
  * cstr
  */
-void cstr_copy(char dest[], const char src[]);
-void cstr_copy_n(char dest[], size_t size, const char src[]);
-void cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
-int  cstr_cmp_n(const char a[], const char b[], size_t b_len);
+void  cstr_copy(char dest[], const char src[]);
+void  cstr_copy_n(char dest[], size_t size, const char src[]);
+void  cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
+int   cstr_cmp_n(const char a[], const char b[], size_t b_len);
+char *cstr_trim_l(char dest[]);
+char *cstr_trim_r(char dest[]);
 
 
 /*
@@ -89,6 +91,34 @@ void  cstrmap_deinit(CstrMap *c);
 int   cstrmap_set(CstrMap *c, const char key[], void *val);
 void *cstrmap_get(CstrMap *c, const char key[]);
 void *cstrmap_del(CstrMap *c, const char key[]);
+
+
+/*
+ * Scsv - semi-colon-separated values
+ *
+ * TOOD:
+ *  - simplify
+ *  - support escape chars
+ */
+typedef struct scsv_cell {
+	char   *cstr;
+	size_t  len;
+} ScsvCell;
+
+typedef struct scsv_row {
+	ScsvCell *cells;
+	size_t    count;
+} ScsvRow;
+
+typedef struct scsv_sheet {
+	ScsvRow *rows;
+	size_t   count;
+	char    *buffer;
+} Scsv;
+
+int  scsv_parse(Scsv *s, const char file_path[], size_t max_fsize);
+void scsv_free(Scsv *s);
+
 
 
 /*
