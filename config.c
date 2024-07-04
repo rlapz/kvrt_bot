@@ -118,5 +118,6 @@ config_dump(const Config *c)
 	printf("Worker Threads : %u\n", c->worker_threads_num);
 	printf("Worker Jobs Min: %u\n", c->worker_jobs_min);
 	printf("Worker Jobs Max: %u\n", c->worker_jobs_max);
+	printf("Db file        : %s\n", c->db_file);
 	puts("---[CONFIG]---");
 }
