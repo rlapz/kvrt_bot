@@ -6,7 +6,7 @@
 #include "../module.h"
 
 
-void anti_lewd_detect(Module *m, const TgMessage *msg, const char text[]);
+void anti_lewd_detect_text(Module *m, const TgMessage *msg, const char text[]);
 
 
 #endif

@@ -75,11 +75,9 @@ out0:
 static void
 _handle(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 {
-	if (t->entities != NULL) {
-		if (t->entities->type == TG_MESSAGE_ENTITY_TYPE_BOT_CMD) {
-			_handle_command(u, t, json_obj);
-			return;
-		}
+	if ((t->entities != NULL) && (t->entities->type == TG_MESSAGE_ENTITY_TYPE_BOT_CMD)) {
+		_handle_command(u, t, json_obj);
+		return;
 	}
 
 	if (t->type == TG_MESSAGE_TYPE_TEXT)
@@ -106,10 +104,10 @@ _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 		args = "";
 	}
 
-	str_reset(&module->str, 0);
 	cstr_copy_n2(command, sizeof(command), text, len);
 
-	module_builtin_handle_command(module, json_obj, command, t, args);
+	str_reset(&module->str, 0);
+	module_builtin_handle_command(module, command, t, json_obj, args);
 
 	/* TODO: call external module */
 }

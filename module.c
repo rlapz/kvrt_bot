@@ -6,7 +6,6 @@
 #include "util.h"
 
 #include "builtin/general.h"
-#include "builtin/anime_schedule.h"
 #include "builtin/anti_lewd.h"
 
 
@@ -35,20 +34,20 @@ void
 module_builtin_handle_text(Module *m, const TgMessage *msg, const char text[])
 {
 	log_debug("module: module_builtin_handle_text: %s", text);
-	anti_lewd_detect(m, msg, text);
+	anti_lewd_detect_text(m, msg, text);
 }
 
 
 void
-module_builtin_handle_command(Module *m, json_object *json_obj, const char cmd[],
-			      const TgMessage *msg, const char *args)
+module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
+			      json_object *json_obj, const char *args)
 {
 	if (strcmp(cmd, "/start") == 0)
-		general_start(m, msg, args);
-	else if (strcmp(cmd, "/help") == 0)
-		general_help(m, msg, args);
-	else if (strcmp(cmd, "/dump") == 0)
+		general_start(m, msg);
+
+	if (strcmp(cmd, "/help") == 0)
+		general_help(m, msg);
+
+	if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
-	else if (strcmp(cmd, "/anime_schedule") == 0)
-		anime_schedule(m, msg, args);
 }
