@@ -75,6 +75,11 @@ int
 tg_api_send_text_plain(TgApi *t, int64_t chat_id, int64_t reply_to, const char text[])
 {
 	int ret;
+	if (text == NULL) {
+		log_err(EINVAL, "tg_api: tg_api_send_text: text null");
+		return -1;
+	}
+
 	char *const e_text = curl_easy_escape(t->curl, text, 0);
 	if (e_text == NULL) {
 		log_err(0, "tg_api: tg_api_send_text_plain: curl_easy_escape: failed");
@@ -100,6 +105,11 @@ int
 tg_api_send_text_format(TgApi *t, int64_t chat_id, int64_t reply_to, const char text[])
 {
 	int ret;
+	if (text == NULL) {
+		log_err(EINVAL, "tg_api: tg_api_send_text_format: text null");
+		return -1;
+	}
+
 	char *const e_text = curl_easy_escape(t->curl, text, 0);
 	if (e_text == NULL) {
 		log_err(0, "tg_api: tg_api_send_text_format: curl_easy_escape: failed");
