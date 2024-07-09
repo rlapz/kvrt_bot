@@ -78,6 +78,7 @@ _handle(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 	if (t->from == NULL)
 		return;
 
+	log_debug("update_manager: _handle: message type: %s", tg_message_type_str(t->type));
 	switch (t->type) {
 	case TG_MESSAGE_TYPE_COMMAND:
 		_handle_command(u, t, json_obj);

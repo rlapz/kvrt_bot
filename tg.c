@@ -91,6 +91,7 @@ tg_message_type_str(TgMessageType type)
 	case TG_MESSAGE_TYPE_VIDEO: return "video";
 	case TG_MESSAGE_TYPE_TEXT: return "text";
 	case TG_MESSAGE_TYPE_PHOTO: return "photo";
+	case TG_MESSAGE_TYPE_STICKER: return "sticker";
 	case TG_MESSAGE_TYPE_COMMAND: return "bot command";
 	default: break;
 	}
