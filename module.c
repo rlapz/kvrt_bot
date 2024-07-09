@@ -31,9 +31,9 @@ module_deinit(Module *m)
 
 
 void
-module_builtin_handle_text(Module *m, const TgMessage *msg, const char text[])
+module_builtin_handle_text(Module *m, const TgMessage *msg)
 {
-	log_debug("module: module_builtin_handle_text: %s", text);
+	const char *const text = msg->text.text;
 	anti_lewd_detect_text(m, msg, text);
 }
 
@@ -42,6 +42,8 @@ void
 module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 			      json_object *json_obj, const char *args)
 {
+	str_reset(&m->str, 0);
+
 	if (strcmp(cmd, "/start") == 0)
 		general_start(m, msg);
 
@@ -50,4 +52,15 @@ module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 
 	if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
+
+	(void)args;
+}
+
+
+void
+moduel_builtin_handle_media(Module *m, const TgMessage *msg)
+{
+	/* TODO */
+	(void)m;
+	(void)msg;
 }

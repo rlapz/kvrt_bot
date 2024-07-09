@@ -6,9 +6,6 @@
 void
 anti_lewd_detect_text(Module *m, const TgMessage *msg, const char text[])
 {
-	if (msg->from == NULL)
-		return;
-
 	// TODO
 	if (strstr(text, " anu ") == NULL)
 		return;

@@ -91,6 +91,7 @@ tg_message_type_str(TgMessageType type)
 	case TG_MESSAGE_TYPE_VIDEO: return "video";
 	case TG_MESSAGE_TYPE_TEXT: return "text";
 	case TG_MESSAGE_TYPE_PHOTO: return "photo";
+	case TG_MESSAGE_TYPE_COMMAND: return "bot command";
 	default: break;
 	}
 
@@ -168,8 +169,12 @@ _parse_message(TgMessage *m, json_object *message_obj)
 	m->id = json_object_get_int64(id_obj);
 	m->date = json_object_get_int64(date_obj);
 
-	_parse_message_entities(m, message_obj);
 	_parse_message_type(m, message_obj);
+
+	_parse_message_entities(m, message_obj);
+	if ((m->entities != NULL) && (m->entities->type == TG_MESSAGE_ENTITY_TYPE_BOT_CMD))
+		m->type = TG_MESSAGE_TYPE_COMMAND;
+
 	return _parse_chat(&m->chat, chat_obj);
 }
 
