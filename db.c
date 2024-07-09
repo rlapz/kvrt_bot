@@ -24,6 +24,7 @@ db_init(Db *d, const char path[])
 	}
 
 	d->sql = sql;
+	d->path = path;
 	return 0;
 }
 

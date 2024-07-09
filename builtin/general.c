@@ -23,3 +23,15 @@ general_help(Module *m, const TgMessage *message, const char args[])
 	if (message->from != NULL)
 		tg_api_send_text_format(m->api, message->chat.id, message->id, resp);
 }
+
+void
+general_dump(Module *m, const TgMessage *message, json_object *json_obj)
+{
+	if (message->from == NULL)
+		return;
+
+	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
+	const char *const json_fmt = str_set_fmt(&m->str, "```json %s```", json_str);
+
+	tg_api_send_text_format(m->api, message->chat.id, message->id, json_fmt);
+}

@@ -8,8 +8,8 @@
 #include "tg_api.h"
 
 
-static void _handle(UpdateManager *u, const TgMessage *t);
-static void _handle_command(UpdateManager *u, const TgMessage *t);
+static void _handle(UpdateManager *u, const TgMessage *t, json_object *json_obj);
+static void _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj);
 static void _dump_message(const TgMessage *t);
 
 
@@ -42,12 +42,12 @@ update_manager_deinit(UpdateManager *u)
 
 
 int
-update_manager_handle(UpdateManager *u, json_object *json)
+update_manager_handle(UpdateManager *u, json_object *json_obj)
 {
 	int ret = -1;
 
 	TgUpdate update;
-	if (tg_update_parse(&update, json) < 0)
+	if (tg_update_parse(&update, json_obj) < 0)
 		goto out0;
 
 	log_info("update id: %" PRIi64, update.id);
@@ -60,11 +60,11 @@ update_manager_handle(UpdateManager *u, json_object *json)
 	(void)_dump_message;
 #endif
 
-	_handle(u, &update.message);
+	_handle(u, &update.message, json_obj);
 	ret = 0;
 
 out0:
-	json_object_put(json);
+	json_object_put(json_obj);
 	return ret;
 }
 
@@ -73,11 +73,11 @@ out0:
  * Private
  */
 static void
-_handle(UpdateManager *u, const TgMessage *t)
+_handle(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 {
 	if (t->entities != NULL) {
 		if (t->entities->type == TG_MESSAGE_ENTITY_TYPE_BOT_CMD) {
-			_handle_command(u, t);
+			_handle_command(u, t, json_obj);
 			return;
 		}
 	}
@@ -88,7 +88,7 @@ _handle(UpdateManager *u, const TgMessage *t)
 
 
 static void
-_handle_command(UpdateManager *u, const TgMessage *t)
+_handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 {
 	size_t len;
 	const char *args;
@@ -109,7 +109,7 @@ _handle_command(UpdateManager *u, const TgMessage *t)
 	str_reset(&module->str, 0);
 	cstr_copy_n2(command, sizeof(command), text, len);
 
-	module_builtin_handle_command(module, command, t, args);
+	module_builtin_handle_command(module, json_obj, command, t, args);
 
 	/* TODO: call external module */
 }

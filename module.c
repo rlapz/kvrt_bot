@@ -40,12 +40,15 @@ module_builtin_handle_text(Module *m, const TgMessage *msg, const char text[])
 
 
 void
-module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, const char args[])
+module_builtin_handle_command(Module *m, json_object *json_obj, const char cmd[],
+			      const TgMessage *msg, const char *args)
 {
 	if (strcmp(cmd, "/start") == 0)
 		general_start(m, msg, args);
 	else if (strcmp(cmd, "/help") == 0)
 		general_help(m, msg, args);
+	else if (strcmp(cmd, "/dump") == 0)
+		general_dump(m, msg, json_obj);
 	else if (strcmp(cmd, "/anime_schedule") == 0)
 		anime_schedule(m, msg, args);
 }
