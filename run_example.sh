@@ -14,9 +14,11 @@ export KVRT_BOT_WORKER_JOBS_MAX=32
 ####################################################################
 
 
+ALLOWED_UPDATES="\[\"message\",\"inline_query\"\]"
+
 webhook_set() {
 	echo "setting up webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&drop_pending_updates=true&secret_token=${KVRT_BOT_API_SECRET}"
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&drop_pending_updates=true&allowed_updates=${ALLOWED_UPDATES}&secret_token=${KVRT_BOT_API_SECRET}"
 }
 
 webhook_del() {
