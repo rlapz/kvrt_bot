@@ -16,7 +16,7 @@ export KVRT_BOT_WORKER_JOBS_MAX=32
 
 set_webhook() {
 	echo "setting up webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&secret_token=${KVRT_BOT_API_SECRET}"
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&drop_pending_updates=true&secret_token=${KVRT_BOT_API_SECRET}"
 }
 
 del_webhook() {
