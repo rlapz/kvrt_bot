@@ -41,18 +41,20 @@ update_manager_deinit(UpdateManager *u)
 }
 
 
-int
+void
 update_manager_handle(UpdateManager *u, json_object *json_obj)
 {
-	int ret = -1;
-
 	TgUpdate update;
-	if (tg_update_parse(&update, json_obj) < 0)
-		goto out0;
+	if (tg_update_parse(&update, json_obj) < 0) {
+		json_object_put(json_obj);
+		return;
+	}
 
 	log_info("update id: %" PRIi64, update.id);
-	if (update.has_message == 0)
-		goto out0;
+	if (update.has_message == 0) {
+		json_object_put(json_obj);
+		return;
+	}
 
 #ifdef DEBUG
 	_dump_message(&update.message);
@@ -61,11 +63,7 @@ update_manager_handle(UpdateManager *u, json_object *json_obj)
 #endif
 
 	_handle(u, &update.message, json_obj);
-	ret = 0;
-
-out0:
 	json_object_put(json_obj);
-	return ret;
 }
 
 

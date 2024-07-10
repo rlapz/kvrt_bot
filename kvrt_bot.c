@@ -727,6 +727,5 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 static void
 _request_handler_fn(void *ctx, void *udata)
 {
-	if (update_manager_handle((UpdateManager *)ctx, (json_object *)udata) < 0)
-		json_object_put((json_object *)udata);
+	update_manager_handle((UpdateManager *)ctx, (json_object *)udata);
 }
