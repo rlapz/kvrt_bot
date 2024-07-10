@@ -16,6 +16,7 @@ static void _parse_text(TgText *t, json_object *text_obj);
 static int  _parse_photo(TgPhotoSize *p, json_object *photo_obj);
 static void _parse_sticker(TgSticker *s, json_object *sticker_obj);
 static void _parse_message_entities(TgMessage *m, json_object *message_obj);
+static int  _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj);
 static void _parse_user(TgUser **u, json_object *user_obj);
 static int  _parse_chat(TgChat *c, json_object *chat_obj);
 static void _free_message(TgMessage *m);
@@ -100,10 +101,24 @@ tg_message_type_str(TgMessageType type)
 }
 
 
+const char *
+tg_update_type_str(TgUpdateType type)
+{
+	switch (type) {
+	case TG_UPDATE_TYPE_MESSAGE: return "message";
+	case TG_UPDATE_TYPE_INLINE_QUERY: return "inline query";
+	default: break;
+	}
+
+	return "unknown";
+}
+
+
 int
 tg_update_parse(TgUpdate *u, json_object *json)
 {
 	memset(u, 0, sizeof(*u));
+	u->type = TG_UPDATE_TYPE_UNKNOWN;
 
 	json_object *update_id_obj;
 	if (json_object_object_get_ex(json, "update_id", &update_id_obj) == 0)
@@ -123,9 +138,20 @@ tg_update_parse(TgUpdate *u, json_object *json)
 				free(reply_to);
 		}
 
-		u->has_message = 1;
+		u->type = TG_UPDATE_TYPE_MESSAGE;
+		goto out0;
 	}
 
+	json_object *inline_obj;
+	if (json_object_object_get_ex(json, "inline_query", &inline_obj) != 0) {
+		if (_pares_inline_query(&u->inline_query, inline_obj) < 0)
+			return -1;
+
+		u->type = TG_UPDATE_TYPE_INLINE_QUERY;
+		goto out0;
+	}
+
+out0:
 	u->id = json_object_get_int64(update_id_obj);
 	return 0;
 }
@@ -597,6 +623,48 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 		c->is_forum = json_object_get_boolean(obj);
 
 	c->id = json_object_get_int64(id_obj);
+	return 0;
+}
+
+
+static int
+_pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj)
+{
+	json_object *id_obj;
+	if (json_object_object_get_ex(inline_query_obj, "id", &id_obj) == 0)
+		return -1;
+
+	json_object *from_obj;
+	if (json_object_object_get_ex(inline_query_obj, "from", &from_obj) == 0)
+		return -1;
+
+	json_object *query_obj;
+	if (json_object_object_get_ex(inline_query_obj, "query", &query_obj) == 0)
+		return -1;
+
+	json_object *offset_obj;
+	if (json_object_object_get_ex(inline_query_obj, "offset", &offset_obj) == 0)
+		return -1;
+
+	json_object *chat_type;
+	if (json_object_object_get_ex(inline_query_obj, "chat_type", &chat_type) != 0) {
+		const char *const type_str = json_object_get_string(chat_type);
+		if (strcmp(type_str, "private") == 0)
+			i->chat_type = TG_CHAT_TYPE_PRIVATE;
+		else if (strcmp(type_str, "group") == 0)
+			i->chat_type = TG_CHAT_TYPE_GROUP;
+		else if (strcmp(type_str, "supergroup") == 0)
+			i->chat_type = TG_CHAT_TYPE_SUPERGROUP;
+		else if (strcmp(type_str, "channel") == 0)
+			i->chat_type = TG_CHAT_TYPE_CHANNEL;
+		else
+			i->chat_type = TG_CHAT_TYPE_UNKNOWN;
+	}
+
+	i->id = json_object_get_int64(id_obj);
+	i->query = json_object_get_string(query_obj);
+	i->offset = json_object_get_string(offset_obj);
+	_parse_user(&i->from, from_obj);
 	return 0;
 }
 

@@ -210,12 +210,35 @@ const char *tg_message_type_str(TgMessageType type);
 
 
 /*
+ * Inline Query
+ */
+typedef struct tg_inline_query {
+	int64_t     id;
+	TgUser     *from;
+	const char *offset;
+	const char *query;
+	TgChatType  chat_type;
+} TgInlineQuery;
+
+
+/*
  * Update
  */
+typedef enum tg_update_type {
+	TG_UPDATE_TYPE_MESSAGE,
+	TG_UPDATE_TYPE_INLINE_QUERY,
+	TG_UPDATE_TYPE_UNKNOWN,
+} TgUpdateType;
+
+const char *tg_update_type_str(TgUpdateType type);
+
 typedef struct tg_update {
-	int       has_message;
-	int64_t   id;
-	TgMessage message;
+	int     type;
+	int64_t id;
+	union {
+		TgMessage     message;
+		TgInlineQuery inline_query;
+	};
 } TgUpdate;
 
 int  tg_update_parse(TgUpdate *u, json_object *json);

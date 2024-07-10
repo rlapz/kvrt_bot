@@ -8,9 +8,11 @@
 #include "tg_api.h"
 
 
-static void _handle(UpdateManager *u, const TgMessage *t, json_object *json_obj);
+static void _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj);
+static void _handle_inline_query(UpdateManager *u, const TgInlineQuery *i, json_object *json_obj);
 static void _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj);
 static void _dump_message(const TgMessage *t);
+static void _dump_inline_query(const TgInlineQuery *i);
 
 
 /*
@@ -50,19 +52,17 @@ update_manager_handle(UpdateManager *u, json_object *json_obj)
 		return;
 	}
 
-	log_info("update id: %" PRIi64, update.id);
-	if (update.has_message == 0) {
-		json_object_put(json_obj);
-		return;
+	log_debug("json: %s", json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY));
+
+	switch (update.type) {
+	case TG_UPDATE_TYPE_MESSAGE:
+		_handle_message(u, &update.message, json_obj);
+		break;
+	case TG_UPDATE_TYPE_INLINE_QUERY:
+		_handle_inline_query(u, &update.inline_query, json_obj);
+		break;
 	}
 
-#ifdef DEBUG
-	_dump_message(&update.message);
-#else
-	(void)_dump_message;
-#endif
-
-	_handle(u, &update.message, json_obj);
 	json_object_put(json_obj);
 }
 
@@ -71,8 +71,14 @@ update_manager_handle(UpdateManager *u, json_object *json_obj)
  * Private
  */
 static void
-_handle(UpdateManager *u, const TgMessage *t, json_object *json_obj)
+_handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 {
+#ifdef DEBUG
+	_dump_message(t);
+#else
+	(void)_dump_message;
+#endif
+
 	if (t->from == NULL)
 		return;
 
@@ -90,6 +96,19 @@ _handle(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 		moduel_builtin_handle_media(&u->module, t);
 		break;
 	}
+}
+
+
+static void
+_handle_inline_query(UpdateManager *u, const TgInlineQuery *i, json_object *json_obj)
+{
+#ifdef DEBUG
+	_dump_inline_query(i);
+#else
+	(void)_dump_inline_query;
+#endif
+
+	/* TODO */
 }
 
 
@@ -271,4 +290,26 @@ _dump_message(const TgMessage *t)
 			log_info("sticker thumb: size  : %" PRIi64, stc->size);
 		}
 	}
+}
+
+
+static void
+_dump_inline_query(const TgInlineQuery *i)
+{
+	log_info("id: %" PRIi64, i->id);
+
+	const TgUser *const usr = i->from;
+	log_info("from: id: %" PRIi64, usr->id);
+	log_info("from: is_bot: %d", usr->is_bot);
+	if (usr->username != NULL)
+		log_info("from: username: %s", usr->username);
+	if (usr->first_name != NULL)
+		log_info("from: first_name: %s", usr->first_name);
+	if (usr->last_name != NULL)
+		log_info("from: last_name: %s", usr->last_name);
+	log_info("from: is_premium: %d", usr->is_premium);
+
+	log_info("offset: %s", i->offset);
+	log_info("query: %s", i->query);
+	log_info("chat type: %s", tg_chat_type_str(i->chat_type));
 }
