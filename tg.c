@@ -16,6 +16,7 @@ static void _parse_text(TgText *t, json_object *text_obj);
 static int  _parse_photo(TgPhotoSize *p, json_object *photo_obj);
 static void _parse_sticker(TgSticker *s, json_object *sticker_obj);
 static void _parse_message_entities(TgMessage *m, json_object *message_obj);
+static int  _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj);
 static int  _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj);
 static void _parse_user(TgUser **u, json_object *user_obj);
 static int  _parse_chat(TgChat *c, json_object *chat_obj);
@@ -160,10 +161,20 @@ out0:
 void
 tg_update_free(TgUpdate *u)
 {
-	if (u->message.reply_to != NULL)
-		_free_message(u->message.reply_to);
+	switch (u->type) {
+	case TG_UPDATE_TYPE_MESSAGE:
+		if (u->message.reply_to != NULL)
+			_free_message(u->message.reply_to);
 
-	_free_message(&u->message);
+		_free_message(&u->message);
+		break;
+	case TG_UPDATE_TYPE_CALLBACK_QUERY:
+		free(u->callback_query.from);
+		break;
+	case TG_UPDATE_TYPE_INLINE_QUERY:
+		free(u->inline_query.from);
+		break;
+	}
 }
 
 
@@ -623,6 +634,36 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 		c->is_forum = json_object_get_boolean(obj);
 
 	c->id = json_object_get_int64(id_obj);
+	return 0;
+}
+
+
+static int
+_parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj)
+{
+	json_object *id_obj;
+	if (json_object_object_get_ex(callback_query_obj, "id", &id_obj) == 0)
+		return -1;
+
+	json_object *from_obj;
+	if (json_object_object_get_ex(callback_query_obj, "from", &from_obj) == 0)
+		return -1;
+
+	json_object *chat_instance_obj;
+	if (json_object_object_get_ex(callback_query_obj, "chat_instance", &chat_instance_obj) == 0)
+		return -1;
+
+	json_object *inline_id;
+	if (json_object_object_get_ex(callback_query_obj, "inline_message_id", &inline_id) != 0)
+		c->data = json_object_get_string(inline_id);
+
+	json_object *data_obj;
+	if (json_object_object_get_ex(callback_query_obj, "data", &data_obj) != 0)
+		c->data = json_object_get_string(data_obj);
+
+	c->id = json_object_get_int64(id_obj);
+	c->chat_instance = json_object_get_string(chat_instance_obj);
+	_parse_user(&c->from, from_obj);
 	return 0;
 }
 

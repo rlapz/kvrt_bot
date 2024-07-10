@@ -9,9 +9,11 @@
 
 
 static void _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj);
+static void _handle_callback_query(UpdateManager *u, const TgCallbackQuery *c, json_object *json_obj);
 static void _handle_inline_query(UpdateManager *u, const TgInlineQuery *i, json_object *json_obj);
 static void _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj);
 static void _dump_message(const TgMessage *t);
+static void _dump_callback_query(const TgCallbackQuery *c);
 static void _dump_inline_query(const TgInlineQuery *i);
 
 
@@ -58,11 +60,15 @@ update_manager_handle(UpdateManager *u, json_object *json_obj)
 	case TG_UPDATE_TYPE_MESSAGE:
 		_handle_message(u, &update.message, json_obj);
 		break;
+	case TG_UPDATE_TYPE_CALLBACK_QUERY:
+		_handle_callback_query(u, &update.callback_query, json_obj);
+		break;
 	case TG_UPDATE_TYPE_INLINE_QUERY:
 		_handle_inline_query(u, &update.inline_query, json_obj);
 		break;
 	}
 
+	tg_update_free(&update);
 	json_object_put(json_obj);
 }
 
@@ -100,6 +106,22 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 
 
 static void
+_handle_callback_query(UpdateManager *u, const TgCallbackQuery *c, json_object *json_obj)
+{
+#ifdef DEBUG
+	_dump_callback_query(c);
+#else
+	(void)_dump_message;
+#endif
+
+	/* TODO */
+	(void)u;
+	(void)c;
+	(void)json_obj;
+}
+
+
+static void
 _handle_inline_query(UpdateManager *u, const TgInlineQuery *i, json_object *json_obj)
 {
 #ifdef DEBUG
@@ -109,6 +131,9 @@ _handle_inline_query(UpdateManager *u, const TgInlineQuery *i, json_object *json
 #endif
 
 	/* TODO */
+	(void)u;
+	(void)i;
+	(void)json_obj;
 }
 
 
@@ -290,6 +315,14 @@ _dump_message(const TgMessage *t)
 			log_info("sticker thumb: size  : %" PRIi64, stc->size);
 		}
 	}
+}
+
+
+static void
+_dump_callback_query(const TgCallbackQuery *c)
+{
+	/* TODO */
+	(void)c;
 }
 
 

@@ -210,6 +210,18 @@ const char *tg_message_type_str(TgMessageType type);
 
 
 /*
+ * Callback Query
+ */
+typedef struct tg_callback_query {
+	int64_t     id;
+	TgUser     *from;
+	const char *inline_id;
+	const char *chat_instance;
+	const char *data;
+} TgCallbackQuery;
+
+
+/*
  * Inline Query
  */
 typedef struct tg_inline_query {
@@ -226,6 +238,7 @@ typedef struct tg_inline_query {
  */
 typedef enum tg_update_type {
 	TG_UPDATE_TYPE_MESSAGE,
+	TG_UPDATE_TYPE_CALLBACK_QUERY,
 	TG_UPDATE_TYPE_INLINE_QUERY,
 	TG_UPDATE_TYPE_UNKNOWN,
 } TgUpdateType;
@@ -236,8 +249,9 @@ typedef struct tg_update {
 	int     type;
 	int64_t id;
 	union {
-		TgMessage     message;
-		TgInlineQuery inline_query;
+		TgMessage       message;
+		TgCallbackQuery callback_query;
+		TgInlineQuery   inline_query;
 	};
 } TgUpdate;
 
