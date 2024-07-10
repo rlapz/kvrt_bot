@@ -58,7 +58,7 @@ module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 
 
 void
-moduel_builtin_handle_media(Module *m, const TgMessage *msg)
+module_builtin_handle_media(Module *m, const TgMessage *msg)
 {
 	/* TODO */
 	(void)m;
