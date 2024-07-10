@@ -24,6 +24,11 @@ del_webhook() {
 	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url="
 }
 
+info_webhook() {
+	echo "webhook info:"
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getWebhookInfo"
+}
+
 
 if [ -z "$*" ]; then
 	./kvrt_bot
@@ -31,6 +36,8 @@ elif [ "$*" = "webhook-set" ]; then
 	set_webhook
 elif [ "$*" = "webhook-del" ]; then
 	del_webhook
+elif [ "$*" = "webhook-info" ]; then
+	info_webhook
 else
 	echo "invalid argument!"
 	exit 1
