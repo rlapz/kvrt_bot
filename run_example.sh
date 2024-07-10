@@ -14,17 +14,17 @@ export KVRT_BOT_WORKER_JOBS_MAX=32
 ####################################################################
 
 
-set_webhook() {
+webhook_set() {
 	echo "setting up webhook..."
 	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&drop_pending_updates=true&secret_token=${KVRT_BOT_API_SECRET}"
 }
 
-del_webhook() {
+webhook_del() {
 	echo "deleting webhook..."
 	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url="
 }
 
-info_webhook() {
+webhook_info() {
 	echo "webhook info:"
 	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getWebhookInfo"
 }
@@ -33,11 +33,11 @@ info_webhook() {
 if [ -z "$*" ]; then
 	./kvrt_bot
 elif [ "$*" = "webhook-set" ]; then
-	set_webhook
+	webhook_set
 elif [ "$*" = "webhook-del" ]; then
-	del_webhook
+	webhook_del
 elif [ "$*" = "webhook-info" ]; then
-	info_webhook
+	webhook_info
 else
 	echo "invalid argument!"
 	exit 1
