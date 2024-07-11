@@ -28,7 +28,7 @@ else
 endif
 
 
-build: options $(TARGET)
+build: options $(TARGET) run.sh
 
 options:
 	@echo \'$(TARGET)\' build options:
@@ -47,11 +47,12 @@ clean:
 	@echo cleaning...
 	rm -f $(OBJ) $(TARGET)
 
-run: build runner
+run: build run.sh
 	@printf "\n%s\n--------------------\n" "Running..."
 	./run.sh
 
-runner:
-	@cp -u run_example.sh run.sh
+run.sh:
+	@cp run_example.sh run.sh
+	@chmod +x run.sh
 
 .PHONY: build run clean
