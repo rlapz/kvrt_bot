@@ -18,12 +18,12 @@ ALLOWED_UPDATES="\[\"message\",\"inline_query\"\]"
 
 webhook_set() {
 	echo "setting up webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&drop_pending_updates=true&allowed_updates=${ALLOWED_UPDATES}&secret_token=${KVRT_BOT_API_SECRET}"
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&allowed_updates=${ALLOWED_UPDATES}&drop_pending_updates=True&secret_token=${KVRT_BOT_API_SECRET}"
 }
 
 webhook_del() {
 	echo "deleting webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url="
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/deleteWebhook?drop_pending_updates=True"
 }
 
 webhook_info() {
