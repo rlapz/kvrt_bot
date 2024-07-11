@@ -4,7 +4,10 @@
 void
 general_start(Module *m, const TgMessage *message)
 {
-	const char *const resp = str_set_fmt(&m->str, "TODO: handle /start");
+	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /start`");
+	if (resp == NULL)
+		return;
+
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
 
@@ -13,6 +16,9 @@ void
 general_help(Module *m, const TgMessage *message)
 {
 	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /help`");
+	if (resp == NULL)
+		return;
+
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
 
@@ -21,6 +27,9 @@ void
 general_settings(Module *m, const TgMessage *message)
 {
 	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /settings`");
+	if (resp == NULL)
+		return;
+
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
 
@@ -29,6 +38,9 @@ void
 general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 {
 	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id,
-			 str_set_fmt(&m->str, "```json %s```", json_str));
+	const char *const resp = str_set_fmt(&m->str, "```json %s```", json_str);
+	if (resp == NULL)
+		return;
+
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
