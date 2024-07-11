@@ -66,6 +66,8 @@ update_manager_handle(UpdateManager *u, json_object *json_obj)
 	case TG_UPDATE_TYPE_INLINE_QUERY:
 		_handle_inline_query(u, &update.inline_query, json_obj);
 		break;
+	default:
+		break;
 	}
 
 	tg_update_free(&update);
@@ -100,6 +102,8 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 	case TG_MESSAGE_TYPE_PHOTO:
 	case TG_MESSAGE_TYPE_VIDEO:
 		module_builtin_handle_media(&u->module, t);
+		break;
+	default:
 		break;
 	}
 }
@@ -191,6 +195,8 @@ _dump_message(const TgMessage *t)
 			break;
 		case TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI:
 			log_info("emoji: %s", ent[i].custom_emoji_id);
+			break;
+		default:
 			break;
 		}
 	}

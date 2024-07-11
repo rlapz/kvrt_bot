@@ -174,6 +174,8 @@ tg_update_free(TgUpdate *u)
 	case TG_UPDATE_TYPE_INLINE_QUERY:
 		free(u->inline_query.from);
 		break;
+	default:
+		break;
 	}
 }
 

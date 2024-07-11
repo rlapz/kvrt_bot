@@ -117,18 +117,18 @@ typedef enum tg_sticker_type {
 } TgStickerType;
 
 typedef struct tg_sticker {
-	int          type;
-	const char  *id;
-	const char  *uid;
-	int64_t      width;
-	int64_t      height;
-	int          is_animated;
-	int          is_video;
-	TgPhotoSize *thumbnail;
-	const char  *emoji;
-	const char  *name;
-	const char  *custom_emoji_id;
-	int64_t      size;
+	TgStickerType  type;
+	const char    *id;
+	const char    *uid;
+	int64_t        width;
+	int64_t        height;
+	int            is_animated;
+	int            is_video;
+	TgPhotoSize   *thumbnail;
+	const char    *emoji;
+	const char    *name;
+	const char    *custom_emoji_id;
+	int64_t        size;
 } TgSticker;
 
 const char * tg_sticker_type_str(TgStickerType type);
@@ -161,9 +161,9 @@ typedef enum tg_message_entity_type {
 } TgMessageEntityType;
 
 typedef struct tg_message_entity {
-	int     type;
-	int64_t offset;
-	int64_t length;
+	TgMessageEntityType type;
+	int64_t             offset;
+	int64_t             length;
 	union {
 		const char *url;		/* text_link only */
 		const char *lang;		/* 'pre' only */
@@ -187,7 +187,7 @@ typedef enum tg_mesage_type {
 } TgMessageType;
 
 typedef struct tg_message {
-	int                type;
+	TgMessageType      type;
 	int64_t            id;
 	int64_t            date;
 	TgUser            *from;
@@ -246,8 +246,8 @@ typedef enum tg_update_type {
 const char *tg_update_type_str(TgUpdateType type);
 
 typedef struct tg_update {
-	int     type;
-	int64_t id;
+	TgUpdateType type;
+	int64_t      id;
 	union {
 		TgMessage       message;
 		TgCallbackQuery callback_query;
