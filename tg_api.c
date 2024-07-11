@@ -9,15 +9,6 @@
 #include "util.h"
 
 
-#define _COMPOSE_FMT(PTR, RET, ...)\
-	do {									\
-		RET = 0;							\
-		str_reset(&PTR->str_compose, PTR->api_offt);			\
-		if (str_append_fmt(&PTR->str_compose, __VA_ARGS__) == NULL)	\
-			RET = -errno;						\
-	} while (0)
-
-
 static int    _curl_init(TgApi *t);
 static void   _curl_deinit(TgApi *t);
 static size_t _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
@@ -72,9 +63,12 @@ tg_api_deinit(TgApi *t)
 
 
 int
-tg_api_send_text_plain(TgApi *t, int64_t chat_id, int64_t reply_to, const char text[])
+tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *reply_to, const char text[])
 {
-	int ret;
+	int ret = -1;
+	const char *req = NULL;
+
+
 	if (text == NULL) {
 		log_err(EINVAL, "tg_api: tg_api_send_text: text null");
 		return -1;
@@ -82,49 +76,41 @@ tg_api_send_text_plain(TgApi *t, int64_t chat_id, int64_t reply_to, const char t
 
 	char *const e_text = curl_easy_escape(t->curl, text, 0);
 	if (e_text == NULL) {
-		log_err(0, "tg_api: tg_api_send_text_plain: curl_easy_escape: failed");
+		log_err(0, "tg_api: tg_api_send_text: curl_easy_escape: failed");
 		return -1;
 	}
 
-	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%" PRIi64 "&reply_to_message_id=%" PRIi64 "&text=%s",
-		     chat_id, reply_to, e_text);
-	if (ret < 0) {
-		log_err(ret, "tg_api: tg_api_send_text_plain: _COMPOSE_FMT");
+	str_reset(&t->str_compose, t->api_offt);
+	req = str_append_fmt(&t->str_compose, "sendMessage?chat_id=%" PRIi64, chat_id);
+	if (req == NULL)
+		goto out1;
+
+	if (reply_to != NULL) {
+		req = str_append_fmt(&t->str_compose, "&reply_to_message_id=%" PRIi64, *reply_to);
+		if (req == NULL)
+			goto out1;
+	}
+
+	switch (type) {
+	case TG_API_TEXT_TYPE_PLAIN:
+		req = str_append_fmt(&t->str_compose, "&text=%s", e_text);
+		break;
+	case TG_API_TEXT_TYPE_FORMAT:
+		req = str_append_fmt(&t->str_compose, "&parse_mode=MarkdownV2&text=%s", e_text);
+		break;
+	default:
+		log_err(0, "tg_api: tg_api_send_text: invalid type option");
 		goto out0;
 	}
 
-	ret = _curl_request_get(t, t->str_compose.cstr);
-
-out0:
-	free(e_text);
-	return ret;
-}
-
-
-int
-tg_api_send_text_format(TgApi *t, int64_t chat_id, int64_t reply_to, const char text[])
-{
-	int ret;
-	if (text == NULL) {
-		log_err(EINVAL, "tg_api: tg_api_send_text_format: text null");
-		return -1;
-	}
-
-	char *const e_text = curl_easy_escape(t->curl, text, 0);
-	if (e_text == NULL) {
-		log_err(0, "tg_api: tg_api_send_text_format: curl_easy_escape: failed");
-		return -1;
-	}
-
-	_COMPOSE_FMT(t, ret, "sendMessage?chat_id=%" PRIi64 "&reply_to_message_id=%" PRIi64
-		    "&parse_mode=MarkdownV2&text=%s",
-		     chat_id, reply_to, e_text);
-	if (ret < 0) {
-		log_err(ret, "tg_api: tg_api_send_text_format: _COMPOSE_FMT");
+	if (req == NULL) {
+out1:
+		log_err(errno, "tg_api: tg_api_send_text_format: str_append_fmt");
 		goto out0;
 	}
 
-	ret = _curl_request_get(t, t->str_compose.cstr);
+	log_debug("tg_api: tg_api_send_text: request: %s", req);
+	ret = _curl_request_get(t, req);
 
 out0:
 	free(e_text);
