@@ -33,7 +33,12 @@ webhook_info() {
 
 
 if [ -z "$*" ]; then
+	webhook_set
+	echo
+
 	./kvrt_bot
+
+	webhook_del
 elif [ "$*" = "webhook-set" ]; then
 	webhook_set
 elif [ "$*" = "webhook-del" ]; then
