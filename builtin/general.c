@@ -16,6 +16,15 @@ general_help(Module *m, const TgMessage *message)
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
 
+
+void
+general_settings(Module *m, const TgMessage *message)
+{
+	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /settings`");
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+}
+
+
 void
 general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 {
