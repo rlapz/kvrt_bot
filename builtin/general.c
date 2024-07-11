@@ -44,3 +44,17 @@ general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
+
+
+void
+general_inval(Module *m, const TgMessage *message)
+{
+	if (message->chat.type != TG_CHAT_TYPE_PRIVATE)
+		return;
+
+	const char *const resp = str_set_fmt(&m->str, "%s: invalid command!", message->text);
+	if (resp == NULL)
+		return;
+
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+}

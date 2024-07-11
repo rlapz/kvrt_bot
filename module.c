@@ -46,15 +46,14 @@ module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 
 	if (strcmp(cmd, "/start") == 0)
 		general_start(m, msg);
-
-	if (strcmp(cmd, "/help") == 0)
+	else if (strcmp(cmd, "/help") == 0)
 		general_help(m, msg);
-
-	if (strcmp(cmd, "/settings") == 0)
+	else if (strcmp(cmd, "/settings") == 0)
 		general_settings(m, msg);
-
-	if (strcmp(cmd, "/dump") == 0)
+	else if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
+	else
+		general_inval(m, msg);
 
 	(void)args;
 }

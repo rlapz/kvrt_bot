@@ -12,6 +12,7 @@ void general_start(Module *m, const TgMessage *message);
 void general_help(Module *m, const TgMessage *message);
 void general_settings(Module *m, const TgMessage *message);
 void general_dump(Module *m, const TgMessage *message, json_object *json_obj);
+void general_inval(Module *m, const TgMessage *message);
 
 
 #endif
