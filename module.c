@@ -10,7 +10,7 @@
 
 
 int
-module_init(Module *m, TgApi *api)
+ module_init(Module *m, TgApi *api, Db *db)
 {
 	const int ret = str_init_alloc(&m->str, 1024);
 	if (ret < 0) {
@@ -19,6 +19,7 @@ module_init(Module *m, TgApi *api)
 	}
 
 	m->api = api;
+	m->db = db;
 	return 0;
 }
 
@@ -65,4 +66,11 @@ module_builtin_handle_media(Module *m, const TgMessage *msg)
 	/* TODO */
 	(void)m;
 	(void)msg;
+}
+
+
+void
+module_external_handle_command(Module *m, const char cmd[], const TgMessage *msg,
+			       json_object *json_obj, const char *args)
+{
 }

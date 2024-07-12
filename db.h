@@ -5,6 +5,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <sqlite3.h>
+#include <pthread.h>
+
+
+typedef enum db_command_type {
+	DB_COMMAND_TYPE_SHARED,
+	DB_COMMAND_TYPE_SCRIPT,
+	DB_COMMAND_TYPE_UNKNOWN,
+} DbCommandType;
 
 
 typedef struct db_user {
@@ -13,12 +21,12 @@ typedef struct db_user {
 } DbUser;
 
 typedef struct db_command {
-	int64_t   id;
-	char     *name;
-	char     *executable_file;
-	int32_t   __pad;
-	int32_t   args_len;
-	char     *args[];
+	DbCommandType  type;
+	int64_t        id;
+	char          *name;
+	char          *file;
+	int32_t        args_len;
+	char          *args[];
 } DbCommand;
 
 typedef struct db_chat {
@@ -34,8 +42,9 @@ typedef struct db_chat {
 } DbChat;
 
 typedef struct db {
-	const char *path;
-	sqlite3    *sql;
+	const char      *path;
+	sqlite3         *sql;
+	pthread_mutex_t  mutex;
 } Db;
 
 int  db_init(Db *d, const char path[]);

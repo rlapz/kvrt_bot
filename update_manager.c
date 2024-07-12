@@ -21,18 +21,19 @@ static void _dump_inline_query(const TgInlineQuery *i);
  * Public
  */
 int
-update_manager_init(UpdateManager *u, const char base_api[])
+update_manager_init(UpdateManager *u, const char base_api[], Db *db)
 {
 	int ret = tg_api_init(&u->api, base_api);
 	if (ret < 0)
 		return -1;
 
-	ret = module_init(&u->module, &u->api);
+	ret = module_init(&u->module, &u->api, db);
 	if (ret < 0) {
 		tg_api_deinit(&u->api);
 		return -1;
 	}
 
+	u->db = db;
 	return 0;
 }
 
@@ -162,8 +163,7 @@ _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 
 	cstr_copy_n2(command, sizeof(command), text, len);
 	module_builtin_handle_command(module, command, t, json_obj, args);
-
-	/* TODO: call external module */
+	module_external_handle_command(module, command, t, json_obj, args);
 }
 
 

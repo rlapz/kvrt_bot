@@ -12,8 +12,9 @@
 #include <sys/socket.h>
 
 #include "kvrt_bot.h"
-#include "util.h"
+#include "db.h"
 #include "config.h"
+#include "util.h"
 #include "thrd_pool.h"
 #include "picohttpparser.h"
 #include "update_manager.h"
@@ -146,8 +147,11 @@ kvrt_bot_run(KvrtBot *k)
 
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
 
+	/* TODO */
+	Db db;
+
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = update_manager_init(&upm[iter], api);
+		ret = update_manager_init(&upm[iter], api, &db);
 		if (ret < 0)
 			goto out1;
 	}
