@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <json.h>
 
 #include "tg.h"
 #include "tg_api.h"
@@ -171,6 +172,17 @@ _curl_request_get(TgApi *t, const char url[])
 		return -1;
 	}
 
-	log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---", t->str_response.cstr);
+
+#ifdef DEBUG
+	json_object *const json = json_tokener_parse(t->str_response.cstr);
+	if (json == NULL) {
+		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---", t->str_response.cstr);
+	} else {
+		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---",
+			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
+	}
+
+	json_object_put(json);
+#endif
 	return 0;
 }
