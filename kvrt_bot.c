@@ -12,12 +12,13 @@
 #include <sys/socket.h>
 
 #include "kvrt_bot.h"
-#include "db.h"
+
 #include "config.h"
-#include "util.h"
-#include "thrd_pool.h"
+#include "db.h"
 #include "picohttpparser.h"
+#include "thrd_pool.h"
 #include "update_manager.h"
+#include "util.h"
 
 
 #define HTTP_REQUEST_HEADER_LEN (16)
@@ -131,27 +132,28 @@ kvrt_bot_run(KvrtBot *k)
 	if (ret < 0)
 		return -1;
 
-	/* Add 'update_manager' for each worker threads */
-	upm = malloc(sizeof(UpdateManager) * cfg->worker_threads_num);
-	if (upm == NULL) {
-		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: update_manager");
-		goto out0;
-	}
-
 	ret = str_init_alloc(&str_api, 1024);
 	if (ret < 0) {
 		log_err(ret, "kvrt_bot: kvrt_bot_run: str_init_alloc: str api");
-		goto out1;
+		goto out0;
 	}
 
 	const char *const api = str_set_fmt(&str_api, "%s%s/", CFG_TELEGRAM_API, cfg->api_token);
 	if (api == NULL) {
 		ret = -1;
 		log_err(errno, "kvrt_bot: kvrt_bot_run: str_set_fmt: str api");
-		goto out2;
+		goto out1;
 	}
 
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
+
+
+	/* Add 'update_manager' for each worker threads */
+	upm = malloc(sizeof(UpdateManager) * cfg->worker_threads_num);
+	if (upm == NULL) {
+		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: update_manager");
+		goto out1;
+	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
 		ret = update_manager_init(&upm[iter], api, &db);
@@ -170,12 +172,12 @@ kvrt_bot_run(KvrtBot *k)
 	thrd_pool_destroy(&k->thrd_pool);
 
 out2:
-	str_deinit(&str_api);
-out1:
 	while (iter--)
 		update_manager_deinit(&upm[iter]);
 
 	free(upm);
+out1:
+	str_deinit(&str_api);
 out0:
 	db_deinit(&db);
 	return ret;

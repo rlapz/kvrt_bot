@@ -4,8 +4,8 @@
 
 #include <json.h>
 
-#include "../tg.h"
 #include "../module.h"
+#include "../tg.h"
 
 
 void general_start(Module *m, const TgMessage *message);

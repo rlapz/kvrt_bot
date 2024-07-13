@@ -6,8 +6,8 @@
 
 #include <sys/epoll.h>
 
-#include "thrd_pool.h"
 #include "config.h"
+#include "thrd_pool.h"
 #include "util.h"
 
 

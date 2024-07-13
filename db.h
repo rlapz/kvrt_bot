@@ -2,10 +2,10 @@
 #define __DB_H__
 
 
+#include <pthread.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <sqlite3.h>
-#include <pthread.h>
 
 
 typedef enum db_command_type {

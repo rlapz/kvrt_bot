@@ -8,8 +8,8 @@
 #include <strings.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <time.h>
 #include <threads.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sys/mman.h>

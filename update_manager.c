@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "update_manager.h"
+
 #include "tg.h"
 #include "tg_api.h"
 

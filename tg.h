@@ -2,9 +2,9 @@
 #define __TG_H__
 
 
+#include <json.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <json.h>
 
 #include <curl/curl.h>
 

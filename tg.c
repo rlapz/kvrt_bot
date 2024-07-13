@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "tg.h"
+
 #include "config.h"
 #include "util.h"
 

@@ -1,12 +1,13 @@
 #include <string.h>
 
 #include "module.h"
+
 #include "tg.h"
 #include "tg_api.h"
 #include "util.h"
 
-#include "builtin/general.h"
 #include "builtin/anti_lewd.h"
+#include "builtin/general.h"
 
 
 static int  _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
