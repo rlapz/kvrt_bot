@@ -147,7 +147,7 @@ _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 {
 	size_t len;
 	const char *args;
-	char command[1024];
+	char command[64];
 	const char *const text = t->text.text;
 	Module *const module = &u->module;
 
@@ -170,6 +170,9 @@ _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 }
 
 
+/*
+ * Debug
+ */
 static void
 _dump_message(const TgMessage *t)
 {
