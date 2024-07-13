@@ -11,10 +11,11 @@ export KVRT_BOT_HOOK_PATH='/bot'
 export KVRT_BOT_WORKER_THREADS_NUM=4
 export KVRT_BOT_WORKER_JOBS_MIN=8
 export KVRT_BOT_WORKER_JOBS_MAX=32
+export KVRT_BOT_DB_FILE='./db.sql'
 ####################################################################
 
 
-ALLOWED_UPDATES="\[\"message\",\"inline_query\"\]"
+ALLOWED_UPDATES="\[\"message\",\"callback_query\",\"inline_query\"\]"
 
 webhook_set() {
 	echo "setting up webhook..."

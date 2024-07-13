@@ -47,6 +47,9 @@ db_deinit(Db *d)
 int
 db_chat_get_by_id(Db *d, DbChat *chat, int64_t id)
 {
+	(void)d;
+	(void)chat;
+	(void)id;
 	return 0;
 }
 
@@ -54,6 +57,9 @@ db_chat_get_by_id(Db *d, DbChat *chat, int64_t id)
 int
 db_chat_get_by_name(Db *d, DbChat *chat, const char name[])
 {
+	(void)d;
+	(void)chat;
+	(void)name;
 	return 0;
 }
 
@@ -61,6 +67,9 @@ db_chat_get_by_name(Db *d, DbChat *chat, const char name[])
 int
 db_chat_add_blocked_user(Db *d, int64_t id, int64_t user_id)
 {
+	(void)d;
+	(void)id;
+	(void)user_id;
 	return 0;
 }
 
@@ -68,6 +77,9 @@ db_chat_add_blocked_user(Db *d, int64_t id, int64_t user_id)
 int
 db_chat_del_blocked_user(Db *d, int64_t id, int64_t user_id)
 {
+	(void)d;
+	(void)id;
+	(void)user_id;
 	return 0;
 }
 
@@ -75,6 +87,9 @@ db_chat_del_blocked_user(Db *d, int64_t id, int64_t user_id)
 int
 db_chat_add_allowed_command(Db *d, int64_t id, int64_t cmd_id)
 {
+	(void)d;
+	(void)id;
+	(void)cmd_id;
 	return 0;
 }
 
@@ -82,6 +97,9 @@ db_chat_add_allowed_command(Db *d, int64_t id, int64_t cmd_id)
 int
 db_chat_del_allowed_command(Db *d, int64_t id, int64_t cmd_id)
 {
+	(void)d;
+	(void)id;
+	(void)cmd_id;
 	return 0;
 }
 
@@ -89,6 +107,11 @@ db_chat_del_allowed_command(Db *d, int64_t id, int64_t cmd_id)
 int
 db_command_add(Db *d, const char name[], const char path[], const char *args[], int32_t args_len)
 {
+	(void)d;
+	(void)name;
+	(void)path;
+	(void)args;
+	(void)args_len;
 	return 0;
 }
 
@@ -96,6 +119,8 @@ db_command_add(Db *d, const char name[], const char path[], const char *args[], 
 int
 db_command_del(Db *d, int64_t id)
 {
+	(void)d;
+	(void)id;
 	return 0;
 }
 
@@ -103,6 +128,8 @@ db_command_del(Db *d, int64_t id)
 int
 db_command_disable(Db *d, int64_t id)
 {
+	(void)d;
+	(void)id;
 	return 0;
 }
 
@@ -110,6 +137,9 @@ db_command_disable(Db *d, int64_t id)
 int
 db_command_get_by_id(Db *d, DbCommand *cmd, int64_t id)
 {
+	(void)d;
+	(void)cmd;
+	(void)id;
 	return 0;
 }
 
@@ -117,6 +147,9 @@ db_command_get_by_id(Db *d, DbCommand *cmd, int64_t id)
 int
 db_command_get_by_name(Db *d, DbCommand *cmd, const char name[])
 {
+	(void)d;
+	(void)cmd;
+	(void)name;
 	return 0;
 }
 
