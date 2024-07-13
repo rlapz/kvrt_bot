@@ -310,7 +310,7 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 	}
 
 	m->type = TG_MESSAGE_TYPE_UNKNOWN;
-	return -1;
+	return 0;
 }
 
 
@@ -540,7 +540,7 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 {
 	json_object *ents_obj;
 	if (json_object_object_get_ex(message_obj, "entities", &ents_obj) == 0)
-		return -1;
+		return 0;
 
 	array_list *const list = json_object_get_array(ents_obj);
 	if (list == NULL)
