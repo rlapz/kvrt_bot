@@ -70,6 +70,24 @@ module_handle_media(Module *m, const TgMessage *msg, json_object *json_obj)
 }
 
 
+void
+module_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj)
+{
+	(void)m;
+	(void)query;
+	(void)json_obj;
+}
+
+
+void
+module_handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj)
+{
+	(void)m;
+	(void)query;
+	(void)json_obj;
+}
+
+
 /*
  * private
  */

@@ -119,10 +119,7 @@ _handle_callback_query(UpdateManager *u, const TgCallbackQuery *c, json_object *
 	(void)_dump_callback_query;
 #endif
 
-	/* TODO */
-	(void)u;
-	(void)c;
-	(void)json_obj;
+	module_handle_callback_query(&u->module, c, json_obj);
 }
 
 
@@ -135,10 +132,7 @@ _handle_inline_query(UpdateManager *u, const TgInlineQuery *i, json_object *json
 	(void)_dump_inline_query;
 #endif
 
-	/* TODO */
-	(void)u;
-	(void)i;
-	(void)json_obj;
+	module_handle_inline_query(&u->module, i, json_obj);
 }
 
 

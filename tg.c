@@ -34,6 +34,7 @@ tg_chat_type_str(TgChatType type)
 	case TG_CHAT_TYPE_GROUP: return "group";
 	case TG_CHAT_TYPE_SUPERGROUP: return "supergroup";
 	case TG_CHAT_TYPE_CHANNEL: return "channel";
+	case TG_CHAT_TYPE_SENDER: return "sender";
 	default: break;
 	}
 
@@ -735,6 +736,8 @@ _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj)
 			i->chat_type = TG_CHAT_TYPE_SUPERGROUP;
 		else if (strcmp(type_str, "channel") == 0)
 			i->chat_type = TG_CHAT_TYPE_CHANNEL;
+		else if (strcmp(type_str, "sender") == 0)
+			i->chat_type = TG_CHAT_TYPE_SENDER;
 		else
 			i->chat_type = TG_CHAT_TYPE_UNKNOWN;
 	}
