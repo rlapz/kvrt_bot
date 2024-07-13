@@ -62,15 +62,6 @@ module_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_ob
 
 
 void
-module_handle_media(Module *m, const TgMessage *msg, json_object *json_obj)
-{
-	(void)m;
-	(void)msg;
-	(void)json_obj;
-}
-
-
-void
 module_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj)
 {
 	(void)m;

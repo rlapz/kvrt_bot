@@ -88,11 +88,6 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 	case TG_MESSAGE_TYPE_TEXT:
 		module_handle_text(&u->module, t, json_obj);
 		break;
-	case TG_MESSAGE_TYPE_AUDIO:
-	case TG_MESSAGE_TYPE_PHOTO:
-	case TG_MESSAGE_TYPE_VIDEO:
-		module_handle_media(&u->module, t, json_obj);
-		break;
 	default:
 		break;
 	}
