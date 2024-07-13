@@ -152,6 +152,14 @@ tg_update_parse(TgUpdate *u, json_object *json)
 		goto out0;
 	}
 
+	json_object *callback_query_obj;
+	if (json_object_object_get_ex(json, "callback_query", &callback_query_obj) != 0) {
+		if (_parse_callback_query(&u->callback_query, callback_query_obj) < 0)
+			return -1;
+
+		u->type = TG_UPDATE_TYPE_CALLBACK_QUERY;
+	}
+
 out0:
 	u->id = json_object_get_int64(update_id_obj);
 	return 0;

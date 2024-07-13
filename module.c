@@ -9,6 +9,12 @@
 #include "builtin/anti_lewd.h"
 
 
+static int  _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
+				    json_object *json_obj, const char args[]);
+static int  _external_handle_command(Module *m, const char cmd[], const TgMessage *msg,
+				     json_object *json_obj, const char args[]);
+
+
 int
  module_init(Module *m, TgApi *api, Db *db)
 {
@@ -32,19 +38,45 @@ module_deinit(Module *m)
 
 
 void
-module_builtin_handle_text(Module *m, const TgMessage *msg)
+module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 {
 	const char *const text = msg->text.text;
 	anti_lewd_detect_text(m, msg, text);
+
+	(void)json_obj;
 }
 
 
 void
-module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
-			      json_object *json_obj, const char *args)
+module_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
+		      const char args[])
 {
-	str_reset(&m->str, 0);
+	if (_builtin_handle_command(m, cmd, msg, json_obj, args) == 0)
+		return;
 
+	if (_external_handle_command(m, cmd, msg, json_obj, args) == 0)
+		return;
+
+	general_inval(m, msg);
+}
+
+
+void
+module_handle_media(Module *m, const TgMessage *msg, json_object *json_obj)
+{
+	(void)m;
+	(void)msg;
+	(void)json_obj;
+}
+
+
+/*
+ * private
+ */
+static int
+_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
+			const char args[])
+{
 	if (strcmp(cmd, "/start") == 0)
 		general_start(m, msg);
 	else if (strcmp(cmd, "/help") == 0)
@@ -54,23 +86,21 @@ module_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 	else if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
 	else
-		general_inval(m, msg);
+		return -1;
 
 	(void)args;
+	return 0;
 }
 
 
-void
-module_builtin_handle_media(Module *m, const TgMessage *msg)
+static int
+_external_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
+			 const char args[])
 {
-	/* TODO */
 	(void)m;
+	(void)cmd;
 	(void)msg;
-}
-
-
-void
-module_external_handle_command(Module *m, const char cmd[], const TgMessage *msg,
-			       json_object *json_obj, const char *args)
-{
+	(void)json_obj;
+	(void)args;
+	return -1;
 }

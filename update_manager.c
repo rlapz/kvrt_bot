@@ -97,12 +97,12 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 		_handle_command(u, t, json_obj);
 		break;
 	case TG_MESSAGE_TYPE_TEXT:
-		module_builtin_handle_text(&u->module, t);
+		module_handle_text(&u->module, t, json_obj);
 		break;
 	case TG_MESSAGE_TYPE_AUDIO:
 	case TG_MESSAGE_TYPE_PHOTO:
 	case TG_MESSAGE_TYPE_VIDEO:
-		module_builtin_handle_media(&u->module, t);
+		module_handle_media(&u->module, t, json_obj);
 		break;
 	default:
 		break;
@@ -116,7 +116,7 @@ _handle_callback_query(UpdateManager *u, const TgCallbackQuery *c, json_object *
 #ifdef DEBUG
 	_dump_callback_query(c);
 #else
-	(void)_dump_message;
+	(void)_dump_callback_query;
 #endif
 
 	/* TODO */
@@ -165,8 +165,7 @@ _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 		return;
 
 	cstr_copy_n2(command, sizeof(command), text, len);
-	module_builtin_handle_command(module, command, t, json_obj, args);
-	module_external_handle_command(module, command, t, json_obj, args);
+	module_handle_command(module, command, t, json_obj, args);
 }
 
 
