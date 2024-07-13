@@ -161,6 +161,9 @@ _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 		args = "";
 	}
 
+	if (len >= sizeof(command))
+		return;
+
 	cstr_copy_n2(command, sizeof(command), text, len);
 	module_builtin_handle_command(module, command, t, json_obj, args);
 	module_external_handle_command(module, command, t, json_obj, args);
