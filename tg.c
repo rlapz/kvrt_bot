@@ -8,17 +8,17 @@
 
 
 static int  _parse_message(TgMessage *m, json_object *message_obj);
-static void _parse_message_type(TgMessage *m, json_object *message_obj);
-static void _parse_audio(TgAudio *a, json_object *audio_obj);
-static void _parse_document(TgDocument *d, json_object *doc_obj);
-static void _parse_video(TgVideo *v, json_object *video_obj);
+static int  _parse_message_type(TgMessage *m, json_object *message_obj);
+static int  _parse_audio(TgAudio *a, json_object *audio_obj);
+static int  _parse_document(TgDocument *d, json_object *doc_obj);
+static int  _parse_video(TgVideo *v, json_object *video_obj);
 static void _parse_text(TgText *t, json_object *text_obj);
 static int  _parse_photo(TgPhotoSize *p, json_object *photo_obj);
-static void _parse_sticker(TgSticker *s, json_object *sticker_obj);
-static void _parse_message_entities(TgMessage *m, json_object *message_obj);
+static int  _parse_sticker(TgSticker *s, json_object *sticker_obj);
+static int  _parse_message_entities(TgMessage *m, json_object *message_obj);
 static int  _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj);
 static int  _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj);
-static void _parse_user(TgUser **u, json_object *user_obj);
+static int  _parse_user(TgUser **u, json_object *user_obj);
 static int  _parse_chat(TgChat *c, json_object *chat_obj);
 static void _free_message(TgMessage *m);
 
@@ -125,6 +125,9 @@ tg_update_parse(TgUpdate *u, json_object *json)
 	if (json_object_object_get_ex(json, "update_id", &update_id_obj) == 0)
 		return -1;
 
+	u->id = json_object_get_int64(update_id_obj);
+
+
 	json_object *message_obj;
 	if (json_object_object_get_ex(json, "message", &message_obj) != 0) {
 		if (_parse_message(&u->message, message_obj) < 0)
@@ -140,7 +143,7 @@ tg_update_parse(TgUpdate *u, json_object *json)
 		}
 
 		u->type = TG_UPDATE_TYPE_MESSAGE;
-		goto out0;
+		return 0;
 	}
 
 	json_object *inline_obj;
@@ -149,7 +152,7 @@ tg_update_parse(TgUpdate *u, json_object *json)
 			return -1;
 
 		u->type = TG_UPDATE_TYPE_INLINE_QUERY;
-		goto out0;
+		return 0;
 	}
 
 	json_object *callback_query_obj;
@@ -158,11 +161,11 @@ tg_update_parse(TgUpdate *u, json_object *json)
 			return -1;
 
 		u->type = TG_UPDATE_TYPE_CALLBACK_QUERY;
+		return 0;
 	}
 
-out0:
-	u->id = json_object_get_int64(update_id_obj);
-	return 0;
+	u->type = TG_UPDATE_TYPE_UNKNOWN;
+	return -1;
 }
 
 
@@ -211,58 +214,74 @@ _parse_message(TgMessage *m, json_object *message_obj)
 		m->caption = json_object_get_string(capt_obj);
 
 	json_object *from_obj;
-	if (json_object_object_get_ex(message_obj, "from", &from_obj) != 0)
-		_parse_user(&m->from, from_obj);
+	if (json_object_object_get_ex(message_obj, "from", &from_obj) != 0) {
+		if (_parse_user(&m->from, from_obj) < 0)
+			return -1;
+	}
 
-	m->id = json_object_get_int64(id_obj);
-	m->date = json_object_get_int64(date_obj);
+	if (_parse_message_type(m, message_obj) < 0)
+		goto err0;
 
-	_parse_message_type(m, message_obj);
+	if (_parse_message_entities(m, message_obj) < 0)
+		goto err0;
 
-	_parse_message_entities(m, message_obj);
 	if ((m->entities != NULL) && (m->entities->type == TG_MESSAGE_ENTITY_TYPE_BOT_CMD))
 		m->type = TG_MESSAGE_TYPE_COMMAND;
 
-	return _parse_chat(&m->chat, chat_obj);
+	if (_parse_chat(&m->chat, chat_obj) < 0)
+		goto err0;
+
+	m->id = json_object_get_int64(id_obj);
+	m->date = json_object_get_int64(date_obj);
+	return 0;
+
+err0:
+	_free_message(m);
+	return -1;
 }
 
 
-static void
+/* TODO */
+static int
 _parse_message_type(TgMessage *m, json_object *message_obj)
 {
 	json_object *obj;
 
 	/* guess all possibilities */
 	if (json_object_object_get_ex(message_obj, "audio", &obj) != 0) {
+		if (_parse_audio(&m->audio, obj) < 0)
+			return -1;
+
 		m->type = TG_MESSAGE_TYPE_AUDIO;
-		_parse_audio(&m->audio, obj);
-		return;
+		return 0;
 	}
 
 	if (json_object_object_get_ex(message_obj, "document", &obj) != 0) {
+		if (_parse_document(&m->document, obj) < 0)
+			return -1;
+
 		m->type = TG_MESSAGE_TYPE_DOCUMENT;
-		_parse_document(&m->document, obj);
-		return;
+		return 0;
 	}
 
 	if (json_object_object_get_ex(message_obj, "video", &obj) != 0) {
+		if (_parse_video(&m->video, obj) < 0)
+			return -1;
+
 		m->type = TG_MESSAGE_TYPE_VIDEO;
-		_parse_video(&m->video, obj);
-		return;
+		return 0;
 	}
 
 	if (json_object_object_get_ex(message_obj, "text", &obj) != 0) {
-		m->type = TG_MESSAGE_TYPE_TEXT;
 		_parse_text(&m->text, obj);
-		return;
+		m->type = TG_MESSAGE_TYPE_TEXT;
+		return 0;
 	}
 
 	if (json_object_object_get_ex(message_obj, "photo", &obj) != 0) {
-		m->type = TG_MESSAGE_TYPE_PHOTO;
-
 		array_list *const list = json_object_get_array(obj);
 		if (list == NULL)
-			return;
+			return -1;
 
 		const size_t len = array_list_length(list) + 1; /* +1: NULL "id" */
 		TgPhotoSize *const photo = calloc(len, sizeof(TgPhotoSize));
@@ -277,33 +296,37 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 		}
 
 		m->photo = photo;
-		return;
+		m->type = TG_MESSAGE_TYPE_PHOTO;
+		return 0;
 	}
 
 	if (json_object_object_get_ex(message_obj, "sticker", &obj) != 0) {
+		if (_parse_sticker(&m->sticker, obj) < 0)
+			return -1;
+
 		m->type = TG_MESSAGE_TYPE_STICKER;
-		_parse_sticker(&m->sticker, obj);
-		return;
+		return 0;
 	}
 
 	m->type = TG_MESSAGE_TYPE_UNKNOWN;
+	return -1;
 }
 
 
-static void
+static int
 _parse_audio(TgAudio *a, json_object *audio_obj)
 {
 	json_object *id_obj;
 	if (json_object_object_get_ex(audio_obj, "file_id", &id_obj) == 0)
-		return;
+		return -1;
 
 	json_object *uid_obj;
 	if (json_object_object_get_ex(audio_obj, "file_unique_id", &uid_obj) == 0)
-		return;
+		return -1;
 
 	json_object *duration_obj;
 	if (json_object_object_get_ex(audio_obj, "duration", &duration_obj) == 0)
-		return;
+		return -1;
 
 	json_object *obj;
 	if (json_object_object_get_ex(audio_obj, "file_name", &obj) != 0)
@@ -324,19 +347,20 @@ _parse_audio(TgAudio *a, json_object *audio_obj)
 	a->id = json_object_get_string(id_obj);
 	a->uid = json_object_get_string(uid_obj);
 	a->duration = json_object_get_int64(duration_obj);
+	return 0;
 }
 
 
-static void
+static int
 _parse_document(TgDocument *d, json_object *doc_obj)
 {
 	json_object *id_obj;
 	if (json_object_object_get_ex(doc_obj, "file_id", &id_obj) == 0)
-		return;
+		return -1;
 
 	json_object *uid_obj;
 	if (json_object_object_get_ex(doc_obj, "file_unique_id", &uid_obj) == 0)
-		return;
+		return -1;
 
 	json_object *obj;
 	if (json_object_object_get_ex(doc_obj, "file_name", &obj) != 0)
@@ -350,31 +374,32 @@ _parse_document(TgDocument *d, json_object *doc_obj)
 
 	d->id = json_object_get_string(id_obj);
 	d->uid = json_object_get_string(uid_obj);
+	return 0;
 }
 
 
-static void
+static int
 _parse_video(TgVideo *v, json_object *video_obj)
 {
 	json_object *id_obj;
 	if (json_object_object_get_ex(video_obj, "file_id", &id_obj) == 0)
-		return;
+		return -1;
 
 	json_object *uid_obj;
 	if (json_object_object_get_ex(video_obj, "file_unique_id", &uid_obj) == 0)
-		return;
+		return -1;
 
 	json_object *duration_obj;
 	if (json_object_object_get_ex(video_obj, "duration", &duration_obj) == 0)
-		return;
+		return -1;
 
 	json_object *width_obj;
 	if (json_object_object_get_ex(video_obj, "width", &width_obj) == 0)
-		return;
+		return -1;
 
 	json_object *height_obj;
 	if (json_object_object_get_ex(video_obj, "height", &height_obj) == 0)
-		return;
+		return -1;
 
 	json_object *obj;
 	if (json_object_object_get_ex(video_obj, "file_name", &obj) != 0)
@@ -391,6 +416,7 @@ _parse_video(TgVideo *v, json_object *video_obj)
 	v->duration = json_object_get_int64(duration_obj);
 	v->width = json_object_get_int64(width_obj);
 	v->height = json_object_get_int64(height_obj);
+	return 0;
 }
 
 
@@ -432,36 +458,36 @@ _parse_photo(TgPhotoSize *p, json_object *photo_obj)
 }
 
 
-static void
+static int
 _parse_sticker(TgSticker *s, json_object *sticker_obj)
 {
 	json_object *id_obj;
 	if (json_object_object_get_ex(sticker_obj, "file_id", &id_obj) == 0)
-		return;
+		return -1;
 
 	json_object *uid_obj;
 	if (json_object_object_get_ex(sticker_obj, "file_unique_id", &uid_obj) == 0)
-		return;
+		return -1;
 
 	json_object *type_obj;
 	if (json_object_object_get_ex(sticker_obj, "type", &type_obj) == 0)
-		return;
+		return -1;
 
 	json_object *width_obj;
 	if (json_object_object_get_ex(sticker_obj, "width", &width_obj) == 0)
-		return;
+		return -1;
 
 	json_object *height_obj;
 	if (json_object_object_get_ex(sticker_obj, "height", &height_obj) == 0)
-		return;
+		return -1;
 
 	json_object *is_animated_obj;
 	if (json_object_object_get_ex(sticker_obj, "is_animated", &is_animated_obj) == 0)
-		return;
+		return -1;
 
 	json_object *is_video_obj;
 	if (json_object_object_get_ex(sticker_obj, "is_video", &is_video_obj) == 0)
-		return;
+		return -1;
 
 	json_object *obj;
 	if (json_object_object_get_ex(sticker_obj, "thumbnail", &obj) != 0) {
@@ -504,24 +530,25 @@ _parse_sticker(TgSticker *s, json_object *sticker_obj)
 	s->height = json_object_get_int64(height_obj);
 	s->is_animated = json_object_get_boolean(is_animated_obj);
 	s->is_video = json_object_get_boolean(is_video_obj);
+	return 0;
 }
 
 
-static void
+static int
 _parse_message_entities(TgMessage *m, json_object *message_obj)
 {
 	json_object *ents_obj;
 	if (json_object_object_get_ex(message_obj, "entities", &ents_obj) == 0)
-		return;
+		return -1;
 
 	array_list *const list = json_object_get_array(ents_obj);
 	if (list == NULL)
-		return;
+		return -1;
 
 	const size_t len = array_list_length(list);
 	TgMessageEntity *const ents = calloc(len, sizeof(TgMessageEntity));
 	if (ents == NULL)
-		return;
+		return -1;
 
 	size_t i = 0;
 	for (size_t j = 0; j < len; j++) {
@@ -601,6 +628,7 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 
 	m->entities = ents;
 	m->entities_len = i;
+	return 0;
 }
 
 
@@ -673,8 +701,7 @@ _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj)
 
 	c->id = json_object_get_int64(id_obj);
 	c->chat_instance = json_object_get_string(chat_instance_obj);
-	_parse_user(&c->from, from_obj);
-	return 0;
+	return _parse_user(&c->from, from_obj);
 }
 
 
@@ -715,25 +742,24 @@ _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj)
 	i->id = json_object_get_int64(id_obj);
 	i->query = json_object_get_string(query_obj);
 	i->offset = json_object_get_string(offset_obj);
-	_parse_user(&i->from, from_obj);
-	return 0;
+	return _parse_user(&i->from, from_obj);
 }
 
 
-static void
+static int
 _parse_user(TgUser **u, json_object *user_obj)
 {
 	json_object *id_obj;
 	if (json_object_object_get_ex(user_obj, "id", &id_obj) == 0)
-		return;
+		return -1;
 
 	json_object *is_bot_obj;
 	if (json_object_object_get_ex(user_obj, "is_bot", &is_bot_obj) == 0)
-		return;
+		return -1;
 
 	TgUser *const user = calloc(1, sizeof(TgUser));
 	if (user == NULL)
-		return;
+		return -1;
 
 	json_object *obj;
 	if (json_object_object_get_ex(user_obj, "username", &obj) != 0)
@@ -752,6 +778,7 @@ _parse_user(TgUser **u, json_object *user_obj)
 	user->is_bot = json_object_get_boolean(is_bot_obj);
 
 	*u = user;
+	return 0;
 }
 
 
