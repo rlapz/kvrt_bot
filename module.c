@@ -10,14 +10,16 @@
 #include "builtin/general.h"
 
 
+/* ret: 0: command not found */
 static int  _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 				    json_object *json_obj, const char args[]);
+/* ret: 0: command not found */
 static int  _external_handle_command(Module *m, const char cmd[], const TgMessage *msg,
 				     json_object *json_obj, const char args[]);
 
 
 int
- module_init(Module *m, TgApi *api, Db *db)
+module_init(Module *m, TgApi *api, Db *db)
 {
 	const int ret = str_init_alloc(&m->str, 1024);
 	if (ret < 0) {
@@ -52,10 +54,10 @@ void
 module_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
 		      const char args[])
 {
-	if (_builtin_handle_command(m, cmd, msg, json_obj, args) == 0)
+	if (_builtin_handle_command(m, cmd, msg, json_obj, args))
 		return;
 
-	if (_external_handle_command(m, cmd, msg, json_obj, args) == 0)
+	if (_external_handle_command(m, cmd, msg, json_obj, args))
 		return;
 
 	general_inval(m, msg);
@@ -96,10 +98,10 @@ _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_
 	else if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
 	else
-		return -1;
+		return 0;
 
 	(void)args;
-	return 0;
+	return 1;
 }
 
 
@@ -112,5 +114,5 @@ _external_handle_command(Module *m, const char cmd[], const TgMessage *msg, json
 	(void)msg;
 	(void)json_obj;
 	(void)args;
-	return -1;
+	return 0;
 }
