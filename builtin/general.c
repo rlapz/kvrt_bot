@@ -1,7 +1,6 @@
+#include <strings.h>
+
 #include "general.h"
-
-
-static void _test_help(Module *m, const TgMessage *message);
 
 
 /*
@@ -61,12 +60,24 @@ general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 void
 general_test(Module *m, const TgMessage *message, const char args[])
 {
-	if ((args == NULL) || (args[0] == '\0')) {
-		_test_help(m, message);
-		return;
+	const char *ret = NULL;
+	if (strcasecmp(args, "link") == 0)
+		ret = "link: https://telegram.org";
+
+	if (strcasecmp(args, "button") == 0)
+		ret = "button: [TODO]";
+
+	if (strcasecmp(args, "picture") == 0)
+		ret = "picture: [TODO]";
+
+	if (ret == NULL) {
+		ret = "Available 'test': \n"
+		       "1. Link - Send website link\n"
+		       "2. Button - Send button\n"
+		       "3. Picture - Send picture\n" ;
 	}
 
-	/* TODO */
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, ret);
 }
 
 
@@ -87,18 +98,3 @@ general_inval(Module *m, const TgMessage *message)
 /*
  * private
  */
-static void
-_test_help(Module *m, const TgMessage *message)
-{
-	const char *const opts =
-		"Available 'test': \n"
-		"1. TODO\n"
-		"2. TODO\n"
-		"3. TODO\n" ;
-
-	const char *const resp = str_set_fmt(&m->str, opts);
-	if (resp == NULL)
-		return;
-
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-}
