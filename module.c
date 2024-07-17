@@ -97,6 +97,8 @@ _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_
 		general_settings(m, msg, args);
 	else if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
+	else if (strcmp(cmd, "/test") == 0)
+		general_test(m, msg, args);
 	else
 		return 0;
 
