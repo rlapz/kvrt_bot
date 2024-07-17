@@ -90,17 +90,16 @@ _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_
 			const char args[])
 {
 	if (strcmp(cmd, "/start") == 0)
-		general_start(m, msg);
+		general_start(m, msg, args);
 	else if (strcmp(cmd, "/help") == 0)
-		general_help(m, msg);
+		general_help(m, msg, args);
 	else if (strcmp(cmd, "/settings") == 0)
-		general_settings(m, msg);
+		general_settings(m, msg, args);
 	else if (strcmp(cmd, "/dump") == 0)
 		general_dump(m, msg, json_obj);
 	else
 		return 0;
 
-	(void)args;
 	return 1;
 }
 

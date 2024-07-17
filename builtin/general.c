@@ -2,35 +2,41 @@
 
 
 void
-general_start(Module *m, const TgMessage *message)
+general_start(Module *m, const TgMessage *message, const char args[])
 {
 	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /start`");
 	if (resp == NULL)
 		return;
 
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+
+	(void)args;
 }
 
 
 void
-general_help(Module *m, const TgMessage *message)
+general_help(Module *m, const TgMessage *message, const char args[])
 {
 	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /help`");
 	if (resp == NULL)
 		return;
 
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+
+	(void)args;
 }
 
 
 void
-general_settings(Module *m, const TgMessage *message)
+general_settings(Module *m, const TgMessage *message, const char args[])
 {
 	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /settings`");
 	if (resp == NULL)
 		return;
 
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+
+	(void)args;
 }
 
 
