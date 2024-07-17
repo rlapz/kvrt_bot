@@ -78,6 +78,7 @@ kvrt_bot_init(KvrtBot *k)
 	while (i--) {
 		k->clients.slots[i] = i;
 		k->clients.list[i].fd = -1;
+		buffer_init(&k->clients.list[i].buffer_in, CFG_CLIENT_BUFFER_IN_MAX);
 	}
 
 	if (config_load_from_env(&k->config) < 0)
@@ -99,8 +100,7 @@ kvrt_bot_deinit(KvrtBot *k)
 	unsigned i = CFG_CLIENTS_MAX;
 	while (i--) {
 		KvrtBotClient *const client = &k->clients.list[i];
-		if (client->is_buffer_ready)
-			buffer_deinit(&client->buffer_in);
+		buffer_deinit(&client->buffer_in);
 
 		if (client->fd > 0)
 			close(client->fd);
@@ -246,14 +246,12 @@ _run_event_loop(KvrtBot *k)
 		return -1;
 	}
 
-	k->event_fd = event_fd;
-
 	const int fd = _create_listener(k);
 	if (fd < 0)
 		goto out0;
 
+	k->event_fd = event_fd;
 	k->listen_fd = fd;
-
 	event.data.ptr = k;
 	if (epoll_ctl(event_fd, EPOLL_CTL_ADD, fd, &event) < 0) {
 		log_err(errno, "kvrt_bot: _run_event_loop: epoll_ctl: listener");
@@ -295,7 +293,6 @@ out0:
 static void
 _add_client(KvrtBot *k)
 {
-	int ret;
 	const int cfd = accept(k->listen_fd, NULL, NULL);
 	if (cfd < 0) {
 		log_err(errno, "kvrt_bot: _add_client: accept");
@@ -305,29 +302,18 @@ _add_client(KvrtBot *k)
 	KvrtBotClientStack *const st = &k->clients;
 	if (st->count == CFG_CLIENTS_MAX) {
 		log_err(ENOMEM, "kvrt_bot: _add_client: pending connection(s): %u", st->count);
-		goto err0;
+		close(cfd);
+		return;
 	}
 
 	const unsigned slot = st->slots[st->count];
 	KvrtBotClient *const cl = &st->list[slot];
-	if (cl->is_buffer_ready == 0) {
-		ret = buffer_init(&cl->buffer_in, CFG_CLIENT_BUFFER_IN_MIN, CFG_CLIENT_BUFFER_IN_MAX);
-		if (ret < 0) {
-			log_err(ret, "kvrt_bot: _add_client: buffer_init");
-			goto err0;
-		}
-
-		log_debug("kvrt_bot: _add_client: buffer_init: %p: %zu", (void *)cl,
-			  cl->buffer_in.size);
-
-		cl->is_buffer_ready = 1;
-	}
-
 	cl->event.events = EPOLLIN;
 	cl->event.data.ptr = cl;
 	if (epoll_ctl(k->event_fd, EPOLL_CTL_ADD, cfd, &cl->event) < 0) {
 		log_err(errno, "kvrt_bot: _add_client: epoll_ctl");
-		goto err0;
+		close(cfd);
+		return;
 	}
 
 	log_debug("kvrt_bot: _add_client: %u, %p", slot, (void *)cl);
@@ -337,14 +323,9 @@ _add_client(KvrtBot *k)
 	cl->req_body_offt = 0;
 	cl->req_body_json = NULL;
 	cl->req_total_len = 0;
-	cl->is_req_valid = 0;
 	cl->bytes = 0;
 	cl->state = STATE_REQUEST_HEADER;
 	st->count++;
-	return;
-
-err0:
-	close(cfd);
 }
 
 
@@ -361,8 +342,6 @@ _del_client(KvrtBot *k, KvrtBotClient *client)
 
 	close(client->fd);
 	client->fd = -1;
-
-	json_object_put(client->req_body_json);
 }
 
 
@@ -413,10 +392,6 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 		return STATE_FINISH;
 	}
 
-#ifdef DEBUG
-	if (ret == 1)
-		log_debug("kvrt_bot: _state_request_header: rebuffer_size 0: realloc: %zu", recvd);
-#endif
 
 	char *const buf = client->buffer_in.mem;
 	const size_t buf_size = client->buffer_in.size;
@@ -456,13 +431,6 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 			log_err(ret, "kvrt_bot: _state_request_header: buffer_resize");
 			return STATE_FINISH;
 		}
-
-#ifdef DEBUG
-		if (ret == 1) {
-			log_debug("kvrt_bot: _state_request_header: buffer_resize 1: realloc: %zu",
-				  client->req_total_len);
-		}
-#endif
 
 		return STATE_REQUEST_BODY;
 	}
@@ -613,13 +581,10 @@ static void
 _state_request_body_parse(KvrtBotClient *c)
 {
 	json_object *const json = json_tokener_parse(c->buffer_in.mem + c->req_body_offt);
-	if (json == NULL) {
+	if (json == NULL)
 		log_err(0, "kvrt_bot: _state_request_body_verify: json_tokene_parse: failed to parse");
-		return;
-	}
 
 	c->req_body_json = json;
-	c->is_req_valid = 1;
 }
 
 
@@ -680,7 +645,7 @@ _state_response(KvrtBotClient *client)
 {
 	const char *buf = CFG_EVENT_RESPONSE_OK;
 	size_t len = sizeof(CFG_EVENT_RESPONSE_OK) - 1;
-	if (client->is_req_valid == 0) {
+	if (client->req_body_json == NULL) {
 		buf = CFG_EVENT_RESPONSE_ERR;
 		len = sizeof(CFG_EVENT_RESPONSE_ERR) - 1;
 	}
@@ -718,7 +683,7 @@ _state_response(KvrtBotClient *client)
 static void
 _state_finish(KvrtBot *k, KvrtBotClient *client)
 {
-	if ((client->is_req_valid == 0) || (client->req_body_json == NULL)) {
+	if (client->req_body_json == NULL) {
 		_del_client(k, client);
 		return;
 	}
@@ -730,7 +695,6 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 		json_object_put(client->req_body_json);
 	}
 
-	client->req_body_json = NULL;
 	_del_client(k, client);
 }
 

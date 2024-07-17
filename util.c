@@ -329,21 +329,12 @@ str_reset(Str *s, size_t offt)
 /*
  * Buffer
  */
-int
-buffer_init(Buffer *b, size_t init_size, size_t max_size)
+void
+buffer_init(Buffer *b, size_t max_size)
 {
-	if (init_size > max_size)
-		return -EINVAL;
-
-	char *const mem = malloc(init_size);
-	if (mem == NULL)
-		return -ENOMEM;
-
-	mem[0] = '\0';
-	b->mem = mem;
-	b->size = init_size;
+	b->mem = NULL;
+	b->size = 0;
 	b->max_size = max_size;
-	return 0;
 }
 
 

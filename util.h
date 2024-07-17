@@ -50,7 +50,7 @@ typedef struct buffer {
 	size_t  max_size;
 } Buffer;
 
-int  buffer_init(Buffer *b, size_t init_size, size_t max_size);
+void buffer_init(Buffer *b, size_t max_size);
 void buffer_deinit(Buffer *b);
 int  buffer_resize(Buffer *b, size_t len);
 

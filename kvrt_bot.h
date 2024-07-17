@@ -17,8 +17,6 @@ typedef struct kvrt_bot_client {
 	int          fd;
 	unsigned     slot;
 	int          state;
-	int          is_buffer_ready;
-	int          is_req_valid;
 	int          req_body_offt;
 	size_t       req_total_len;
 	json_object *req_body_json;
