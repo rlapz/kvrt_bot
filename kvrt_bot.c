@@ -24,12 +24,12 @@
 #define HTTP_REQUEST_HEADER_LEN (16)
 
 
-enum {
+typedef enum state {
 	STATE_REQUEST_HEADER,
 	STATE_REQUEST_BODY,
 	STATE_RESPONSE,
 	STATE_FINISH,
-};
+} State;
 
 
 typedef struct http_request {
@@ -43,22 +43,22 @@ typedef struct http_request {
 } HttpRequest;
 
 
-static int  _create_listener(KvrtBot *k);
-static int  _run_event_loop(KvrtBot *k);
-static void _add_client(KvrtBot *k);
-static void _del_client(KvrtBot *k, KvrtBotClient *client);
-static void _handle_client_state(KvrtBot *k, KvrtBotClient *client);
-static int  _state_request_header(KvrtBot *k, KvrtBotClient *client);
-static int  _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[],
-					size_t len, size_t last_len);
-static int  _state_request_header_validate(const Config *c, const HttpRequest *req,
-					   size_t *content_len);
-static void _state_request_body_parse(KvrtBotClient *c);
-static int  _state_request_body(KvrtBot *k, KvrtBotClient *client);
-static int  _state_response_prepare(KvrtBot *k, KvrtBotClient *client);
-static int  _state_response(KvrtBotClient *client);
-static void _state_finish(KvrtBot *k, KvrtBotClient *client);
-static void _request_handler_fn(void *json_obj, void *udata1);
+static int    _create_listener(KvrtBot *k);
+static int    _run_event_loop(KvrtBot *k);
+static void   _add_client(KvrtBot *k);
+static void   _del_client(KvrtBot *k, KvrtBotClient *client);
+static void   _handle_client_state(KvrtBot *k, KvrtBotClient *client);
+static State  _state_request_header(KvrtBot *k, KvrtBotClient *client);
+static int    _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[],
+					  size_t len, size_t last_len);
+static int    _state_request_header_validate(const Config *c, const HttpRequest *req,
+					     size_t *content_len);
+static void   _state_request_body_parse(KvrtBotClient *c);
+static State  _state_request_body(KvrtBot *k, KvrtBotClient *client);
+static State  _state_response_prepare(KvrtBot *k, KvrtBotClient *client);
+static State  _state_response(KvrtBotClient *client);
+static void   _state_finish(KvrtBot *k, KvrtBotClient *client);
+static void   _request_handler_fn(void *json_obj, void *udata1);
 
 
 /*
@@ -382,7 +382,7 @@ _handle_client_state(KvrtBot *k, KvrtBotClient *client)
 }
 
 
-static int
+static State
 _state_request_header(KvrtBot *k, KvrtBotClient *client)
 {
 	const size_t recvd = client->bytes;
@@ -588,7 +588,7 @@ _state_request_body_parse(KvrtBotClient *c)
 }
 
 
-static int
+static State
 _state_request_body(KvrtBot *k, KvrtBotClient *client)
 {
 	char *const buf = client->buffer_in.mem;
@@ -625,7 +625,7 @@ _state_request_body(KvrtBot *k, KvrtBotClient *client)
 }
 
 
-static int
+static State
 _state_response_prepare(KvrtBot *k, KvrtBotClient *client)
 {
 	client->event.events = EPOLLOUT;
@@ -640,7 +640,7 @@ _state_response_prepare(KvrtBot *k, KvrtBotClient *client)
 }
 
 
-static int
+static State
 _state_response(KvrtBotClient *client)
 {
 	const char *buf = CFG_EVENT_RESPONSE_OK;
