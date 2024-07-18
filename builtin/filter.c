@@ -1,16 +1,16 @@
 #include <string.h>
 
-#include "anti_lewd.h"
+#include "filter.h"
 
 
 void
-anti_lewd_detect_text(Module *m, const TgMessage *msg, const char text[])
+filter_text(Module *m, const TgMessage *msg, const char text[])
 {
 	// TODO
 	if (strstr(text, " anu ") == NULL)
 		return;
 
-	const char *const resp = str_set_fmt(&m->str, "TODO: handle 'lewd' text");
+	const char *const resp = str_set_fmt(&m->str, "TODO: handle 'filter'");
 	if (resp == NULL)
 		return;
 

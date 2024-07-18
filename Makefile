@@ -16,7 +16,7 @@ CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SO
 LFLAGS   := -lcurl -ljson-c -lsqlite3
 SRC      := main.c kvrt_bot.c util.c config.c thrd_pool.c tg.c tg_api.c update_manager.c \
 			picohttpparser.c db.c \
-		    module.c builtin/general.c builtin/anti_lewd.c
+		    module.c builtin/general.c builtin/filter.c
 OBJ      := $(SRC:.c=.o)
 
 

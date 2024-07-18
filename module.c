@@ -6,7 +6,7 @@
 #include "tg_api.h"
 #include "util.h"
 
-#include "builtin/anti_lewd.h"
+#include "builtin/filter.h"
 #include "builtin/general.h"
 
 
@@ -44,7 +44,7 @@ void
 module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 {
 	const char *const text = msg->text.text;
-	anti_lewd_detect_text(m, msg, text);
+	filter_text(m, msg, text);
 
 	(void)json_obj;
 }
