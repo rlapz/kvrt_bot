@@ -63,11 +63,9 @@ general_test(Module *m, const TgMessage *message, const char args[])
 	const char *ret = NULL;
 	if (strcasecmp(args, "link") == 0)
 		ret = "link: https://telegram.org";
-
-	if (strcasecmp(args, "button") == 0)
+	else if (strcasecmp(args, "button") == 0)
 		ret = "button: [TODO]";
-
-	if (strcasecmp(args, "picture") == 0)
+	else if (strcasecmp(args, "picture") == 0)
 		ret = "picture: [TODO]";
 
 	if (ret == NULL) {
