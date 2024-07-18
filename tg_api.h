@@ -16,10 +16,8 @@ typedef enum tg_api_text_type {
 
 typedef struct tg_api {
 	const char *api;
-	size_t      api_offt;
 	CURL       *curl;
-	Str         str_compose;
-	Str         str_response;
+	Str         str;
 } TgApi;
 
 int  tg_api_init(TgApi *t, const char base_api[]);

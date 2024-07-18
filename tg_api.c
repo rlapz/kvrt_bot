@@ -23,34 +23,20 @@ static int    _curl_request_get(TgApi *t, const char url[]);
 int
 tg_api_init(TgApi *t, const char base_api[])
 {
-	int ret = str_init_alloc(&t->str_compose, 1024);
+	int ret = str_init_alloc(&t->str, 1024);
 	if (ret < 0) {
 		log_err(ret, "tg_api: tg_api_init: str_init_alloc");
 		return ret;
 	}
 
-	if (str_set_n(&t->str_compose, base_api, strlen(base_api)) == NULL) {
-		log_err(errno, "tg_api: tg_api_init: str_set_n: base api: |%s|", base_api);
-		goto err0;
-	}
-
-	ret = str_init_alloc(&t->str_response, 1024);
-	if (ret < 0) {
-		log_err(ret, "tg_api: tg_api_init: str_init_alloc: str_response");
-		goto err0;
-	}
-
 	if (_curl_init(t) < 0)
-		goto err1;
+		goto err0;
 
 	t->api = base_api;
-	t->api_offt = t->str_compose.len;
 	return 0;
 
-err1:
-	str_deinit(&t->str_response);
 err0:
-	str_deinit(&t->str_compose);
+	str_deinit(&t->str);
 	return -1;
 }
 
@@ -58,8 +44,7 @@ err0:
 void
 tg_api_deinit(TgApi *t)
 {
-	str_deinit(&t->str_response);
-	str_deinit(&t->str_compose);
+	str_deinit(&t->str);
 	_curl_deinit(t);
 }
 
@@ -82,23 +67,22 @@ tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *r
 		return -1;
 	}
 
-	str_reset(&t->str_compose, t->api_offt);
-	req = str_append_fmt(&t->str_compose, "sendMessage?chat_id=%" PRIi64, chat_id);
+	req = str_set_fmt(&t->str, "%s/sendMessage?chat_id=%" PRIi64, t->api, chat_id);
 	if (req == NULL)
 		goto out1;
 
 	if (reply_to != NULL) {
-		req = str_append_fmt(&t->str_compose, "&reply_to_message_id=%" PRIi64, *reply_to);
+		req = str_append_fmt(&t->str, "&reply_to_message_id=%" PRIi64, *reply_to);
 		if (req == NULL)
 			goto out1;
 	}
 
 	switch (type) {
 	case TG_API_TEXT_TYPE_PLAIN:
-		req = str_append_fmt(&t->str_compose, "&text=%s", e_text);
+		req = str_append_fmt(&t->str, "&text=%s", e_text);
 		break;
 	case TG_API_TEXT_TYPE_FORMAT:
-		req = str_append_fmt(&t->str_compose, "&parse_mode=MarkdownV2&text=%s", e_text);
+		req = str_append_fmt(&t->str, "&parse_mode=MarkdownV2&text=%s", e_text);
 		break;
 	default:
 		log_err(0, "tg_api: tg_api_send_text: invalid type option");
@@ -164,8 +148,8 @@ _curl_request_get(TgApi *t, const char url[])
 	curl_easy_setopt(t->curl, CURLOPT_URL, url);
 	curl_easy_setopt(t->curl, CURLOPT_WRITEFUNCTION, _curl_writer_fn);
 
-	str_reset(&t->str_response, 0);
-	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str_response);
+	str_reset(&t->str, 0);
+	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str);
 
 	const CURLcode res = curl_easy_perform(t->curl);
 	if (res != CURLE_OK) {
@@ -175,9 +159,9 @@ _curl_request_get(TgApi *t, const char url[])
 
 
 #ifdef DEBUG
-	json_object *const json = json_tokener_parse(t->str_response.cstr);
+	json_object *const json = json_tokener_parse(t->str.cstr);
 	if (json == NULL) {
-		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---", t->str_response.cstr);
+		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---", t->str.cstr);
 	} else {
 		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---",
 			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));

@@ -138,7 +138,7 @@ kvrt_bot_run(KvrtBot *k)
 		goto out0;
 	}
 
-	const char *const api = str_set_fmt(&str_api, "%s%s/", CFG_TELEGRAM_API, cfg->api_token);
+	const char *const api = str_set_fmt(&str_api, "%s%s", CFG_TELEGRAM_API, cfg->api_token);
 	if (api == NULL) {
 		ret = -1;
 		log_err(errno, "kvrt_bot: kvrt_bot_run: str_set_fmt: str api");
