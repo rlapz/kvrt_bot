@@ -61,21 +61,26 @@ void
 general_test(Module *m, const TgMessage *message, const char args[])
 {
 	const char *ret = NULL;
-	if (strcasecmp(args, "link") == 0)
+	if (strcasecmp(args, "link") == 0) {
 		ret = "link: https://telegram.org";
-	else if (strcasecmp(args, "button") == 0)
+	} else if (strcasecmp(args, "button") == 0) {
 		ret = "button: [TODO]";
-	else if (strcasecmp(args, "picture") == 0)
-		ret = "picture: [TODO]";
-
-	if (ret == NULL) {
-		ret = "Available 'test': \n"
-		       "1. Link - Send website link\n"
-		       "2. Button - Send button\n"
-		       "3. Picture - Send picture\n" ;
+	} else if (strcasecmp(args, "photo") == 0) {
+		tg_api_send_photo(m->api, TG_API_PHOTO_TYPE_LINK, message->chat.id, &message->id,
+				  "A cat\nsrc: https://cdn.freecodecamp.org/curriculum/cat-photo-app/relaxing-cat.jpg",
+				  "https://cdn.freecodecamp.org/curriculum/cat-photo-app/relaxing-cat.jpg");
+		return;
 	}
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, ret);
+	if (ret == NULL) {
+		ret = "```\nAvailable 'test': \n"
+		       "1. Link   - Send a website link\n"
+		       "2. Button - Send buttons\n"
+		       "3. Photo  - Send a photo\n"
+		       "```";
+	}
+
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, ret);
 }
 
 
