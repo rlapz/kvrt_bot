@@ -24,7 +24,7 @@ typedef struct tg_user {
 
 /* Chat */
 typedef enum tg_chat_type {
-	TG_CHAT_TYPE_PRIVATE,
+	TG_CHAT_TYPE_PRIVATE = 0,
 	TG_CHAT_TYPE_GROUP,
 	TG_CHAT_TYPE_SUPERGROUP,
 	TG_CHAT_TYPE_CHANNEL,
@@ -43,6 +43,7 @@ typedef struct tg_chat {
 } TgChat;
 
 const char *tg_chat_type_str(TgChatType type);
+TgChatType  tg_chat_type_get(const char type_str[]);
 
 
 /*
@@ -111,7 +112,7 @@ typedef struct tg_video {
  * Sticker
  */
 typedef enum tg_sticker_type {
-	TG_STICKER_TYPE_REGULAR,
+	TG_STICKER_TYPE_REGULAR = 0,
 	TG_STICKER_TYPE_MASK,
 	TG_STICKER_TYPE_CUSTOM_EMOJI,
 	TG_STICKER_TYPE_UNKNWON,
@@ -139,7 +140,7 @@ const char * tg_sticker_type_str(TgStickerType type);
  * Message
  */
 typedef enum tg_message_entity_type {
-	TG_MESSAGE_ENTITY_TYPE_MENTION,
+	TG_MESSAGE_ENTITY_TYPE_MENTION = 0,
 	TG_MESSAGE_ENTITY_TYPE_HASHTAG,
 	TG_MESSAGE_ENTITY_TYPE_CASHTAG,
 	TG_MESSAGE_ENTITY_TYPE_BOT_CMD,
@@ -177,7 +178,7 @@ const char *tg_message_entity_type_str(TgMessageEntityType type);
 
 
 typedef enum tg_mesage_type {
-	TG_MESSAGE_TYPE_AUDIO,
+	TG_MESSAGE_TYPE_AUDIO = 0,
 	TG_MESSAGE_TYPE_DOCUMENT,
 	TG_MESSAGE_TYPE_VIDEO,
 	TG_MESSAGE_TYPE_TEXT,
@@ -238,7 +239,7 @@ typedef struct tg_inline_query {
  * Update
  */
 typedef enum tg_update_type {
-	TG_UPDATE_TYPE_MESSAGE,
+	TG_UPDATE_TYPE_MESSAGE = 0,
 	TG_UPDATE_TYPE_CALLBACK_QUERY,
 	TG_UPDATE_TYPE_INLINE_QUERY,
 	TG_UPDATE_TYPE_UNKNOWN,

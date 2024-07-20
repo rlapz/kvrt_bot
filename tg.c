@@ -43,6 +43,25 @@ tg_chat_type_str(TgChatType type)
 }
 
 
+TgChatType
+tg_chat_type_get(const char type_str[])
+{
+	if (strcmp(type_str, "private") == 0)
+		return TG_CHAT_TYPE_PRIVATE;
+
+	if (strcmp(type_str, "group") == 0)
+		return TG_CHAT_TYPE_GROUP;
+
+	if (strcmp(type_str, "supergroup") == 0)
+		return TG_CHAT_TYPE_SUPERGROUP;
+
+	if (strcmp(type_str, "channel") == 0)
+		return TG_CHAT_TYPE_CHANNEL;
+
+	return TG_CHAT_TYPE_UNKNOWN;
+}
+
+
 const char *
 tg_sticker_type_str(TgStickerType type)
 {
@@ -645,18 +664,6 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 	if (json_object_object_get_ex(chat_obj, "type", &type_obj) == 0)
 		return -1;
 
-	const char *const type_str = json_object_get_string(type_obj);
-	if (strcmp(type_str, "private") == 0)
-		c->type = TG_CHAT_TYPE_PRIVATE;
-	else if (strcmp(type_str, "group") == 0)
-		c->type = TG_CHAT_TYPE_GROUP;
-	else if (strcmp(type_str, "supergroup") == 0)
-		c->type = TG_CHAT_TYPE_SUPERGROUP;
-	else if (strcmp(type_str, "channel") == 0)
-		c->type = TG_CHAT_TYPE_CHANNEL;
-	else
-		c->type = TG_CHAT_TYPE_UNKNOWN;
-
 	json_object *obj;
 	if (json_object_object_get_ex(chat_obj, "title", &obj) != 0)
 		c->title = json_object_get_string(obj);
@@ -674,6 +681,7 @@ _parse_chat(TgChat *c, json_object *chat_obj)
 		c->is_forum = json_object_get_boolean(obj);
 
 	c->id = json_object_get_int64(id_obj);
+	c->type = tg_chat_type_get(json_object_get_string(type_obj));
 	return 0;
 }
 
