@@ -7,61 +7,78 @@
 #include <stddef.h>
 #include <sqlite3.h>
 
+#include "tg.h"
 
-typedef enum db_command_type {
-	DB_COMMAND_TYPE_SHARED,
-	DB_COMMAND_TYPE_SCRIPT,
-	DB_COMMAND_TYPE_UNKNOWN,
-} DbCommandType;
+
+/* BIG TODO!! */
 
 
 typedef struct db_user {
 	int64_t  id;
-	char    *username;
+	char    *name;
+	char    *first_name;
+	char    *last_name;
 } DbUser;
 
-typedef struct db_command {
-	DbCommandType  type;
-	int64_t        id;
-	char          *name;
-	char          *file;
-	int32_t        args_len;
-	char          *args[];
-} DbCommand;
+typedef struct db_bot {
+	int64_t  id;
+	char    *name;
+	DbUser   owner;
+} DbBot;
 
 typedef struct db_chat {
-	int64_t    id;
-	char      *type;
-	char      *name;
-	size_t     admin_list_len;
-	DbUser    *admin_list;
-	size_t     blocked_users_len;
-	DbUser    *blocked_users;
-	size_t     allowed_commands_len;
-	DbCommand *allowed_commands;
+	int64_t     id;
+	TgChatType  type;
+	char       *name;
 } DbChat;
+
+typedef struct db_admin_rel {
+	int64_t id;
+	int64_t chat_id;
+	int64_t user_id;
+} DbAdmin;
+
+typedef struct db_cmd {
+	int32_t  id;
+	char    *name;
+	char    *file;
+} DbCmd;
+
+typedef struct db_cmd_arg {
+	int32_t  id;
+	char    *name;
+} DbCmdArg;
+
+
+typedef struct db_admin_role_rel {
+	int32_t  id;
+	int64_t  admin_id;
+	uint32_t roles;
+} DbAdminRoleRel;
+
+typedef struct db_cmd_rel {
+	int32_t id;
+	int32_t cmd_id;
+	int32_t cmd_arg_id;
+} DbCmdRel;
+
+typedef struct db_cmd_chat_rel {
+	int64_t id;
+	int64_t chat_id;
+	int32_t cmd_rel_id;
+	int32_t id_enable;
+} DbCmdChatRel;
+
 
 typedef struct db {
 	const char      *path;
 	sqlite3         *sql;
+	DbBot            bot;
 	pthread_mutex_t  mutex;
 } Db;
 
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
-
-int  db_chat_get_by_id(Db *d, DbChat *chat, int64_t id);
-int  db_chat_get_by_name(Db *d, DbChat *chat, const char name[]);
-int  db_chat_add_blocked_user(Db *d, int64_t id, int64_t user_id);
-int  db_chat_del_blocked_user(Db *d, int64_t id, int64_t user_id);
-int  db_chat_add_allowed_command(Db *d, int64_t id, int64_t cmd_id);
-int  db_chat_del_allowed_command(Db *d, int64_t id, int64_t cmd_id);
-
-int  db_command_add(Db *d, const char name[], const char path[], const char *args[], int32_t args_len);
-int  db_command_del(Db *d, int64_t id);
-int  db_command_disable(Db *d, int64_t id);
-int  db_command_get_by_id(Db *d, DbCommand *cmd, int64_t id);
-int  db_command_get_by_name(Db *d, DbCommand *cmd, const char name[]);
 
 
 #endif
