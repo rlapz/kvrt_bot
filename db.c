@@ -44,76 +44,141 @@ db_deinit(Db *d)
 }
 
 
+
+int
+db_owner_set(Db *d, int64_t bot_id, int64_t owner_id, const char name[])
+{
+	(void)d;
+	(void)bot_id;
+	(void)owner_id;
+	(void)name;
+	return 0;
+}
+
+
+int
+db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
+{
+	(void)d;
+	(void)chat_id;
+	(void)user_id;
+	(void)roles;
+	return 0;
+}
+
+
+int
+db_admin_ban_user(Db *d, int is_ban, int64_t chat_id, int64_t user_id)
+{
+	(void)d;
+	(void)is_ban;
+	(void)chat_id;
+	(void)user_id;
+	return 0;
+}
+
+
+int
+db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable)
+{
+	const char *const sql = "update a"
+					"set a.is_enable = ?"
+				"from Cmd_Chat as a"
+				"join Cmd as b"
+					"on (a.cmd_id = b.id)"
+				"where (b.name = ?) and (a.chat_id = ?);";
+
+	(void)sql;
+	(void)d;
+	(void)chat_id;
+	(void)name;
+	(void)is_enable;
+	return 0;
+}
+
+
+int
+db_cmd_get_by_name(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
+{
+	const char *const sql= "select a.name, a.file, a.args"
+				"from Cmd as a"
+				"join Cmd_Chat as b"
+					"on (a.id = b.chat_id)"
+				"where (a.name = ?) and (b.is_enable = true) and (b.chat_id = ?);";
+
+	(void)sql;
+	(void)d;
+	(void)cmd;
+	(void)chat_id;
+	(void)name;
+	return 0;
+}
+
+
 /*
  * Private
  */
 static int
 _create_tables(sqlite3 *s)
 {
-	const char user[] = "create table if not exists User("
-				"id         bigint primary key not null,"	/* telegram user id */
-				"name       varchar() unique not null,"		/* TODO */
-				"first_name varchar() not null,"		/* TODO */
-				"last_name  varchar() null"			/* TODO */
-			    ");";
-
-	const char bot[] = "create table if not exists Bot("
+	const char *const bot = "create table if not exists Bot("
 				"id       bigint unique not null,"		/* telegram bot id */
-				"name     varchar() unique not null,"		/* TODO */
-				"owner_id bigint not null"
-			   ");";
+				"owner_id bigint unique not null,"		/* telegram user id */
+				"name     varchar(32) unique not null);";
 
-	const char chat[] = "create table if not exists Chat("
-				"id   bigint unique not null,"			/* telegram chat id */
-				"type varchar(16) not null,"
-				"name varchar() unique not null"		/* TODO */
-			    ");";
+	const char *const admin = "create table if not exists Admin("
+				  "id      integer primary key autoincrement,"
+				  "chat_id bigint not null,"			/* telegram chat id */
+				  "user_id bigint not null,"			/* telegram user id */
+				  "roles   integer not null);";			/* O-Ring DbAdminRoleType */
 
-	const char admin[] = "create table if not exists Admin("
-				"id      integer primary key autoincrement,"
-				"chat_id bigint not null,"
-				"user_id bigint not null"
-			     ");";
+	const char *const cmd = "create table if not exists Cmd("
+				"id   integer primary key autoincrement,"
+				"name varchar(127) unique not null,"
+				"file varchar(1023) not null,"
+				"args integer not null);";			/* O-Ring DbCmdArgType */
 
-	const char cmd[] = "create table if not exists Cmd("
-				"id       integer primary key autoincrement,"
-				"name     varchar(128) unique not null,"
-				"filename varchar(1024) not null"
-			   ");";
+	const char *const chat_user = "create table if not exists Chat_User("
+				      "int     integer primary key autoincrement,"
+				      "chat_id bigint not null,"		/* telegram chat id */
+				      "user_id bigint not null,"		/* telegram user id */
+				      "is_ban  boolean not null);";
 
-	const char cmd_arg[] = "create table if not exists Cmd_Arg("
-					"id   integer primary key autoincrement,"
-					"name varchar(1024) not null"
-			       ");";
+	const char *const cmd_chat = "create table if not exists Cmd_Chat("
+				     "id        integer primary key autoincrement,"
+				     "cmd_id    integer not null,"
+				     "chat_id   bigint not null,"		/* telegram chat id */
+				     "is_enable boolean not null);";
 
-	const char admin_role_rel[] = "create table if not exists Admin_Role_Rel("
-					"id integer primary key autoincrement,"
-					"user_id bigint not null,"
-					"roles   varchar() not null"		/* TODO */
-				      ");";
+	char *err_msg;
+	if (sqlite3_exec(s, bot, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: bot: %s", err_msg);
+		goto err0;
+	}
 
-	const char cmd_rel[] = "create table if not exists Cmd_Rel("
-					"id         integer primary key autoincrement,"
-					"cmd_id     integer not null,"
-					"cmd_arg_id integer not null"
-			       ");";
+	if (sqlite3_exec(s, admin, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: admin: %s", err_msg);
+		goto err0;
+	}
 
-	const char cmd_chat_rel[] = "create table if not exits Cmd_Chat_Rel("
-					"id         integer primary key autoincrement,"
-					"chat_id    bigint not null,"
-					"cmd_rel_id integer not null,"
-					"is_enable  bit"
-				    ");";
+	if (sqlite3_exec(s, cmd, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: cmd: %s", err_msg);
+		goto err0;
+	}
 
-	(void)s;
-	(void)user;
-	(void)bot;
-	(void)chat;
-	(void)admin;
-	(void)cmd;
-	(void)cmd_arg;
-	(void)admin_role_rel;
-	(void)cmd_rel;
-	(void)cmd_chat_rel;
+	if (sqlite3_exec(s, chat_user, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: chat_user: %s", err_msg);
+		goto err0;
+	}
+
+	if (sqlite3_exec(s, cmd_chat, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: cmd_chat: %s", err_msg);
+		goto err0;
+	}
+
 	return 0;
+
+err0:
+	sqlite3_free(err_msg);
+	return -1;
 }
