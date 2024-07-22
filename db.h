@@ -39,7 +39,6 @@ typedef struct db_cmd {
 typedef struct db_bot {
 	int64_t id;				/* telegram bot id */
 	int64_t owner_id;			/* telegram user id */
-	char    name[64];
 } DbBot;
 
 typedef struct db {
@@ -52,10 +51,8 @@ typedef struct db {
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 
-int  db_owner_set(Db *d, int64_t bot_id, int64_t owner_id, const char name[]);
-
 int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles);
-int  db_admin_ban_user(Db *d, int is_ban, int64_t chat_id, int64_t user_id);
+int  db_admin_ban_user(Db *d, int64_t chat_id, int64_t user_id, int is_ban);
 
 int  db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable);
 int  db_cmd_get_by_name(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
