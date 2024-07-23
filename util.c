@@ -143,13 +143,24 @@ bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 	if (*name != prefix)
 		return -1;
 
-	const char *const name_end = strchr(name, ' ');
+	const char *name_end = strchr(name, ' ');
+	const char *const username = strchr(name, '@');
 	if (name_end == NULL) {
-		name_len = (unsigned)strlen(name);
+		/* ignore @username */
+		if (username != NULL)
+			name_len = (unsigned)(username - name);
+		else
+			name_len = (unsigned)strlen(name);
+
 		goto out0;
 	} else {
-		name_len = (unsigned)(name_end - name);
+		/* ignore @username */
+		if (username != NULL)
+			name_len = (unsigned)(username - name);
+		else
+			name_len = (unsigned)(name_end - name);
 	}
+
 
 	const char *arg = name_end + 1;
 	while ((*arg != '\0') && (args_len < BOT_CMD_ARGS_SIZE)) {
