@@ -111,6 +111,59 @@ cstr_trim_r(char dest[])
 
 
 /*
+ * cmd
+ */
+int
+cmd_parser_parse(CmdParser *c, char prefix, const char src[])
+{
+	unsigned name_len = 0;
+	unsigned args_len = 0;
+
+
+	const char *name = src;
+	while ((*name != '\0') && isblank(*name))
+		name++;
+
+	if (*name != prefix)
+		return -1;
+
+	const char *const name_end = strchr(name, ' ');
+	if (name_end == NULL) {
+		name_len = (unsigned)strlen(name);
+		goto out0;
+	} else {
+		name_len = (unsigned)(name_end - name);
+	}
+
+	const char *arg = name_end + 1;
+	while ((*arg != '\0') && (args_len < CMD_PARSER_ARGS_SIZE)) {
+		const char *const p = strchr(arg, ' ');
+		if (p == NULL) {
+			c->args[args_len++] = (CmdParserItem){ .arg = arg, .len = (unsigned)strlen(arg) };
+			break;
+		}
+
+		if (isblank(*arg)) {
+			arg = p + 1;
+			continue;
+		}
+
+		c->args[args_len++] = (CmdParserItem){ .arg = arg, .len = (unsigned)(p - arg) };
+		arg = p + 1;
+	}
+
+out0:
+	if (name_len == 1)
+		return -1;
+
+	c->name = name;
+	c->name_len = name_len;
+	c->args_len = args_len;
+	return 0;
+}
+
+
+/*
  * Str
  */
 static int

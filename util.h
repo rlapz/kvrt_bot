@@ -21,6 +21,26 @@ char *cstr_trim_r(char dest[]);
 
 
 /*
+ * CmdParser
+ */
+#define CMD_PARSER_ARGS_SIZE (16)
+
+typedef struct cmd_parser_item {
+	const char *arg;
+	unsigned    len;
+} CmdParserItem;
+
+typedef struct cmd_parser {
+	const char    *name;
+	unsigned       name_len;
+	unsigned       args_len;
+	CmdParserItem  args[CMD_PARSER_ARGS_SIZE];
+} CmdParser;
+
+int cmd_parser_parse(CmdParser *c, char prefix, const char src[]);
+
+
+/*
  * Str
  */
 typedef struct str {
