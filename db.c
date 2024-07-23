@@ -48,14 +48,14 @@ int
 db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
 {
 	/* not tested yet! */
-	const char *const sql = "insert into Admin(chat_id, user_id, roles)"
-				"select ?, ?, ?"
+	const char *const sql = "insert into Admin(chat_id, user_id, roles) "
+				"select ?, ?, ? "
 				"where ("
-					"select roles"
-					"from Admin"
-					"where (chat_id = ?) and (user_id = ?)"
-					"order by id desc"
-					"limit 1"
+					"select roles "
+					"from Admin "
+					"where (chat_id = ?) and (user_id = ?) "
+					"order by id desc "
+					"limit 1 "
 				") != ?;";
 
 	(void)sql;
@@ -71,14 +71,14 @@ int
 db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban)
 {
 	/* not tested yet! */
-	const char *const sql = "insert into Gban(chat_id, user_id, is_gban)"
-				"select ?, ?, ?"
+	const char *const sql = "insert into Gban(chat_id, user_id, is_gban) "
+				"select ?, ?, ? "
 				"where ("
-					"select is_gban"
-					"from Gban"
-					"where (chat_id = ?) and (user_id = ?)"
-					"order by id desc"
-					"limit 1"
+					"select is_gban "
+					"from Gban "
+					"where (chat_id = ?) and (user_id = ?) "
+					"order by id desc "
+					"limit 1 "
 				") != ?;";
 
 	(void)sql;
@@ -94,10 +94,10 @@ int
 db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
 {
 	/* not tested yet! */
-	const char *const sql = "select is_gban"
-				"from Gban"
-				"where (chat_id = ?) and (user_id = ?)"
-				"order by id desc"
+	const char *const sql = "select is_gban "
+				"from Gban "
+				"where (chat_id = ?) and (user_id = ?) "
+				"order by id desc "
 				"limit 1;";
 
 	(void)sql;
@@ -113,15 +113,15 @@ int
 db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 {
 	/* not tested yet! */
-	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable)"
-				"select ?, ?, ?"
+	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
+				"select ?, ?, ? "
 				"where ("
-					"select b.is_enable"
-					"from Cmd as a"
-					"join Cmd_Chat as b on (a.id = b.cmd_id)"
-					"where (a.name = ?)"
-					"order by a.id, b.id desc"
-					"limit 1"
+					"select b.is_enable "
+					"from Cmd as a "
+					"join Cmd_Chat as b on (a.id = b.cmd_id) "
+					"where (a.name = ?) "
+					"order by a.id, b.id desc "
+					"limit 1 "
 				") != ?;";
 
 	(void)sql;
@@ -137,11 +137,11 @@ int
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
 	/* not tested yet! */
-	const char *const sql = "select a.name, a.file, a.args, b.is_enable"
-				"from Cmd as a"
-				"join Cmd_Chat as b on (a.id = b.chat_id)"
-				"where (a.name = ?) and (b.chat_id = ?)"
-				"order by b.id desc"
+	const char *const sql = "select a.name, a.file, a.args, b.is_enable "
+				"from Cmd as a "
+				"join Cmd_Chat as b on (a.id = b.chat_id) "
+				"where (a.name = ?) and (b.chat_id = ?) "
+				"order by b.id desc "
 				"limit 1;";
 
 	(void)sql;
