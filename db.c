@@ -48,6 +48,14 @@ int
 db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
 {
 	/* not tested yet! */
+	/* params:
+	 * 1. chat_id
+	 * 2. user_id
+	 * 3. roles
+	 * 4. chat_id
+	 * 5. user_id
+	 * 5. roles
+	 */
 	const char *const sql = "insert into Admin(chat_id, user_id, roles) "
 				"select ?, ?, ? "
 				"where ("
@@ -71,6 +79,14 @@ int
 db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban)
 {
 	/* not tested yet! */
+	/* params:
+	 * 1. chat_id
+	 * 2. user_id
+	 * 3. is_gban
+	 * 4. chat_id
+	 * 5. user_id
+	 * 6. is_gban
+	 */
 	const char *const sql = "insert into Gban(chat_id, user_id, is_gban) "
 				"select ?, ?, ? "
 				"where ("
@@ -94,6 +110,10 @@ int
 db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
 {
 	/* not tested yet! */
+	/* params:
+	 * 1. chat_id
+	 * 2. user_id
+	 */
 	const char *const sql = "select is_gban "
 				"from Gban "
 				"where (chat_id = ?) and (user_id = ?) "
@@ -113,6 +133,13 @@ int
 db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 {
 	/* not tested yet! */
+	/* params:
+	 * 1. cmd_id
+	 * 2. chat_id
+	 * 3. is_enable
+	 * 4. cmd_name
+	 * 5. is_enable
+	 */
 	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
 				"select ?, ?, ? "
 				"where ("
@@ -137,6 +164,10 @@ int
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
 	/* not tested yet! */
+	/* params:
+	 * 1. cmd_name
+	 * 2. chat_id
+	 */
 	const char *const sql = "select a.name, a.file, a.args, b.is_enable "
 				"from Cmd as a "
 				"join Cmd_Chat as b on (a.id = b.chat_id) "
