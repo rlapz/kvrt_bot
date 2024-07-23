@@ -98,25 +98,11 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 static void
 _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 {
-	size_t len;
-	const char *args;
-	char command[64];
-	const char *const text = t->text.text;
-	Module *const module = &u->module;
+	int is_err = 0;
 
+	BotCmd cmd;
+	if (bot_cmd_parse(&cmd, '/', t->text.text) < 0)
+		is_err = 1;
 
-	const char *const cmd_end = strchr(text, ' ');
-	if (cmd_end != NULL) {
-		len = (cmd_end - text);
-		args = cmd_end + 1;
-	} else {
-		len = strlen(text);
-		args = "";
-	}
-
-	if (len >= sizeof(command))
-		return;
-
-	cstr_copy_n2(command, sizeof(command), text, len);
-	module_handle_command(module, command, t, json_obj, args);
+	module_handle_command(&u->module, &cmd, t, json_obj, is_err);
 }

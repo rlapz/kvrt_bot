@@ -11,11 +11,10 @@
 
 
 /* ret: 0: command not found */
-static int  _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg,
-				    json_object *json_obj, const char args[]);
+static int _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj);
+
 /* ret: 0: command not found */
-static int  _external_handle_command(Module *m, const char cmd[], const TgMessage *msg,
-				     json_object *json_obj, const char args[]);
+static int _external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj);
 
 
 int
@@ -51,13 +50,17 @@ module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 
 
 void
-module_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
-		      const char args[])
+module_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj, int is_err)
 {
-	if (_builtin_handle_command(m, cmd, msg, json_obj, args))
+	if (is_err) {
+		general_inval(m, msg);
+		return;
+	}
+
+	if (_builtin_handle_command(m, cmd, msg, json_obj))
 		return;
 
-	if (_external_handle_command(m, cmd, msg, json_obj, args))
+	if (_external_handle_command(m, cmd, msg, json_obj))
 		return;
 
 	general_inval(m, msg);
@@ -86,19 +89,24 @@ module_handle_callback_query(Module *m, const TgCallbackQuery *query, json_objec
  * private
  */
 static int
-_builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
-			const char args[])
+_builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj)
 {
-	if (strcmp(cmd, "/start") == 0)
-		general_start(m, msg, args);
-	else if (strcmp(cmd, "/help") == 0)
-		general_help(m, msg, args);
-	else if (strcmp(cmd, "/settings") == 0)
-		general_settings(m, msg, args);
-	else if (strcmp(cmd, "/dump") == 0)
+	const char * const cmd_name = cmd->name;
+	const size_t cmd_name_len = cmd->name_len;
+
+
+	if (cstr_casecmp_n("/start", cmd_name, cmd_name_len))
+		general_start(m, msg, cmd->args, cmd->args_len);
+	else if (cstr_casecmp_n("/help", cmd_name, cmd_name_len))
+		general_help(m, msg, cmd->args, cmd->args_len);
+	else if (cstr_casecmp_n("/settings", cmd_name, cmd_name_len))
+		general_settings(m, msg, cmd->args, cmd->args_len);
+	else if (cstr_casecmp_n("/cmd_set", cmd_name, cmd_name_len))
+		general_cmd_set(m, msg, cmd->args, cmd->args_len);
+	else if (cstr_casecmp_n("/dump", cmd_name, cmd_name_len))
 		general_dump(m, msg, json_obj);
-	else if (strcmp(cmd, "/test") == 0)
-		general_test(m, msg, args);
+	else if (cstr_casecmp_n("/test", cmd_name, cmd_name_len))
+		general_test(m, msg, cmd->args, cmd->args_len);
 	else
 		return 0;
 
@@ -107,13 +115,11 @@ _builtin_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_
 
 
 static int
-_external_handle_command(Module *m, const char cmd[], const TgMessage *msg, json_object *json_obj,
-			 const char args[])
+_external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj)
 {
 	(void)m;
 	(void)cmd;
 	(void)msg;
 	(void)json_obj;
-	(void)args;
 	return 0;
 }
