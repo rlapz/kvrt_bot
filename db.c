@@ -68,14 +68,14 @@ db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
 
 
 int
-db_admin_ban_user(Db *d, int64_t chat_id, int64_t user_id, int is_ban)
+db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban)
 {
 	/* not tested yet! */
-	const char *const sql = "insert into Chat_User(chat_id, user_id, is_ban)"
+	const char *const sql = "insert into Gban(chat_id, user_id, is_gban)"
 				"select ?, ?, ?"
 				"where ("
-					"select is_ban"
-					"from Chat_User"
+					"select is_gban"
+					"from Gban"
 					"where (chat_id = ?) and (user_id = ?)"
 					"order by id desc"
 					"limit 1"
@@ -85,13 +85,32 @@ db_admin_ban_user(Db *d, int64_t chat_id, int64_t user_id, int is_ban)
 	(void)d;
 	(void)chat_id;
 	(void)user_id;
-	(void)is_ban;
+	(void)is_gban;
 	return 0;
 }
 
 
 int
-db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable)
+db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
+{
+	/* not tested yet! */
+	const char *const sql = "select is_gban"
+				"from Gban"
+				"where (chat_id = ?) and (user_id = ?)"
+				"order by id desc"
+				"limit 1;";
+
+	(void)sql;
+	(void)d;
+	(void)chat_id;
+	(void)user_id;
+	(void)is_gban;
+	return 0;
+}
+
+
+int
+db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 {
 	/* not tested yet! */
 	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable)"
@@ -115,7 +134,7 @@ db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable)
 
 
 int
-db_cmd_get_by_name(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
+db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
 	/* not tested yet! */
 	const char *const sql = "select a.name, a.file, a.args, b.is_enable"
@@ -147,19 +166,19 @@ _create_tables(sqlite3 *s)
 				  "roles      integer not null,"		/* O-Ring DbAdminRoleType */
 				  "created_at datetime default (datetime('now', 'localtime')) not null);";
 
+	const char *const gban = "create table if not exists Gban("
+				  "id         integer primary key autoincrement,"
+				  "user_id    bigint not null,"			/* telegram user id */
+				  "chat_id    bigint not null,"			/* telegram chat id */
+				  "is_gban    boolean not null,"
+				  "created_at datetime default (datetime('now', 'localtime')) not null);";
+
 	const char *const cmd = "create table if not exists Cmd("
 				"id         integer primary key autoincrement,"
 				"name       varchar(127) not null,"
 				"file       varchar(1023) not null,"
 				"args       integer not null,"			/* O-Ring DbCmdArgType */
 				"created_at datetime default (datetime('now', 'localtime')) not null);";
-
-	const char *const chat_user = "create table if not exists Chat_User("
-				      "int        integer primary key autoincrement,"
-				      "chat_id    bigint not null,"		/* telegram chat id */
-				      "user_id    bigint not null,"		/* telegram user id */
-				      "is_ban     boolean not null,"
-				      "created_at datetime default (datetime('now', 'localtime')) not null);";
 
 	const char *const cmd_chat = "create table if not exists Cmd_Chat("
 				     "id         integer primary key autoincrement,"
@@ -174,13 +193,13 @@ _create_tables(sqlite3 *s)
 		goto err0;
 	}
 
-	if (sqlite3_exec(s, cmd, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: cmd: %s", err_msg);
+	if (sqlite3_exec(s, gban, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: user_gban: %s", err_msg);
 		goto err0;
 	}
 
-	if (sqlite3_exec(s, chat_user, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: chat_user: %s", err_msg);
+	if (sqlite3_exec(s, cmd, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: cmd: %s", err_msg);
 		goto err0;
 	}
 
