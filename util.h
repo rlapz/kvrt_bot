@@ -15,29 +15,33 @@
 void  cstr_copy(char dest[], const char src[]);
 void  cstr_copy_n(char dest[], size_t size, const char src[]);
 void  cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
+
+/* ret: ~0: equals */
 int   cstr_cmp_n(const char a[], const char b[], size_t b_len);
+int   cstr_casecmp_n(const char a[], const char b[], size_t b_len);
+
 char *cstr_trim_l(char dest[]);
 char *cstr_trim_r(char dest[]);
 
 
 /*
- * CmdParser
+ * BotCmd
  */
-#define CMD_PARSER_ARGS_SIZE (16)
+#define BOT_CMD_ARGS_SIZE (16)
 
-typedef struct cmd_parser_item {
-	const char *arg;
+typedef struct bot_cmd_arg {
+	const char *name;
 	unsigned    len;
-} CmdParserItem;
+} BotCmdArg;
 
-typedef struct cmd_parser {
-	const char    *name;
-	unsigned       name_len;
-	unsigned       args_len;
-	CmdParserItem  args[CMD_PARSER_ARGS_SIZE];
-} CmdParser;
+typedef struct bot_cmd {
+	const char *name;
+	unsigned    name_len;
+	unsigned    args_len;
+	BotCmdArg   args[BOT_CMD_ARGS_SIZE];
+} BotCmd;
 
-int cmd_parser_parse(CmdParser *c, char prefix, const char src[]);
+int bot_cmd_parse(BotCmd *b, char prefix, const char src[]);
 
 
 /*

@@ -66,13 +66,29 @@ int
 cstr_cmp_n(const char a[], const char b[], size_t b_len)
 {
 	const size_t a_len = strlen(a);
-	if (a_len < b_len)
-		return -1;
+	if (a_len != b_len)
+		return 0;
 
-	if (a_len > b_len)
-		return 1;
+	if (strncmp(a, b, b_len) != 0)
+		return 0;
 
-	return strncmp(a, b, b_len);
+	/* equals */
+	return 1;
+}
+
+
+int
+cstr_casecmp_n(const char a[], const char b[], size_t b_len)
+{
+	const size_t a_len = strlen(a);
+	if (a_len != b_len)
+		return 0;
+
+	if (strncasecmp(a, b, b_len) != 0)
+		return 0;
+
+	/* equals */
+	return 1;
 }
 
 
@@ -114,7 +130,7 @@ cstr_trim_r(char dest[])
  * cmd
  */
 int
-cmd_parser_parse(CmdParser *c, char prefix, const char src[])
+bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 {
 	unsigned name_len = 0;
 	unsigned args_len = 0;
@@ -136,10 +152,10 @@ cmd_parser_parse(CmdParser *c, char prefix, const char src[])
 	}
 
 	const char *arg = name_end + 1;
-	while ((*arg != '\0') && (args_len < CMD_PARSER_ARGS_SIZE)) {
+	while ((*arg != '\0') && (args_len < BOT_CMD_ARGS_SIZE)) {
 		const char *const p = strchr(arg, ' ');
 		if (p == NULL) {
-			c->args[args_len++] = (CmdParserItem){ .arg = arg, .len = (unsigned)strlen(arg) };
+			b->args[args_len++] = (BotCmdArg){ .name = arg, .len = (unsigned)strlen(arg) };
 			break;
 		}
 
@@ -148,7 +164,7 @@ cmd_parser_parse(CmdParser *c, char prefix, const char src[])
 			continue;
 		}
 
-		c->args[args_len++] = (CmdParserItem){ .arg = arg, .len = (unsigned)(p - arg) };
+		b->args[args_len++] = (BotCmdArg){ .name = arg, .len = (unsigned)(p - arg) };
 		arg = p + 1;
 	}
 
@@ -156,9 +172,9 @@ out0:
 	if (name_len == 1)
 		return -1;
 
-	c->name = name;
-	c->name_len = name_len;
-	c->args_len = args_len;
+	b->name = name;
+	b->name_len = name_len;
+	b->args_len = args_len;
 	return 0;
 }
 
