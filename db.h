@@ -2,7 +2,6 @@
 #define __DB_H__
 
 
-#include <pthread.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <sqlite3.h>
@@ -42,10 +41,9 @@ typedef struct db_bot {
 } DbBot;
 
 typedef struct db {
-	const char      *path;
-	sqlite3         *sql;
-	DbBot            bot;
-	pthread_mutex_t  mutex;
+	const char *path;
+	sqlite3    *sql;
+	DbBot       bot;
 } Db;
 
 int  db_init(Db *d, const char path[]);

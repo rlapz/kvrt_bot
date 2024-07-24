@@ -3,6 +3,7 @@
 
 
 static int _create_tables(sqlite3 *s);
+static int _sqlite_callback(void *udata, int argc, char *argv[], char *cols[]);
 
 
 /*
@@ -11,13 +12,10 @@ static int _create_tables(sqlite3 *s);
 int
 db_init(Db *d, const char path[])
 {
-	if (pthread_mutex_init(&d->mutex, NULL) != 0) {
-		log_err(0, "db: db_init: pthread_mutex_init: failed");
-		return -1;
-	}
-
 	sqlite3 *sql;
-	if (sqlite3_open(path, &sql) != 0) {
+	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX;
+
+	if (sqlite3_open_v2(path, &sql, flags, NULL) != 0) {
 		log_err(0, "db: db_init: sqlite3_open: %s: %s", path, sqlite3_errmsg(sql));
 		goto err0;
 	}
@@ -31,7 +29,6 @@ db_init(Db *d, const char path[])
 
 err0:
 	sqlite3_close(sql);
-	pthread_mutex_destroy(&d->mutex);
 	return -1;
 }
 
@@ -40,7 +37,6 @@ void
 db_deinit(Db *d)
 {
 	sqlite3_close(d->sql);
-	pthread_mutex_destroy(&d->mutex);
 }
 
 
@@ -244,4 +240,15 @@ _create_tables(sqlite3 *s)
 err0:
 	sqlite3_free(err_msg);
 	return -1;
+}
+
+
+static int
+_sqlite_callback(void *udata, int argc, char *argv[], char *cols[])
+{
+	(void)udata;
+	(void)argc;
+	(void)argv;
+	(void)cols;
+	return 0;
 }
