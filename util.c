@@ -183,12 +183,11 @@ bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 			name_len = (unsigned)(name_end - name);
 	}
 
-	if (name_end != NULL)
-		args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end + 1);
-
-out0:
 	if (name_len == 1)
 		return -1;
+
+	if (name_end != NULL)
+		args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end + 1);
 
 	b->name = name;
 	b->name_len = name_len;
