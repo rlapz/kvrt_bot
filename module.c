@@ -50,19 +50,19 @@ module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 
 
 void
-module_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj, int is_err)
+module_handle_command(Module *m, const TgMessage *msg, json_object *json_obj)
 {
-	if (is_err) {
-		general_inval(m, msg);
-		return;
-	}
+	BotCmd cmd;
+	if (bot_cmd_parse(&cmd, '/', msg->text.text) < 0)
+		goto err0;
 
-	if (_builtin_handle_command(m, cmd, msg, json_obj))
-		return;
-
-	if (_external_handle_command(m, cmd, msg, json_obj))
+	if (_builtin_handle_command(m, &cmd, msg, json_obj))
 		return;
 
+	if (_external_handle_command(m, &cmd, msg, json_obj))
+		return;
+
+err0:
 	general_inval(m, msg);
 }
 

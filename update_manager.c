@@ -10,7 +10,6 @@
 
 
 static void _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj);
-static void _handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj);
 
 
 /*
@@ -84,7 +83,7 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 	log_debug("update_manager: _handle: message type: %s", tg_message_type_str(t->type));
 	switch (t->type) {
 	case TG_MESSAGE_TYPE_COMMAND:
-		_handle_command(u, t, json_obj);
+		module_handle_command(&u->module, t, json_obj);
 		break;
 	case TG_MESSAGE_TYPE_TEXT:
 		module_handle_text(&u->module, t, json_obj);
@@ -92,17 +91,4 @@ _handle_message(UpdateManager *u, const TgMessage *t, json_object *json_obj)
 	default:
 		break;
 	}
-}
-
-
-static void
-_handle_command(UpdateManager *u, const TgMessage *t, json_object *json_obj)
-{
-	int is_err = 0;
-
-	BotCmd cmd;
-	if (bot_cmd_parse(&cmd, '/', t->text.text) < 0)
-		is_err = 1;
-
-	module_handle_command(&u->module, &cmd, t, json_obj, is_err);
 }
