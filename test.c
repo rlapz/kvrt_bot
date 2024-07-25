@@ -7,18 +7,18 @@
 
 int main(void)
 {
-	const char *const cmd = "/test@eee @eagain";
-	BotCmd p;
+	log_init(4096);
 
-	memset(&p, 0xa, sizeof(p));
+	Db db;
+	char buff[DB_BOT_CMD_BUILTIN_OPT_SIZE];
 
-	int ret = bot_cmd_parse(&p, '/', cmd);
-	if (ret < 0)
-		return 1;
+	db_init(&db, "db.sql");
 
-	printf("cmd: |%.*s|\n", (int)p.name_len, p.name);
-	printf("args len: %u\n", p.args_len);
-	for (unsigned i = 0; i < p.args_len; i++)
-		printf("arg: |%.*s|\n", (int)p.args[i].len, p.args[i].name);
+	const char *res = db_cmd_builtin_get_opt(&db, buff, "/test");
+	if (res != NULL)
+		printf("|%s|\n", res);
+
+	db_deinit(&db);
+	log_deinit();
 	return 0;
 }

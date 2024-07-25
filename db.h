@@ -7,6 +7,9 @@
 #include <sqlite3.h>
 
 
+#define DB_BOT_CMD_BUILTIN_OPT_SIZE (1024)
+
+
 typedef enum db_admin_role_type {
 	DB_ADMIN_ROLE_TYPE_CHANGE_GROUP_INFO   = (1 << 0),
 	DB_ADMIN_ROLE_TYPE_DELETE_MESSAGE      = (1 << 1),
@@ -29,7 +32,7 @@ typedef enum db_cmd_arg_type {
 
 
 typedef struct db_cmd {
-	char         name[128];
+	char         name[34];
 	char         file[1024];
 	int          args_len;
 	DbCmdArgType args;
@@ -46,15 +49,17 @@ typedef struct db {
 	DbBot       bot;
 } Db;
 
-int  db_init(Db *d, const char path[]);
-void db_deinit(Db *d);
+int   db_init(Db *d, const char path[]);
+void  db_deinit(Db *d);
 
-int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles);
-int  db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban);
-int  db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban);
+int   db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles);
+int   db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban);
+int   db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban);
 
-int  db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
-int  db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
+int   db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
+int   db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
+
+char *db_cmd_builtin_get_opt(Db *d, char buffer[DB_BOT_CMD_BUILTIN_OPT_SIZE], const char name[]);
 
 
 #endif

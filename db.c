@@ -3,7 +3,6 @@
 
 
 static int _create_tables(sqlite3 *s);
-static int _sqlite_callback(void *udata, int argc, char *argv[], char *cols[]);
 
 
 /*
@@ -13,7 +12,7 @@ int
 db_init(Db *d, const char path[])
 {
 	sqlite3 *sql;
-	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_FULLMUTEX;
+	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
 
 	if (sqlite3_open_v2(path, &sql, flags, NULL) != 0) {
 		log_err(0, "db: db_init: sqlite3_open: %s: %s", path, sqlite3_errmsg(sql));
@@ -180,6 +179,44 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 }
 
 
+char *
+db_cmd_builtin_get_opt(Db *d, char buffer[DB_BOT_CMD_BUILTIN_OPT_SIZE], const char name[])
+{
+	/* params:
+	 * 1. cmd_name
+	 */
+	const char *const sql = "select opt from Cmd_Builtin_Opt where (name = ?) order by id desc limit 1;";
+
+
+	char *buff = NULL;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != 0) {
+		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_prepare_v2: failed");
+		return NULL;
+	}
+
+	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
+	if (ret != 0) {
+		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_bind_text: failed");
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	if (ret == SQLITE_ROW) {
+		char *const res = (char *)sqlite3_column_text(stmt, 0);
+		if (res != NULL) {
+			cstr_copy_n(buffer, DB_BOT_CMD_BUILTIN_OPT_SIZE, res);
+			buff = buffer;
+		}
+	}
+
+out0:
+	sqlite3_finalize(stmt);
+	return buff;
+}
+
+
 /*
  * Private
  */
@@ -202,7 +239,7 @@ _create_tables(sqlite3 *s)
 
 	const char *const cmd = "create table if not exists Cmd("
 				"id         integer primary key autoincrement,"
-				"name       varchar(127) not null,"
+				"name       varchar(33) not null,"
 				"file       varchar(1023) not null,"
 				"args       integer not null,"			/* O-Ring DbCmdArgType */
 				"created_at datetime default (datetime('now', 'localtime')) not null);";
@@ -213,6 +250,14 @@ _create_tables(sqlite3 *s)
 				     "chat_id    bigint not null,"		/* telegram chat id */
 				     "is_enable  boolean not null,"
 				     "created_at datetime default (datetime('now', 'localtime')) not null);";
+
+	const char *const cmd_builtin_opt = "create table if not exists Cmd_Builtin_Opt("
+					    "id         integer primary key autoincrement,"
+					    "name       varchar(33) not null,"
+					    "opt        varchar(1023) not null,"
+					    "created_at datetime default "
+						"(datetime('now', 'localtime')) not null);";
+
 
 	char *err_msg;
 	if (sqlite3_exec(s, admin, NULL, NULL, &err_msg) != 0) {
@@ -235,20 +280,14 @@ _create_tables(sqlite3 *s)
 		goto err0;
 	}
 
+	if (sqlite3_exec(s, cmd_builtin_opt, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: cmd_builtin_opt: %s", err_msg);
+		goto err0;
+	}
+
 	return 0;
 
 err0:
 	sqlite3_free(err_msg);
 	return -1;
-}
-
-
-static int
-_sqlite_callback(void *udata, int argc, char *argv[], char *cols[])
-{
-	(void)udata;
-	(void)argc;
-	(void)argv;
-	(void)cols;
-	return 0;
 }
