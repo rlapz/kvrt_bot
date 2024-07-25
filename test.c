@@ -10,13 +10,15 @@ int main(void)
 	log_init(4096);
 
 	Db db;
-	char buff[DB_BOT_CMD_BUILTIN_OPT_SIZE];
+	Str str;
+	char buffer[4096];
 
+	str_init(&str, buffer, sizeof(buffer));
 	db_init(&db, "db.sql");
 
-	const char *res = db_cmd_builtin_get_opt(&db, buff, "/test");
-	if (res != NULL)
-		printf("|%s|\n", res);
+	int is_gban = 10;
+	if (db_admin_gban_user_get(&db, 0, 0, &is_gban) == 0)
+		printf("ret: %d\n", is_gban);
 
 	db_deinit(&db);
 	log_deinit();

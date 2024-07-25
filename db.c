@@ -14,6 +14,9 @@ db_init(Db *d, const char path[])
 	sqlite3 *sql;
 	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
 
+	if (sqlite3_threadsafe() == 0)
+		log_info("db: db_init: sqlite3_threadsafe: hmm, the sqlite3 library is not thread safe :(");
+
 	if (sqlite3_open_v2(path, &sql, flags, NULL) != 0) {
 		log_err(0, "db: db_init: sqlite3_open: %s: %s", path, sqlite3_errmsg(sql));
 		goto err0;
@@ -104,7 +107,6 @@ db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban)
 int
 db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
 {
-	/* not tested yet! */
 	/* params:
 	 * 1. chat_id
 	 * 2. user_id
@@ -115,12 +117,33 @@ db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
 				"order by id desc "
 				"limit 1;";
 
-	(void)sql;
-	(void)d;
-	(void)chat_id;
-	(void)user_id;
-	(void)is_gban;
-	return 0;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return -1;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 1, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		ret = -1;
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 2, user_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		ret = -1;
+		goto out0;
+	}
+
+	*is_gban = (sqlite3_step(stmt) == SQLITE_ROW) ? sqlite3_column_int(stmt, 0) : 0;
+	ret = 0;
+
+out0:
+	sqlite3_finalize(stmt);
+	return ret;
 }
 
 
@@ -191,14 +214,14 @@ db_cmd_builtin_get_opt(Db *d, Str *buffer, const char name[])
 	char *buff = NULL;
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != 0) {
-		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_prepare_v2: failed");
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
 		return NULL;
 	}
 
 	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (ret != 0) {
-		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_bind_text: failed");
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_bind_text: cmd_name: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
