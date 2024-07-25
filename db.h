@@ -6,8 +6,7 @@
 #include <stddef.h>
 #include <sqlite3.h>
 
-
-#define DB_BOT_CMD_BUILTIN_OPT_SIZE (1024)
+#include "util.h"
 
 
 typedef enum db_admin_role_type {
@@ -59,7 +58,7 @@ int   db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gb
 int   db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
 int   db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
-char *db_cmd_builtin_get_opt(Db *d, char buffer[DB_BOT_CMD_BUILTIN_OPT_SIZE], const char name[]);
+char *db_cmd_builtin_get_opt(Db *d, Str *buffer, const char name[]);
 
 
 #endif

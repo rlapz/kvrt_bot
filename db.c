@@ -180,7 +180,7 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 
 
 char *
-db_cmd_builtin_get_opt(Db *d, char buffer[DB_BOT_CMD_BUILTIN_OPT_SIZE], const char name[])
+db_cmd_builtin_get_opt(Db *d, Str *buffer, const char name[])
 {
 	/* params:
 	 * 1. cmd_name
@@ -204,11 +204,9 @@ db_cmd_builtin_get_opt(Db *d, char buffer[DB_BOT_CMD_BUILTIN_OPT_SIZE], const ch
 
 	ret = sqlite3_step(stmt);
 	if (ret == SQLITE_ROW) {
-		char *const res = (char *)sqlite3_column_text(stmt, 0);
-		if (res != NULL) {
-			cstr_copy_n(buffer, DB_BOT_CMD_BUILTIN_OPT_SIZE, res);
-			buff = buffer;
-		}
+		const char *const res = (char *)sqlite3_column_text(stmt, 0);
+		if (res != NULL)
+			buff = str_set_fmt(buffer, "%s", res);
 	}
 
 out0:
@@ -254,7 +252,7 @@ _create_tables(sqlite3 *s)
 	const char *const cmd_builtin_opt = "create table if not exists Cmd_Builtin_Opt("
 					    "id         integer primary key autoincrement,"
 					    "name       varchar(33) not null,"
-					    "opt        varchar(1023) not null,"
+					    "opt        varchar(8192) not null,"
 					    "created_at datetime default "
 						"(datetime('now', 'localtime')) not null);";
 

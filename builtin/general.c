@@ -10,11 +10,11 @@
 void
 general_start(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
-	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /start`");
+	const char *resp = db_cmd_builtin_get_opt(m->db, &m->str, "/start");
 	if (resp == NULL)
-		return;
+		resp = "failed to get '/start' message! :(";
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 
 	(void)args;
 	(void)args_len;
@@ -24,11 +24,11 @@ general_start(Module *m, const TgMessage *message, const BotCmdArg args[], unsig
 void
 general_help(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
-	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /help`");
+	const char *resp = db_cmd_builtin_get_opt(m->db, &m->str, "/help");
 	if (resp == NULL)
-		return;
+		resp = "failed to get '/help' message! :(";
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 
 	(void)args;
 	(void)args_len;
@@ -38,11 +38,11 @@ general_help(Module *m, const TgMessage *message, const BotCmdArg args[], unsign
 void
 general_settings(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
-	const char *const resp = str_set_fmt(&m->str, "`TODO: handle /settings`");
+	const char *resp = db_cmd_builtin_get_opt(m->db, &m->str, "/settings");
 	if (resp == NULL)
-		return;
+		resp = "failed to get '/settings' message! :(";
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 
 	(void)args;
 	(void)args_len;
