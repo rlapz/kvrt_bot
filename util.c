@@ -132,6 +132,9 @@ cstr_trim_r(char dest[])
 unsigned
 bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[])
 {
+	if (src == NULL)
+		return 0;
+
 	unsigned args_len = 0;
 	while ((*src != '\0') && (args_len < size)) {
 		const char *const p = strchr(src, ' ');
@@ -156,11 +159,8 @@ bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[])
 int
 bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 {
-	unsigned name_len = 0;
-	unsigned args_len = 0;
-
-
 	const char *name = src;
+	unsigned name_len = 0;
 	while ((*name != '\0') && isblank(*name))
 		name++;
 
@@ -186,12 +186,9 @@ bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 	if (name_len == 1)
 		return -1;
 
-	if (name_end != NULL)
-		args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end + 1);
-
 	b->name = name;
 	b->name_len = name_len;
-	b->args_len = args_len;
+	b->args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end);
 	return 0;
 }
 
