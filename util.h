@@ -34,6 +34,9 @@ typedef struct bot_cmd_arg {
 	unsigned    len;
 } BotCmdArg;
 
+unsigned bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[]);
+
+
 typedef struct bot_cmd {
 	const char *name;
 	unsigned    name_len;

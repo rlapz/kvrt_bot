@@ -129,6 +129,30 @@ cstr_trim_r(char dest[])
 /*
  * cmd
  */
+unsigned
+bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[])
+{
+	unsigned args_len = 0;
+	while ((*src != '\0') && (args_len < size)) {
+		const char *const p = strchr(src, ' ');
+		if (p == NULL) {
+			a[args_len++] = (BotCmdArg){ .name = src, .len = (unsigned)strlen(src) };
+			break;
+		}
+
+		if (isblank(*src)) {
+			src = p + 1;
+			continue;
+		}
+
+		a[args_len++] = (BotCmdArg){ .name = src, .len = (unsigned)(p - src) };
+		src = p + 1;
+	}
+
+	return args_len;
+}
+
+
 int
 bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 {
@@ -151,33 +175,16 @@ bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 			name_len = (unsigned)(username - name);
 		else
 			name_len = (unsigned)strlen(name);
-
-		goto out0;
 	} else {
 		/* ignore @username */
-		if (username != NULL)
+		if ((username != NULL) && (username < name_end))
 			name_len = (unsigned)(username - name);
 		else
 			name_len = (unsigned)(name_end - name);
 	}
 
-
-	const char *arg = name_end + 1;
-	while ((*arg != '\0') && (args_len < BOT_CMD_ARGS_SIZE)) {
-		const char *const p = strchr(arg, ' ');
-		if (p == NULL) {
-			b->args[args_len++] = (BotCmdArg){ .name = arg, .len = (unsigned)strlen(arg) };
-			break;
-		}
-
-		if (isblank(*arg)) {
-			arg = p + 1;
-			continue;
-		}
-
-		b->args[args_len++] = (BotCmdArg){ .name = arg, .len = (unsigned)(p - arg) };
-		arg = p + 1;
-	}
+	if (name_end != NULL)
+		args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end + 1);
 
 out0:
 	if (name_len == 1)
