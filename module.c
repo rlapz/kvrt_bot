@@ -95,16 +95,13 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 	const size_t cmd_name_len = cmd->name_len;
 
 
-	if (general_global(m, msg, cmd_name, cmd_name_len))
-		return 1;
-
 	if (cstr_casecmp_n("/cmd_set", cmd_name, cmd_name_len))
 		general_cmd_set(m, msg, cmd->args, cmd->args_len);
 	else if (cstr_casecmp_n("/dump", cmd_name, cmd_name_len))
 		general_dump(m, msg, json_obj);
 	else if (cstr_casecmp_n("/test", cmd_name, cmd_name_len))
 		general_test(m, msg, cmd->args, cmd->args_len);
-	else
+	else if (general_message(m, msg, cmd_name, cmd_name_len) == 0)
 		return 0;
 
 	return 1;

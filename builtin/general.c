@@ -8,12 +8,12 @@
  * public
  */
 int
-general_global(Module *m, const TgMessage *message, const char cmd[], unsigned cmd_len)
+general_message(Module *m, const TgMessage *message, const char cmd[], unsigned cmd_len)
 {
 	char buffer[2048];
 	cstr_copy_n2(buffer, sizeof(buffer), cmd, (size_t)cmd_len);
 
-	if (db_cmd_global_get_message(m->db, buffer, sizeof(buffer), cmd) == 0) {
+	if (db_cmd_message_get(m->db, buffer, sizeof(buffer), cmd) == 0) {
 		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, buffer);
 		return 1;
 	}
