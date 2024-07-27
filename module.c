@@ -96,11 +96,11 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 
 
 	if (cstr_casecmp_n("/start", cmd_name, cmd_name_len))
-		general_start(m, msg, cmd->args, cmd->args_len);
+		general_start(m, msg);
 	else if (cstr_casecmp_n("/help", cmd_name, cmd_name_len))
-		general_help(m, msg, cmd->args, cmd->args_len);
+		general_help(m, msg);
 	else if (cstr_casecmp_n("/settings", cmd_name, cmd_name_len))
-		general_settings(m, msg, cmd->args, cmd->args_len);
+		general_settings(m, msg);
 	else if (cstr_casecmp_n("/cmd_set", cmd_name, cmd_name_len))
 		general_cmd_set(m, msg, cmd->args, cmd->args_len);
 	else if (cstr_casecmp_n("/dump", cmd_name, cmd_name_len))

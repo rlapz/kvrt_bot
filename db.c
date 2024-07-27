@@ -107,8 +107,7 @@ db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, con
 
 
 int
-db_admin_gban_user_get(Db *d, Str *buffer, int64_t chat_id, int64_t user_id, int *is_gban,
-		       const char *reason[])
+db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id)
 {
 	/* params:
 	 * 1. chat_id
@@ -141,11 +140,20 @@ db_admin_gban_user_get(Db *d, Str *buffer, int64_t chat_id, int64_t user_id, int
 		goto out0;
 	}
 
-	if (sqlite3_step(stmt) == SQLITE_ROW) {
-		*is_gban = sqlite3_column_int(stmt, 0);
-		const char *const _reason = (char *)sqlite3_column_text(stmt, 1);
-		*reason = (_reason != NULL) ? str_set_fmt(buffer, "%s", _reason) : NULL;
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		ret = -1;
+		goto out0;
 	}
+
+	gban->chat_id = chat_id;
+	gban->user_id = user_id;
+	gban->is_gban = sqlite3_column_int(stmt, 0);
+
+	const char *const _reason = (char *)sqlite3_column_text(stmt, 1);
+	if (_reason != NULL)
+		cstr_copy_n(gban->reason, sizeof(gban->reason), _reason);
+	else
+		gban->reason[0] = '\0';
 
 	ret = 0;
 
@@ -156,18 +164,19 @@ out0:
 
 
 int
-db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
+db_cmd_set(Db *d, int64_t chat_id, const char name[], DbCmdArgType args, int is_enable)
 {
 	/* not tested yet! */
 	/* params:
 	 * 1. cmd_id
 	 * 2. chat_id
-	 * 3. is_enable
-	 * 4. cmd_name
-	 * 5. is_enable
+	 * 3. args
+	 * 4. is_enable
+	 * 5. cmd_name
+	 * 6. is_enable
 	 */
-	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
-				"select ?, ?, ? "
+	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, args, is_enable) "
+				"select ?, ?, ?, ? "
 				"where ("
 					"select b.is_enable "
 					"from Cmd as a "
@@ -181,6 +190,7 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 	(void)d;
 	(void)chat_id;
 	(void)name;
+	(void)args;
 	(void)is_enable;
 	return 0;
 }
@@ -210,8 +220,8 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 }
 
 
-char *
-db_cmd_builtin_get_opt(Db *d, Str *buffer, const char name[])
+int
+db_cmd_builtin_get_opt(Db *d, char buffer[], size_t size, const char name[])
 {
 	/* params:
 	 * 1. cmd_name
@@ -219,30 +229,38 @@ db_cmd_builtin_get_opt(Db *d, Str *buffer, const char name[])
 	const char *const sql = "select opt from Cmd_Builtin_Opt where (name = ?) order by id desc limit 1;";
 
 
-	char *buff = NULL;
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return NULL;
+		return -1;
 	}
 
 	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_cmd_builtin_get_opt: sqlite3_bind_text: cmd_name: %s", sqlite3_errstr(ret));
+		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_step(stmt);
-	if (ret == SQLITE_ROW) {
-		const char *const res = (char *)sqlite3_column_text(stmt, 0);
-		if (res != NULL)
-			buff = str_set_fmt(buffer, "%s", res);
+	if (ret != SQLITE_ROW) {
+		ret = -1;
+		goto out0;
 	}
+
+	const char *const res = (char *)sqlite3_column_text(stmt, 0);
+	if (res == NULL) {
+		ret = -1;
+		goto out0;
+	}
+
+	cstr_copy_n(buffer, size, res);
+	ret = 0;
 
 out0:
 	sqlite3_finalize(stmt);
-	return buff;
+	return ret;
 }
 
 
@@ -264,7 +282,7 @@ _create_tables(sqlite3 *s)
 				  "user_id    bigint not null,"			/* telegram user id */
 				  "chat_id    bigint not null,"			/* telegram chat id */
 				  "is_gban    boolean not null,"
-				  "reason     varchar(2048) null,"
+				  "reason     varchar(2047) null,"
 				  "created_at datetime default (datetime('now', 'localtime')) not null);";
 
 	const char *const cmd = "create table if not exists Cmd("

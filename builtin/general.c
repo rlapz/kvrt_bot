@@ -8,44 +8,29 @@
  * public
  */
 void
-general_start(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
+general_start(Module *m, const TgMessage *message)
 {
-	const char *resp = db_cmd_builtin_get_opt(m->db, &m->str, "/start");
-	if (resp == NULL)
-		resp = "failed to get '/start' message! :(";
-
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-
-	(void)args;
-	(void)args_len;
+	char resp[2048];
+	if (db_cmd_builtin_get_opt(m->db, resp, sizeof(resp), "/start") == 0)
+		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 }
 
 
 void
-general_help(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
+general_help(Module *m, const TgMessage *message)
 {
-	const char *resp = db_cmd_builtin_get_opt(m->db, &m->str, "/help");
-	if (resp == NULL)
-		resp = "failed to get '/help' message! :(";
-
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-
-	(void)args;
-	(void)args_len;
+	char resp[2048];
+	if (db_cmd_builtin_get_opt(m->db, resp, sizeof(resp), "/help") == 0)
+		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 }
 
 
 void
-general_settings(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
+general_settings(Module *m, const TgMessage *message)
 {
-	const char *resp = db_cmd_builtin_get_opt(m->db, &m->str, "/settings");
-	if (resp == NULL)
-		resp = "failed to get '/settings' message! :(";
-
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-
-	(void)args;
-	(void)args_len;
+	char resp[2048];
+	if (db_cmd_builtin_get_opt(m->db, resp, sizeof(resp), "/settings") == 0)
+		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 }
 
 
