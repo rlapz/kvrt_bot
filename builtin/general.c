@@ -46,6 +46,11 @@ general_cmd_set(Module *m, const TgMessage *message, const BotCmdArg args[], uns
 	if (args_len != 2)
 		goto out1;
 
+	if (message->from->id != m->owner_id) {
+		resp = "permission denied!";
+		goto out0;
+	}
+
 	cmd_name[0] = '/';
 	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, args[0].name, (size_t)args[0].len);
 	if (cstr_cmp_n(cmd_name + 1, args[0].name, args[0].len) == 0) {

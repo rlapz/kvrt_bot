@@ -43,21 +43,21 @@ db_deinit(Db *d)
 
 
 int
-db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
+db_admin_set(Db *d, int64_t chat_id, int64_t user_id, TgChatAdminPrivilege privileges)
 {
 	/* not tested yet! */
 	/* params:
 	 * 1. chat_id
 	 * 2. user_id
-	 * 3. roles
+	 * 3. privileges
 	 * 4. chat_id
 	 * 5. user_id
-	 * 5. roles
+	 * 5. privileges
 	 */
-	const char *const sql = "insert into Admin(chat_id, user_id, roles) "
+	const char *const sql = "insert into Admin(chat_id, user_id, privileges) "
 				"select ?, ?, ? "
 				"where ("
-					"select roles "
+					"select privileges "
 					"from Admin "
 					"where (chat_id = ?) and (user_id = ?) "
 					"order by id desc "
@@ -68,7 +68,76 @@ db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
 	(void)d;
 	(void)chat_id;
 	(void)user_id;
-	(void)roles;
+	(void)privileges;
+	return 0;
+}
+
+
+int
+db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
+{
+	/* not tested yet! */
+	/* params:
+	 * 1. chat_id
+	 * 2. user_id
+	 */
+	const char *const sql = "select privileges "
+				"from Admin "
+				"where (chat_id = ?) and (user_id = ?)"
+				"order by id desc limit 1;";
+
+
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_is_admin: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return -1;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 1, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_message_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		ret = -1;
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 2, user_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_message_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		ret = -1;
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	if (ret != SQLITE_ROW) {
+		ret = -1;
+		goto out0;
+	}
+
+	admin->chat_id = chat_id;
+	admin->user_id = user_id;
+	admin->privileges = sqlite3_column_int(stmt, 0);
+	ret = 0;
+
+out0:
+	sqlite3_finalize(stmt);
+	return ret;
+}
+
+
+int
+db_admin_clear(Db *d, int64_t chat_id)
+{
+	/* not tested yet! */
+	/* params:
+	 * 1. chat_id
+	 */
+	const char *const sql = "delete from Admin where (chat_id = ?);";
+
+
+	(void)d;
+	(void)sql;
+	(void)chat_id;
 	return 0;
 }
 
@@ -272,7 +341,7 @@ _create_tables(sqlite3 *s)
 				  "id         integer primary key autoincrement,"
 				  "chat_id    bigint not null,"			/* telegram chat id */
 				  "user_id    bigint not null,"			/* telegram user id */
-				  "roles      integer not null,"		/* O-Ring DbAdminRoleType */
+				  "privileges integer not null,"		/* O-Ring TgChatAdminPrivilege */
 				  "created_at datetime default (datetime('now', 'localtime')) not null);";
 
 	const char *const gban = "create table if not exists Gban("

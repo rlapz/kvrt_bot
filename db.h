@@ -6,21 +6,8 @@
 #include <stddef.h>
 #include <sqlite3.h>
 
+#include "tg.h"
 #include "util.h"
-
-
-typedef enum db_admin_role_type {
-	DB_ADMIN_ROLE_TYPE_CHANGE_GROUP_INFO   = (1 << 0),
-	DB_ADMIN_ROLE_TYPE_DELETE_MESSAGE      = (1 << 1),
-	DB_ADMIN_ROLE_TYPE_BAN_USER            = (1 << 2),
-	DB_ADMIN_ROLE_TYPE_ADD_MEMBER          = (1 << 3),
-	DB_ADMIN_ROLE_TYPE_PIN_MESSAGE         = (1 << 4),
-	DB_ADMIN_ROLE_TYPE_MANAGE_STORY_POST   = (1 << 5),
-	DB_ADMIN_ROLE_TYPE_MANAGE_STORY_EDIT   = (1 << 6),
-	DB_ADMIN_ROLE_TYPE_MANAGE_STORY_DELETE = (1 << 7),
-	DB_ADMIN_ROLE_TYPE_MANAGE_VIDEO_CHAT   = (1 << 8),
-	DB_ADMIN_ROLE_TYPE_MANAGE_REMAIN_ANON  = (1 << 9),
-} DbAdminRoleType;
 
 
 typedef enum db_cmd_arg_type {
@@ -31,9 +18,9 @@ typedef enum db_cmd_arg_type {
 
 
 typedef struct db_admin {
-	DbAdminRoleType roles;
-	int64_t         chat_id;
-	int64_t         user_id;
+	int64_t              chat_id;
+	int64_t              user_id;
+	TgChatAdminPrivilege privileges;
 } DbAdmin;
 
 typedef struct db_admin_gban_user {
@@ -66,7 +53,9 @@ typedef struct db {
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 
-int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles);
+int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, TgChatAdminPrivilege privileges);
+int  db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
+int  db_admin_clear(Db *d, int64_t chat_id);
 int  db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[]);
 int  db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id);
 
