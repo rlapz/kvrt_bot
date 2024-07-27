@@ -7,30 +7,18 @@
 /*
  * public
  */
-void
-general_start(Module *m, const TgMessage *message)
+int
+general_global(Module *m, const TgMessage *message, const char cmd[], unsigned cmd_len)
 {
-	char resp[2048];
-	if (db_cmd_builtin_get_opt(m->db, resp, sizeof(resp), "/start") == 0)
-		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-}
+	char buffer[2048];
+	cstr_copy_n2(buffer, sizeof(buffer), cmd, (size_t)cmd_len);
 
+	if (db_cmd_global_get_message(m->db, buffer, sizeof(buffer), cmd) == 0) {
+		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, buffer);
+		return 1;
+	}
 
-void
-general_help(Module *m, const TgMessage *message)
-{
-	char resp[2048];
-	if (db_cmd_builtin_get_opt(m->db, resp, sizeof(resp), "/help") == 0)
-		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-}
-
-
-void
-general_settings(Module *m, const TgMessage *message)
-{
-	char resp[2048];
-	if (db_cmd_builtin_get_opt(m->db, resp, sizeof(resp), "/settings") == 0)
-		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+	return 0;
 }
 
 

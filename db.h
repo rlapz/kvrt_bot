@@ -73,7 +73,7 @@ int  db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64
 int  db_cmd_set(Db *d, int64_t chat_id, const char name[], DbCmdArgType args, int is_enable);
 int  db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
-int  db_cmd_builtin_get_opt(Db *d, char buffer[], size_t size, const char name[]);
+int  db_cmd_global_get_message(Db *d, char buffer[], size_t size, const char name[]);
 
 
 #endif

@@ -9,9 +9,7 @@
 #include "../util.h"
 
 
-void general_start(Module *m, const TgMessage *message);
-void general_help(Module *m, const TgMessage *message);
-void general_settings(Module *m, const TgMessage *message);
+int  general_global(Module *m, const TgMessage *message, const char cmd[], unsigned len);
 void general_dump(Module *m, const TgMessage *message, json_object *json_obj);
 void general_cmd_set(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len);
 
