@@ -26,7 +26,7 @@ void
 general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 {
 	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
-	const char *const resp = str_set_fmt(&m->str, "```json %s```", json_str);
+	const char *const resp = str_set_fmt(&m->str, "```json\n%s```", json_str);
 	if (resp == NULL)
 		return;
 
@@ -42,7 +42,7 @@ general_dump_admin(Module *m, const TgMessage *message)
 		return;
 
 	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
-	const char *const resp = str_set_fmt(&m->str, "```json %s```", json_str);
+	const char *const resp = str_set_fmt(&m->str, "```json\n%s```", json_str);
 	if (resp == NULL) {
 		json_object_put(json_obj);
 		return;
