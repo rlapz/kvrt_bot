@@ -10,6 +10,8 @@
 #include "builtin/general.h"
 
 
+static int _cmd_compare(const char cmd[], const BotCmd *src);
+
 /* ret: 0: command not found */
 static int _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj);
 
@@ -89,22 +91,25 @@ module_handle_callback_query(Module *m, const TgCallbackQuery *query, json_objec
 /*
  * private
  */
+static inline int
+_cmd_compare(const char cmd[], const BotCmd *src)
+{
+	return cstr_casecmp_n(cmd, src->name, (size_t)src->name_len);
+}
+
+
 static int
 _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj)
 {
-	const char * const cmd_name = cmd->name;
-	const size_t cmd_name_len = cmd->name_len;
-
-
-	if (cstr_casecmp_n("/cmd_set", cmd_name, cmd_name_len))
+	if (_cmd_compare("/cmd_set", cmd))
 		general_cmd_set(m, msg, cmd->args, cmd->args_len);
-	else if (cstr_casecmp_n("/dump", cmd_name, cmd_name_len))
+	else if (_cmd_compare("/dump", cmd))
 		general_dump(m, msg, json_obj);
-	else if (cstr_casecmp_n("/dump_admin", cmd_name, cmd_name_len))
+	else if (_cmd_compare("/dump_admin", cmd))
 		general_dump_admin(m, msg);
-	else if (cstr_casecmp_n("/test", cmd_name, cmd_name_len))
+	else if (_cmd_compare("/test", cmd))
 		general_test(m, msg, cmd->args, cmd->args_len);
-	else if (general_message(m, msg, cmd_name, cmd_name_len) == 0)
+	else if (general_message(m, msg, cmd->name, cmd->name_len) == 0)
 		return 0;
 
 	return 1;
