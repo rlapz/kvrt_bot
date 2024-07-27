@@ -18,6 +18,7 @@ typedef enum db_cmd_arg_type {
 
 
 typedef struct db_admin {
+	int                  is_creator;
 	int64_t              chat_id;
 	int64_t              user_id;
 	TgChatAdminPrivilege privileges;
@@ -53,7 +54,7 @@ typedef struct db {
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 
-int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, TgChatAdminPrivilege privileges);
+int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges);
 int  db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
 int  db_admin_clear(Db *d, int64_t chat_id);
 int  db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[]);

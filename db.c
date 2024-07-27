@@ -43,31 +43,23 @@ db_deinit(Db *d)
 
 
 int
-db_admin_set(Db *d, int64_t chat_id, int64_t user_id, TgChatAdminPrivilege privileges)
+db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges)
 {
 	/* not tested yet! */
 	/* params:
 	 * 1. chat_id
 	 * 2. user_id
-	 * 3. privileges
-	 * 4. chat_id
-	 * 5. user_id
-	 * 5. privileges
+	 * 3. is_creator
+	 * 4. privileges
 	 */
-	const char *const sql = "insert into Admin(chat_id, user_id, privileges) "
-				"select ?, ?, ? "
-				"where ("
-					"select privileges "
-					"from Admin "
-					"where (chat_id = ?) and (user_id = ?) "
-					"order by id desc "
-					"limit 1 "
-				") != ?;";
+	const char *const sql = "insert into Admin(chat_id, user_id, is_creator, privileges) "
+				"values (?, ?, ?, ?)";
 
 	(void)sql;
 	(void)d;
 	(void)chat_id;
 	(void)user_id;
+	(void)is_creator;
 	(void)privileges;
 	return 0;
 }
@@ -81,7 +73,7 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 	 * 1. chat_id
 	 * 2. user_id
 	 */
-	const char *const sql = "select privileges "
+	const char *const sql = "select is_creator, privileges "
 				"from Admin "
 				"where (chat_id = ?) and (user_id = ?)"
 				"order by id desc limit 1;";
@@ -116,7 +108,8 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 
 	admin->chat_id = chat_id;
 	admin->user_id = user_id;
-	admin->privileges = sqlite3_column_int(stmt, 0);
+	admin->is_creator = sqlite3_column_int(stmt, 0);
+	admin->privileges = sqlite3_column_int(stmt, 1);
 	ret = 0;
 
 out0:
@@ -339,6 +332,7 @@ _create_tables(sqlite3 *s)
 {
 	const char *const admin = "create table if not exists Admin("
 				  "id         integer primary key autoincrement,"
+				  "is_creator boolean not null,"
 				  "chat_id    bigint not null,"			/* telegram chat id */
 				  "user_id    bigint not null,"			/* telegram user id */
 				  "privileges integer not null,"		/* O-Ring TgChatAdminPrivilege */
