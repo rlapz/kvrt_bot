@@ -82,34 +82,38 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_is_admin: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
 		return -1;
 	}
 
 	ret = sqlite3_bind_int64(stmt, 1, chat_id);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_message_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
 		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_bind_int64(stmt, 2, user_id);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_message_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
 		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_step(stmt);
-	if (ret != SQLITE_ROW) {
+	if (ret == SQLITE_ROW) {
+		admin->is_creator = sqlite3_column_int(stmt, 0);
+		admin->privileges = sqlite3_column_int(stmt, 1);
+	} else if (ret == SQLITE_DONE) {
+		admin->is_creator = 0;
+		admin->privileges = 0;
+	} else {
 		ret = -1;
 		goto out0;
 	}
 
 	admin->chat_id = chat_id;
 	admin->user_id = user_id;
-	admin->is_creator = sqlite3_column_int(stmt, 0);
-	admin->privileges = sqlite3_column_int(stmt, 1);
 	ret = 0;
 
 out0:

@@ -91,6 +91,14 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 	if (json_object_object_get_ex(json, "user", &user_obj) == 0)
 		return -1;
 
+	/* creator */
+	const char *const status = json_object_get_string(status_obj);
+	if (strcmp(status, "creator") == 0) {
+		a->is_creator = 1;
+		goto out0;
+	}
+
+	/* administrator */
 	json_object *is_anon_obj;
 	if (json_object_object_get_ex(json, "is_anonymous", &is_anon_obj) == 0)
 		return -1;
@@ -178,10 +186,7 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 	if (json_object_get_boolean(can_delete_stories_obj))
 		privs |= TG_CHAT_ADMIN_PRI_CAN_DELETE_STORIES;
 
-	const char *const status = json_object_get_string(status_obj);
-	if (strcmp(status, "creator") == 0)
-		a->is_creator = 1;
-
+out0:
 	a->privileges = privs;
 	return _parse_user(&a->user, user_obj);
 }
@@ -191,6 +196,42 @@ void
 tg_chat_admin_free(TgChatAdmin *a)
 {
 	free(a->user);
+}
+
+
+int
+tg_chat_admin_list_parse(TgChatAdminList *a, json_object *json)
+{
+	array_list *const arr = json_object_get_array(json);
+	if (arr == NULL)
+		return -1;
+
+	const size_t len = array_list_length(arr);
+	if (len >= LEN(a->list))
+		return -1;
+
+	unsigned count = 0;
+	for (size_t i = 0; i < len; i++) {
+		json_object *const obj = array_list_get_idx(arr, i);
+		if (obj == NULL)
+			continue;
+
+		if (tg_chat_admin_parse(&a->list[count], obj) < 0)
+			continue;
+
+		count++;
+	}
+
+	a->len = count;
+	return 0;
+}
+
+
+void
+tg_chat_admin_list_free(TgChatAdminList *a)
+{
+	for (unsigned i = 0; i < a->len; i++)
+		tg_chat_admin_free(&a->list[i]);
 }
 
 

@@ -174,6 +174,51 @@ out0:
 }
 
 
+int
+tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res, int need_parse)
+{
+	const char *const req = str_set_fmt(&t->str, "%s/getChatAdministrators?chat_id=%" PRIi64, t->api,
+					    chat_id);
+	if (req == NULL) {
+		log_err(0, "tg_api: tg_api_get_admin_list: str_set_fmt: failed");
+		return -1;
+	}
+
+	if (_curl_request_get(t, req) < 0)
+		return -1;
+
+	json_object *const json = json_tokener_parse(t->str.cstr);
+	if (json == NULL) {
+		log_err(0, "tg_api: tg_api_get_admin_list: json_tokener_parse: failed");
+		return -1;
+	}
+
+	if (need_parse) {
+		json_object *ok_obj;
+		if (json_object_object_get_ex(json, "ok", &ok_obj) == 0) {
+			log_err(0, "tg_api: tg_api_get_admin_list: json_object_object_get_ex: ok: invalid");
+			goto err0;
+		}
+
+		json_object *result_obj;
+		if (json_object_object_get_ex(json, "result", &result_obj) == 0) {
+			log_err(0, "tg_api: tg_api_get_admin_list: json_object_object_get_ex: result: invalid");
+			goto err0;
+		}
+
+		if (tg_chat_admin_list_parse(list, result_obj) < 0)
+			goto err0;
+	}
+
+	*res = json;
+	return 0;
+
+err0:
+	json_object_put(json);
+	return -1;
+}
+
+
 /*
  * Private
  */
@@ -220,6 +265,8 @@ _curl_request_get(TgApi *t, const char url[])
 
 	str_reset(&t->str, 0);
 	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str);
+
+	/* TODO: check response type: must be 'json' */
 
 	const CURLcode res = curl_easy_perform(t->curl);
 	if (res != CURLE_OK) {

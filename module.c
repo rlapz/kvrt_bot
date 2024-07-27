@@ -100,6 +100,8 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 		general_cmd_set(m, msg, cmd->args, cmd->args_len);
 	else if (cstr_casecmp_n("/dump", cmd_name, cmd_name_len))
 		general_dump(m, msg, json_obj);
+	else if (cstr_casecmp_n("/dump_admin", cmd_name, cmd_name_len))
+		general_dump_admin(m, msg);
 	else if (cstr_casecmp_n("/test", cmd_name, cmd_name_len))
 		general_test(m, msg, cmd->args, cmd->args_len);
 	else if (general_message(m, msg, cmd_name, cmd_name_len) == 0)

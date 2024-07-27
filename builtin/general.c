@@ -35,20 +35,47 @@ general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 
 
 void
+general_dump_admin(Module *m, const TgMessage *message)
+{
+	json_object *json_obj;
+	if (tg_api_get_admin_list(m->api, message->chat.id, NULL, &json_obj, 0) < 0)
+		return;
+
+	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
+	const char *const resp = str_set_fmt(&m->str, "```json %s```", json_str);
+	if (resp == NULL) {
+		json_object_put(json_obj);
+		return;
+	}
+
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	json_object_put(json_obj);
+}
+
+
+void
 general_cmd_set(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
 	int is_valid = 0;
 	int is_enable;
 	const char *resp = NULL;
 	char cmd_name[34];
+	DbAdmin admin;
 
 
 	if (args_len != 2)
 		goto out1;
 
 	if (message->from->id != m->owner_id) {
-		resp = "permission denied!";
-		goto out0;
+		if (db_admin_get(m->db, &admin, message->chat.id, message->from->id) < 0) {
+			resp = "failed to get admin list";
+			goto out0;
+		}
+
+		if (admin.is_creator == 0 && admin.privileges == 0) {
+			resp = "permission denied!";
+			goto out0;
+		}
 	}
 
 	cmd_name[0] = '/';

@@ -77,6 +77,16 @@ int  tg_chat_admin_parse(TgChatAdmin *a, json_object *json);
 void tg_chat_admin_free(TgChatAdmin *a);
 
 
+/* ChatAdmin */
+typedef struct tg_chat_admin_list {
+	unsigned    len;
+	TgChatAdmin list[50];
+} TgChatAdminList;
+
+int  tg_chat_admin_list_parse(TgChatAdminList *a, json_object *json);
+void tg_chat_admin_list_free(TgChatAdminList *a);
+
+
 /*
  * Text
  */
