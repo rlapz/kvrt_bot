@@ -156,7 +156,7 @@ kvrt_bot_run(KvrtBot *k)
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = update_manager_init(&upm[iter], api, &db);
+		ret = update_manager_init(&upm[iter], cfg->owner_id, api, &db);
 		if (ret < 0)
 			goto out2;
 	}

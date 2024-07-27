@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,6 +15,9 @@
 int
 config_load_from_env(Config *c)
 {
+	memset(c, 0, sizeof(*c));
+
+
 	const char *env = getenv("KVRT_BOT_API_TOKEN");
 	if ((env == NULL) || (env[0] == '\0')) {
 		log_err(0, "config: config_load_from_env: no 'API_TOKEN'");
@@ -46,6 +50,12 @@ config_load_from_env(Config *c)
 		return -1;
 	}
 	c->hook_path = env;
+
+	if (((env = getenv("KVRT_BOT_OWNER_ID")) == NULL) || (env[0] == '\0') ||
+	    ((c->owner_id = strtoll(env, NULL, 10)) == 0)) {
+		log_err(0, "config: config_load_from_env: invalid 'OWNER_ID'");
+		return -1;
+	}
 
 	if (((env = getenv("KVRT_BOT_LISTEN_HOST")) != NULL) && (env[0] != '\0'))
 		c->listen_host = env;
@@ -119,5 +129,6 @@ config_dump(const Config *c)
 	printf("Worker Jobs Min: %u\n", c->worker_jobs_min);
 	printf("Worker Jobs Max: %u\n", c->worker_jobs_max);
 	printf("Db file        : %s\n", c->db_file);
+	printf("Owner ID       : %" PRIi64 "\n", c->owner_id);
 	puts("---[CONFIG]---");
 }

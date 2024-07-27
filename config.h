@@ -1,6 +1,8 @@
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
 
+#include <stdint.h>
+
 
 #define CFG_DEFAULT_LISTEN_HOST        "127.0.0.1"
 #define CFG_DEFAULT_LISTEN_PORT        "8007"
@@ -34,6 +36,7 @@ typedef struct config {
 	unsigned    worker_jobs_min;
 	unsigned    worker_jobs_max;
 	const char *db_file;
+	int64_t     owner_id;
 } Config;
 
 int  config_load_from_env(Config *c);

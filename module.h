@@ -2,6 +2,7 @@
 #define __MODULE_H__
 
 
+#include <stdint.h>
 #include <json.h>
 
 #include "tg.h"
@@ -11,12 +12,13 @@
 
 
 typedef struct module {
-	TgApi *api;
-	Db    *db;
-	Str    str;
+	int64_t  owner_id;
+	TgApi   *api;
+	Db      *db;
+	Str      str;
 } Module;
 
-int  module_init(Module *m, TgApi *api, Db *db);
+int  module_init(Module *m, int64_t owner_id, TgApi *api, Db *db);
 void module_deinit(Module *m);
 
 void module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj);

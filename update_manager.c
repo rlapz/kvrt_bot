@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <inttypes.h>
+#include <stdint.h>
 #include <json.h>
 #include <string.h>
 
@@ -16,13 +17,13 @@ static void _handle_message(UpdateManager *u, const TgMessage *t, json_object *j
  * Public
  */
 int
-update_manager_init(UpdateManager *u, const char base_api[], Db *db)
+update_manager_init(UpdateManager *u, int64_t owner_id, const char base_api[], Db *db)
 {
 	int ret = tg_api_init(&u->api, base_api);
 	if (ret < 0)
 		return -1;
 
-	ret = module_init(&u->module, &u->api, db);
+	ret = module_init(&u->module, owner_id, &u->api, db);
 	if (ret < 0) {
 		tg_api_deinit(&u->api);
 		return -1;

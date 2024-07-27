@@ -18,7 +18,7 @@ static int _external_handle_command(Module *m, const BotCmd *cmd, const TgMessag
 
 
 int
-module_init(Module *m, TgApi *api, Db *db)
+module_init(Module *m, int64_t owner_id, TgApi *api, Db *db)
 {
 	const int ret = str_init_alloc(&m->str, 1024);
 	if (ret < 0) {
@@ -26,6 +26,7 @@ module_init(Module *m, TgApi *api, Db *db)
 		return -1;
 	}
 
+	m->owner_id = owner_id;
 	m->api = api;
 	m->db = db;
 	return 0;

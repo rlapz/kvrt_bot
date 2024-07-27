@@ -16,7 +16,7 @@ typedef struct update_manager {
 	Db     *db;
 } UpdateManager;
 
-int  update_manager_init(UpdateManager *u, const char base_api[], Db *db);
+int  update_manager_init(UpdateManager *u, int64_t owner_id, const char base_api[], Db *db);
 void update_manager_deinit(UpdateManager *u);
 void update_manager_handle(UpdateManager *u, json_object *json_obj);
 
