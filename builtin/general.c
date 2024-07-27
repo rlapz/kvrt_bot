@@ -35,72 +35,43 @@ general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 
 
 void
-general_cmd_set(Module *m, const TgMessage *message, const BotCmd *cmd)
+general_cmd_set(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
-	const char *state;
-	unsigned state_len;
-	const char *resp = NULL;
-	const BotCmdArg *const args = cmd->args;
-	unsigned args_len = cmd->args_len;
-	int is_enable;
 	int is_valid = 0;
-	int args_val = 0;
+	int is_enable;
+	const char *resp = NULL;
 	char cmd_name[34];
 
 
-	if (args_len < 2)
+	if (args_len != 2)
 		goto out1;
 
 	cmd_name[0] = '/';
-	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, args[0].name, args[0].len);
+	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, args[0].name, (size_t)args[0].len);
 	if (cstr_cmp_n(cmd_name + 1, args[0].name, args[0].len) == 0) {
 		resp = "invalid command name: maybe truncated";
 		goto out0;
 	}
 
-	state = args[1].name;
-	state_len = args[1].len;
-	if (cstr_casecmp_n("enable", state, state_len)) {
+	const char *const st = args[1].name;
+	const size_t st_len = (size_t)args[1].len;
+	if (cstr_casecmp_n("enable", st, st_len))
 		is_enable = 1;
-
-		for (unsigned i = 0; i < args_len; i++) {
-			const BotCmdArg *const _arg = &args[i];
-			if (cstr_casecmp_n("chat_id", _arg->name, _arg->len))
-				args_val |= DB_CMD_ARG_TYPE_CHAT_ID;
-			if (cstr_casecmp_n("user_id", _arg->name, _arg->len))
-				args_val |= DB_CMD_ARG_TYPE_USER_ID;
-			if (cstr_casecmp_n("text", _arg->name, _arg->len))
-				args_val |= DB_CMD_ARG_TYPE_TEXT;
-		}
-	} else if (cstr_casecmp_n("disable", state, state_len)) {
+	else if (cstr_casecmp_n("disable", st, st_len))
 		is_enable = 0;
-	} else {
+	else
 		goto out1;
-	}
 
-	if (db_cmd_set(m->db, message->chat.id, cmd_name, args_val, is_enable) < 0)
+	if (db_cmd_set(m->db, message->chat.id, cmd_name, is_enable) < 0)
 		return;
 
 	is_valid = 1;
 
 out1:
-	if (is_valid == 0) {
-		resp = str_set_fmt(&m->str, "invalid argument!\n%.*s "
-				   "[cmd_name] [enable/disable] [args...]",
-				   (int)cmd->name_len, cmd->name);
-	} else {
-		resp = str_set_fmt(&m->str, "success!\n");
-		resp = str_append_fmt(&m->str, "\"%s\" now accept:", cmd_name);
-
-		if (args_val & DB_CMD_ARG_TYPE_CHAT_ID)
-			resp = str_append_fmt(&m->str, " chat_id");
-		if (args_val & DB_CMD_ARG_TYPE_USER_ID)
-			resp = str_append_fmt(&m->str, " user_id");
-		if (args_val & DB_CMD_ARG_TYPE_TEXT)
-			resp = str_append_fmt(&m->str, " text");
-		else
-			resp = str_append_n(&m->str, " [NONE]", 7);
-	}
+	if (is_valid)
+		resp = str_set_fmt(&m->str, "\"%s\" now %s", cmd_name, ((is_enable) ? "enabled" : "disabled"));
+	else
+		resp = str_set_fmt(&m->str, "invalid argument!\n[cmd_name] [enable/disable]");
 
 out0:
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);

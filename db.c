@@ -164,19 +164,18 @@ out0:
 
 
 int
-db_cmd_set(Db *d, int64_t chat_id, const char name[], DbCmdArgType args, int is_enable)
+db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 {
 	/* not tested yet! */
 	/* params:
 	 * 1. cmd_id
 	 * 2. chat_id
-	 * 3. args
-	 * 4. is_enable
-	 * 5. cmd_name
-	 * 6. is_enable
+	 * 3. is_enable
+	 * 4. cmd_name
+	 * 5. is_enable
 	 */
-	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, args, is_enable) "
-				"select ?, ?, ?, ? "
+	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
+				"select ?, ?, ? "
 				"where ("
 					"select b.is_enable "
 					"from Cmd as a "
@@ -190,7 +189,6 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], DbCmdArgType args, int is_
 	(void)d;
 	(void)chat_id;
 	(void)name;
-	(void)args;
 	(void)is_enable;
 	return 0;
 }

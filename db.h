@@ -70,7 +70,7 @@ int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles
 int  db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[]);
 int  db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id);
 
-int  db_cmd_set(Db *d, int64_t chat_id, const char name[], DbCmdArgType args, int is_enable);
+int  db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
 int  db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
 int  db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
