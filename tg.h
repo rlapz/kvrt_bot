@@ -66,6 +66,7 @@ typedef enum tg_chat_admin_privilege {
 } TgChatAdminPrivilege;
 
 typedef struct tg_chat_admin {
+	int                   is_creator;
 	int                   is_anonymous;
 	TgUser               *user;
 	const char           *custom_title; 	/* optional*/

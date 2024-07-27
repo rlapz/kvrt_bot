@@ -82,6 +82,11 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 	TgChatAdminPrivilege privs = 0;
 	memset(a, 0, sizeof(*a));
 
+
+	json_object *status_obj;
+	if (json_object_object_get_ex(json, "status", &status_obj) == 0)
+		return -1;
+
 	json_object *user_obj;
 	if (json_object_object_get_ex(json, "user", &user_obj) == 0)
 		return -1;
@@ -172,6 +177,10 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 		privs |= TG_CHAT_ADMIN_PRI_CAN_EDIT_STORIS;
 	if (json_object_get_boolean(can_delete_stories_obj))
 		privs |= TG_CHAT_ADMIN_PRI_CAN_DELETE_STORIES;
+
+	const char *const status = json_object_get_string(status_obj);
+	if (strcmp(status, "creator") == 0)
+		a->is_creator = 1;
 
 	a->privileges = privs;
 	return _parse_user(&a->user, user_obj);
