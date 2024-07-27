@@ -76,6 +76,115 @@ tg_sticker_type_str(TgStickerType type)
 }
 
 
+int
+tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
+{
+	TgChatAdminPrivilege privs = 0;
+	memset(a, 0, sizeof(*a));
+
+	json_object *user_obj;
+	if (json_object_object_get_ex(json, "user", &user_obj) == 0)
+		return -1;
+
+	json_object *is_anon_obj;
+	if (json_object_object_get_ex(json, "is_anonymous", &is_anon_obj) == 0)
+		return -1;
+
+	json_object *can_be_edited_obj;
+	if (json_object_object_get_ex(json, "can_be_edited", &can_be_edited_obj) == 0)
+		return -1;
+
+	json_object *can_manage_chat_obj;
+	if (json_object_object_get_ex(json, "can_manage_chat", &can_manage_chat_obj) == 0)
+		return -1;
+
+	json_object *can_delete_messages_obj;
+	if (json_object_object_get_ex(json, "can_delete_message", &can_delete_messages_obj) == 0)
+		return -1;
+
+	json_object *can_manage_video_chats_obj;
+	if (json_object_object_get_ex(json, "can_manage_video_chats", &can_manage_video_chats_obj) == 0)
+		return -1;
+
+	json_object *can_restrict_members_obj;
+	if (json_object_object_get_ex(json, "can_restrict_members", &can_restrict_members_obj) == 0)
+		return -1;
+
+	json_object *can_promote_members_obj;
+	if (json_object_object_get_ex(json, "can_promote_members", &can_promote_members_obj) == 0)
+		return -1;
+
+	json_object *can_change_info_obj;
+	if (json_object_object_get_ex(json, "can_change_info", &can_change_info_obj) == 0)
+		return -1;
+
+	json_object *can_invite_users_obj;
+	if (json_object_object_get_ex(json, "can_invite_users", &can_invite_users_obj) == 0)
+		return -1;
+
+	json_object *can_post_stories_obj;
+	if (json_object_object_get_ex(json, "can_post_stories", &can_post_stories_obj) == 0)
+		return -1;
+
+	json_object *can_edit_stories_obj;
+	if (json_object_object_get_ex(json, "can_edit_stories", &can_edit_stories_obj) == 0)
+		return -1;
+
+	json_object *can_delete_stories_obj;
+	if (json_object_object_get_ex(json, "can_delete_stories", &can_delete_stories_obj) == 0)
+		return -1;
+
+
+	json_object *obj;
+	if (json_object_object_get_ex(json, "can_post_messages", &obj) && json_object_get_boolean(obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_POST_MESSAGES;
+	if (json_object_object_get_ex(json, "can_edit_messages", &obj) && json_object_get_boolean(obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_EDIT_MESSAGES;
+	if (json_object_object_get_ex(json, "can_pin_messages", &obj) && json_object_get_boolean(obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_POST_MESSAGES;
+	if (json_object_object_get_ex(json, "can_manage_topics", &obj) && json_object_get_boolean(obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_MANAGE_TOPICS;
+	if (json_object_object_get_ex(json, "custom_title", &obj))
+		a->custom_title = json_object_get_string(obj);
+	if (json_object_get_boolean(can_be_edited_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_BE_EDITED;
+
+
+	if (json_object_get_boolean(can_manage_chat_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_MANAGE_CHAT;
+	if (json_object_get_boolean(can_delete_messages_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_DELETE_MESSAGES;
+	if (json_object_get_boolean(can_manage_video_chats_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_MANAGE_VIDEO_CHATS;
+	if (json_object_get_boolean(can_restrict_members_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_RESTRICT_MEMBERS;
+	if (json_object_get_boolean(can_promote_members_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_PROMOTE_MEMBERS;
+	if (json_object_get_boolean(can_promote_members_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_PROMOTE_MEMBERS;
+	if (json_object_get_boolean(can_change_info_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_CHANGE_INFO;
+	if (json_object_get_boolean(can_invite_users_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_INVITE_USERS;
+	if (json_object_get_boolean(can_post_stories_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_POST_STORIES;
+	if (json_object_get_boolean(can_edit_stories_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_EDIT_STORIS;
+	if (json_object_get_boolean(can_delete_stories_obj))
+		privs |= TG_CHAT_ADMIN_PRI_CAN_DELETE_STORIES;
+
+	a->privileges = privs;
+	return _parse_user(&a->user, user_obj);
+}
+
+
+void
+tg_chat_admin_free(TgChatAdmin *a)
+{
+	free(a->user);
+}
+
+
 const char *
 tg_message_entity_type_str(TgMessageEntityType type)
 {
