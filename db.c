@@ -303,8 +303,7 @@ _create_tables(sqlite3 *s)
 					"id         integer primary key autoincrement,"
 					"name       varchar(33) not null,"
 					"message    varchar(8192) not null,"
-					"created_at datetime default "
-				       		"(datetime('now', 'localtime')) not null);";
+					"created_at datetime default (datetime('now', 'localtime')) not null);";
 
 
 	char *err_msg;

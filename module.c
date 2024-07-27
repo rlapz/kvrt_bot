@@ -96,7 +96,7 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 
 
 	if (cstr_casecmp_n("/cmd_set", cmd_name, cmd_name_len))
-		general_cmd_set(m, msg, cmd->args, cmd->args_len);
+		general_cmd_set(m, msg, cmd);
 	else if (cstr_casecmp_n("/dump", cmd_name, cmd_name_len))
 		general_dump(m, msg, json_obj);
 	else if (cstr_casecmp_n("/test", cmd_name, cmd_name_len))

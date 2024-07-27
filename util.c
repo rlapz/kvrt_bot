@@ -397,6 +397,19 @@ str_reset(Str *s, size_t offt)
 }
 
 
+char *
+str_dup(Str *s)
+{
+	const size_t len = s->len + 1; /* including '\0' */
+	char *const ret = malloc(len);
+	if (ret == NULL)
+		return NULL;
+
+	return (char *)memcpy(ret, s->cstr, len);
+}
+
+
+
 /*
  * Buffer
  */
