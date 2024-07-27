@@ -200,6 +200,12 @@ tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_obj
 			goto err0;
 		}
 
+		const int is_ok = json_object_get_boolean(ok_obj);
+		if (is_ok == 0) {
+			log_err(0, "tg_api: tg_api_get_admin_list: ok: false");
+			goto err0;
+		}
+
 		json_object *result_obj;
 		if (json_object_object_get_ex(json, "result", &result_obj) == 0) {
 			log_err(0, "tg_api: tg_api_get_admin_list: json_object_object_get_ex: result: invalid");
