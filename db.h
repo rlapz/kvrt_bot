@@ -52,8 +52,10 @@ int   db_init(Db *d, const char path[]);
 void  db_deinit(Db *d);
 
 int   db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles);
-int   db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban);
-int   db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban);
+int   db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban,
+			     const char reason[]);
+int   db_admin_gban_user_get(Db *d, Str *buffer, int64_t chat_id, int64_t user_id, int *is_gban,
+			     const char *reason[]);
 
 int   db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
 int   db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);

@@ -74,19 +74,20 @@ db_admin_set(Db *d, int64_t chat_id, int64_t user_id, DbAdminRoleType roles)
 
 
 int
-db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban)
+db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[])
 {
 	/* not tested yet! */
 	/* params:
 	 * 1. chat_id
 	 * 2. user_id
 	 * 3. is_gban
-	 * 4. chat_id
-	 * 5. user_id
-	 * 6. is_gban
+	 * 4. reason
+	 * 5. chat_id
+	 * 6. user_id
+	 * 7. is_gban
 	 */
-	const char *const sql = "insert into Gban(chat_id, user_id, is_gban) "
-				"select ?, ?, ? "
+	const char *const sql = "insert into Gban(chat_id, user_id, is_gban, reason) "
+				"select ?, ?, ?, ? "
 				"where ("
 					"select is_gban "
 					"from Gban "
@@ -100,12 +101,14 @@ db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban)
 	(void)chat_id;
 	(void)user_id;
 	(void)is_gban;
+	(void)reason;
 	return 0;
 }
 
 
 int
-db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
+db_admin_gban_user_get(Db *d, Str *buffer, int64_t chat_id, int64_t user_id, int *is_gban,
+		       const char *reason[])
 {
 	/* params:
 	 * 1. chat_id
@@ -138,7 +141,12 @@ db_admin_gban_user_get(Db *d, int64_t chat_id, int64_t user_id, int *is_gban)
 		goto out0;
 	}
 
-	*is_gban = (sqlite3_step(stmt) == SQLITE_ROW) ? sqlite3_column_int(stmt, 0) : 0;
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		*is_gban = sqlite3_column_int(stmt, 0);
+		const char *const _reason = (char *)sqlite3_column_text(stmt, 1);
+		*reason = (_reason != NULL) ? str_set_fmt(buffer, "%s", _reason) : NULL;
+	}
+
 	ret = 0;
 
 out0:
@@ -256,6 +264,7 @@ _create_tables(sqlite3 *s)
 				  "user_id    bigint not null,"			/* telegram user id */
 				  "chat_id    bigint not null,"			/* telegram chat id */
 				  "is_gban    boolean not null,"
+				  "reason     varchar(2048) null,"
 				  "created_at datetime default (datetime('now', 'localtime')) not null);";
 
 	const char *const cmd = "create table if not exists Cmd("
