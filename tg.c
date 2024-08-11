@@ -112,7 +112,7 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 		return -1;
 
 	json_object *can_delete_messages_obj;
-	if (json_object_object_get_ex(json, "can_delete_message", &can_delete_messages_obj) == 0)
+	if (json_object_object_get_ex(json, "can_delete_messages", &can_delete_messages_obj) == 0)
 		return -1;
 
 	json_object *can_manage_video_chats_obj;

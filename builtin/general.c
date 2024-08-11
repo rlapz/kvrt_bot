@@ -2,6 +2,7 @@
 #include <strings.h>
 
 #include "general.h"
+#include "../util.h"
 
 
 /*
@@ -54,26 +55,59 @@ general_dump_admin(Module *m, const TgMessage *message)
 
 
 void
+general_admin_reload(Module *m, const TgMessage *message)
+{
+	const char *resp = "failed";
+	json_object *json_obj;
+	TgChatAdminList admin_list;
+	int64_t chat_id = message->chat.id;
+
+
+	if (general_admin_check(m, message) < 0)
+		return;
+
+	if (tg_api_get_admin_list(m->api, chat_id, &admin_list, &json_obj, 1) < 0)
+		goto out0;
+
+	DbAdmin db_admins[50];
+	const int db_admins_len = (int)admin_list.len;
+	for (int i = 0; (i < db_admins_len) && (i < (int)LEN(db_admins)); i++) {
+		const TgChatAdmin *const adm = &admin_list.list[i];
+		db_admins[i] = (DbAdmin) {
+			.chat_id = chat_id,
+			.user_id = adm->user->id,
+			.is_creator = adm->is_creator,
+			.privileges = adm->privileges,
+		};
+	}
+
+	if (db_admin_clear(m->db, chat_id) == DB_RET_ERROR)
+		goto out1;
+
+	if (db_admin_set(m->db, db_admins, db_admins_len) == DB_RET_ERROR)
+		goto out1;
+
+	resp = "done";
+
+out1:
+	json_object_put(json_obj);
+	tg_chat_admin_list_free(&admin_list);
+out0:
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, chat_id, &message->id, resp);
+}
+
+
+void
 general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
 	int is_valid = 0;
 	int is_enable;
 	const char *resp = NULL;
 	char cmd_name[34];
-	DbAdmin admin;
 
 
-	if (message->from->id != m->owner_id) {
-		if (db_admin_get(m->db, &admin, message->chat.id, message->from->id) == DB_RET_ERROR) {
-			resp = "failed to get admin list";
-			goto out0;
-		}
-
-		if (admin.is_creator == 0 && admin.privileges == 0) {
-			resp = "permission denied!";
-			goto out0;
-		}
-	}
+	if (general_admin_check(m, message) < 0)
+		return;
 
 	if (args_len != 2)
 		goto out1;
@@ -115,6 +149,32 @@ out1:
 
 out0:
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+}
+
+
+int
+general_admin_check(Module *m, const TgMessage *message)
+{
+	if (message->from->id == m->owner_id)
+		return 0;
+
+	DbAdmin admin;
+	const char *resp = NULL;
+	if (db_admin_get(m->db, &admin, message->chat.id, message->from->id) == DB_RET_ERROR) {
+		resp = "failed to get admin list";
+		goto out0;
+	}
+
+	if (admin.is_creator == 0 && admin.privileges == 0) {
+		resp = "permission denied!";
+		goto out0;
+	}
+
+	return 0;
+
+out0:
+	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+	return -1;
 }
 
 

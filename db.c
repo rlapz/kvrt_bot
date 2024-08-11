@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 
 #include "db.h"
@@ -76,14 +77,22 @@ db_deinit(Db *d)
 
 
 DbRet
-db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges)
+db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len)
 {
-	/* TODO */
-	(void)d;
-	(void)chat_id;
-	(void)user_id;
-	(void)is_creator;
-	(void)privileges;
+	const char *const sql = "insert into Admin(is_creator, chat_id, user_id, privileges) values (?, ?, ?, ?);";
+	for (int i = 0; i < admin_list_len; i++) {
+		const DbAdmin *admin = &admin_list[i];
+		const DbArg args[] = {
+			{ .type = DB_DATA_TYPE_INT, .int_ = admin->is_creator },
+			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->chat_id },
+			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->user_id },
+			{ .type = DB_DATA_TYPE_INT, .int_ = admin->privileges },
+		};
+
+		if (_exec_one(d->sql, sql, args, LEN(args), NULL, 0) == SQLITE_ERROR)
+			return DB_RET_ERROR;
+	}
+
 	return DB_RET_OK;
 }
 
@@ -121,9 +130,11 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 DbRet
 db_admin_clear(Db *d, int64_t chat_id)
 {
-	/* TODO */
-	(void)d;
-	(void)chat_id;
+	const char *const sql = "delete from Admin where (chat_id = ?);";
+	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
+	if (_exec_one(d->sql, sql, &arg, 1, NULL, 0) == SQLITE_ERROR)
+		return DB_RET_ERROR;
+
 	return DB_RET_OK;
 }
 
@@ -360,6 +371,7 @@ out2:
 			break;
 		default:
 			log_err(0, "db: _exec_one: invalid out type: [%d]:%d", i, o->type);
+			ret = SQLITE_ERROR;
 			goto out0;
 		}
 	}
@@ -367,8 +379,10 @@ out2:
 	is_type_matched = 1;
 
 out1:
-	if (is_type_matched == 0)
+	if (is_type_matched == 0) {
 		log_err(0, "db: column type doesn't match");
+		ret = SQLITE_ERROR;
+	}
 out0:
 	sqlite3_finalize(stmt);
 	return ret;

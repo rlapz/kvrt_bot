@@ -58,7 +58,7 @@ typedef struct db {
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 
-DbRet db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges);
+DbRet db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len);
 DbRet db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
 DbRet db_admin_clear(Db *d, int64_t chat_id);
 

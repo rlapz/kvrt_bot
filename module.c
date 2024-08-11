@@ -104,6 +104,8 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 {
 	if (_cmd_compare("/cmd_set", cmd))
 		general_cmd_set_enable(m, msg, cmd->args, cmd->args_len);
+	else if (_cmd_compare("/admin_reload", cmd))
+		general_admin_reload(m, msg);
 	else if (_cmd_compare("/dump", cmd))
 		general_dump(m, msg, json_obj);
 	else if (_cmd_compare("/dump_admin", cmd))
