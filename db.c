@@ -68,7 +68,7 @@ db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdmi
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 3, is_creator) : ret;
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 4, privileges) : ret;
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_set: *bind: failed to bind: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_set: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -112,7 +112,7 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 	ret = sqlite3_bind_int64(stmt, 1, chat_id);
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, user_id) : ret;
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_get: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -162,7 +162,7 @@ db_admin_clear(Db *d, int64_t chat_id)
 
 	ret = sqlite3_bind_int64(stmt, 1, chat_id);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_clear: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_clear: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -221,7 +221,7 @@ db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, con
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 6, user_id) : ret;
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int(stmt, 7, is_gban) : ret;
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int: is_gban: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_gban_user_set: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -265,7 +265,7 @@ db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t us
 	ret = sqlite3_bind_int64(stmt, 1, chat_id);
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, user_id) : ret;
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_gban_user_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_admin_gban_user_get: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -331,7 +331,7 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
 	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, chat_id) : ret;
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_cmd_get: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -379,7 +379,7 @@ db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[])
 
 	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_message_get: sqlite3_bind_text: cmd_name: %s", sqlite3_errstr(ret));
+		log_err(0, "db: db_cmd_message_get: bind: failed to bind: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
