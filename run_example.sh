@@ -13,6 +13,9 @@ export KVRT_BOT_WORKER_JOBS_MIN=8
 export KVRT_BOT_WORKER_JOBS_MAX=32
 export KVRT_BOT_DB_FILE='./db.sql'
 export KVRT_BOT_OWNER_ID=''
+
+# external command path
+export KVRT_BOT_CMD_PATH='./extern'
 ####################################################################
 
 

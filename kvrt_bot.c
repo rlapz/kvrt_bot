@@ -14,7 +14,6 @@
 #include "kvrt_bot.h"
 
 #include "config.h"
-#include "db.h"
 #include "picohttpparser.h"
 #include "thrd_pool.h"
 #include "update_manager.h"
@@ -119,30 +118,24 @@ kvrt_bot_deinit(KvrtBot *k)
 int
 kvrt_bot_run(KvrtBot *k)
 {
-	int ret;
 	Config *const cfg = &k->config;
 	unsigned iter = 0;
-	Db db;
 	Str str_api;
 	UpdateManager *upm;
 	config_dump(cfg);
 
 
-	ret = db_init(&db, cfg->db_file);
-	if (ret < 0)
-		return -1;
-
-	ret = str_init_alloc(&str_api, 1024);
+	int ret = str_init_alloc(&str_api, 1024);
 	if (ret < 0) {
 		log_err(ret, "kvrt_bot: kvrt_bot_run: str_init_alloc: str api");
-		goto out0;
+		return ret;
 	}
 
 	const char *const api = str_set_fmt(&str_api, "%s%s", CFG_TELEGRAM_API, cfg->api_token);
 	if (api == NULL) {
 		ret = -1;
 		log_err(errno, "kvrt_bot: kvrt_bot_run: str_set_fmt: str api");
-		goto out1;
+		goto out0;
 	}
 
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
@@ -152,34 +145,32 @@ kvrt_bot_run(KvrtBot *k)
 	upm = malloc(sizeof(UpdateManager) * cfg->worker_threads_num);
 	if (upm == NULL) {
 		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: update_manager");
-		goto out1;
+		goto out0;
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = update_manager_init(&upm[iter], cfg->owner_id, api, &db);
+		ret = update_manager_init(&upm[iter], cfg->owner_id, api, cfg->cmd_path, cfg->db_file);
 		if (ret < 0)
-			goto out2;
+			goto out1;
 	}
 
 	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, upm,
 			       sizeof(UpdateManager), cfg->worker_jobs_min,
 			       cfg->worker_jobs_max);
 	if (ret < 0)
-		goto out2;
+		goto out1;
 
 	ret = _run_event_loop(k);
 
 	thrd_pool_destroy(&k->thrd_pool);
 
-out2:
+out1:
 	while (iter--)
 		update_manager_deinit(&upm[iter]);
 
 	free(upm);
-out1:
-	str_deinit(&str_api);
 out0:
-	db_deinit(&db);
+	str_deinit(&str_api);
 	return ret;
 }
 

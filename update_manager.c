@@ -4,6 +4,7 @@
 #include <json.h>
 #include <string.h>
 
+#include "db.h"
 #include "update_manager.h"
 
 #include "tg.h"
@@ -17,20 +18,25 @@ static void _handle_message(UpdateManager *u, const TgMessage *t, json_object *j
  * Public
  */
 int
-update_manager_init(UpdateManager *u, int64_t owner_id, const char base_api[], Db *db)
+update_manager_init(UpdateManager *u, int64_t owner_id, const char base_api[], const char cmd_path[],
+		    const char db_path[])
 {
-	int ret = tg_api_init(&u->api, base_api);
-	if (ret < 0)
+	if (db_init(&u->db, db_path) < 0)
 		return -1;
 
-	ret = module_init(&u->module, owner_id, &u->api, db);
-	if (ret < 0) {
-		tg_api_deinit(&u->api);
-		return -1;
-	}
+	if (tg_api_init(&u->api, base_api) < 0)
+		goto err0;
 
-	u->db = db;
+	if (module_init(&u->module, owner_id, &u->api, &u->db, cmd_path) < 0)
+		goto err1;
+
 	return 0;
+
+err1:
+	tg_api_deinit(&u->api);
+err0:
+	db_deinit(&u->db);
+	return -1;
 }
 
 
@@ -39,6 +45,7 @@ update_manager_deinit(UpdateManager *u)
 {
 	tg_api_deinit(&u->api);
 	module_deinit(&u->module);
+	db_deinit(&u->db);
 }
 
 

@@ -37,7 +37,7 @@ cstr_copy_n(char dest[], size_t size, const char src[])
 	if (size == 0)
 		return;
 
-	if (size == 1) {
+	if ((size == 1) || (src == NULL)) {
 		dest[0] = '\0';
 		return;
 	}
@@ -208,12 +208,12 @@ _str_resize(Str *s, size_t slen)
 		return 0;
 
 	if (s->is_alloc == 0)
-		return -ENOMEM;
+		return -1;
 
 	const size_t _rsize = (slen - remn_size) + size + 1;
 	char *const _new_cstr = realloc(s->cstr, _rsize);
 	if (_new_cstr == NULL)
-		return -ENOMEM;
+		return -1;
 
 	s->size = _rsize;
 	s->cstr = _new_cstr;
@@ -266,9 +266,8 @@ str_append_n(Str *s, const char cstr[], size_t len)
 	if (len == 0)
 		return s->cstr;
 
-	const int ret = _str_resize(s, len);
-	if (ret < 0) {
-		errno = -ret;
+	if (_str_resize(s, len) < 0) {
+		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -291,9 +290,8 @@ str_set_n(Str *s, const char cstr[], size_t len)
 		return s->cstr;
 	}
 
-	const int ret = _str_resize(s, len);
-	if (ret < 0) {
-		errno = -ret;
+	if (_str_resize(s, len) < 0) {
+		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -326,9 +324,8 @@ str_set_fmt(Str *s, const char fmt[], ...)
 		return s->cstr;
 	}
 
-	ret = _str_resize(s, cstr_len);
-	if (ret < 0) {
-		errno = -ret;
+	if (_str_resize(s, cstr_len) < 0) {
+		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -364,9 +361,8 @@ str_append_fmt(Str *s, const char fmt[], ...)
 	if (cstr_len == 0)
 		return s->cstr;
 
-	ret = _str_resize(s, cstr_len);
-	if (ret < 0) {
-		errno = -ret;
+	if (_str_resize(s, cstr_len) < 0) {
+		errno = ENOMEM;
 		return NULL;
 	}
 
@@ -407,7 +403,6 @@ str_dup(Str *s)
 
 	return (char *)memcpy(ret, s->cstr, len);
 }
-
 
 
 /*

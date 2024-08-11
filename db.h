@@ -10,10 +10,21 @@
 #include "util.h"
 
 
+#define DB_CMD_ARGS_MAX_SIZE (16)
+
+
+typedef enum db_ret {
+	DB_RET_ERROR = -1,
+	DB_RET_OK,
+	DB_RET_NOT_EXISTS,
+} DbRet;
+
+
 typedef enum db_cmd_arg_type {
 	DB_CMD_ARG_TYPE_CHAT_ID = (1 << 0),
 	DB_CMD_ARG_TYPE_USER_ID = (1 << 1),
 	DB_CMD_ARG_TYPE_TEXT    = (1 << 2),
+	DB_CMD_ARG_TYPE_RAW     = (1 << 3),
 } DbCmdArgType;
 
 
@@ -36,7 +47,6 @@ typedef struct db_cmd {
 	int64_t      chat_id;
 	char         name[34];
 	char         file[1024];
-	int          args_len;
 	DbCmdArgType args;
 } DbCmd;
 
@@ -54,16 +64,16 @@ typedef struct db {
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 
-int  db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges);
-int  db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
-int  db_admin_clear(Db *d, int64_t chat_id);
-int  db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[]);
-int  db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id);
+DbRet db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges);
+DbRet db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
+DbRet db_admin_clear(Db *d, int64_t chat_id);
+DbRet db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[]);
+DbRet db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id);
 
-int  db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
-int  db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
+DbRet db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable);
+DbRet db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
-int  db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
+DbRet db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
 
 
 #endif

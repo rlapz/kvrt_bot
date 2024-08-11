@@ -42,7 +42,7 @@ db_deinit(Db *d)
 }
 
 
-int
+DbRet
 db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges)
 {
 	/* not tested yet! */
@@ -55,17 +55,56 @@ db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdmi
 	const char *const sql = "insert into Admin(chat_id, user_id, is_creator, privileges) "
 				"values (?, ?, ?, ?)";
 
-	(void)sql;
-	(void)d;
-	(void)chat_id;
-	(void)user_id;
-	(void)is_creator;
-	(void)privileges;
-	return 0;
+	DbRet db_ret = DB_RET_ERROR;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_set: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return db_ret;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 1, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_set: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 2, user_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_set: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 3, is_creator);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_set: sqlite3_bind_int64: is_creator: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 4, privileges);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_set: sqlite3_bind_int64: privileges: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	switch (ret) {
+	case SQLITE_OK:
+	case SQLITE_DONE:
+		db_ret = DB_RET_OK;
+		break;
+	default:
+		log_err(0, "db: db_admin_set: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
+	}
+
+out0:
+	sqlite3_finalize(stmt);
+	return db_ret;
 }
 
 
-int
+DbRet
 db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 {
 	/* not tested yet! */
@@ -78,51 +117,54 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 				"where (chat_id = ?) and (user_id = ?)"
 				"order by id desc limit 1;";
 
-
+	DbRet db_ret = DB_RET_ERROR;
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_admin_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return -1;
+		return db_ret;
 	}
 
 	ret = sqlite3_bind_int64(stmt, 1, chat_id);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_admin_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
-		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_bind_int64(stmt, 2, user_id);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_admin_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
-		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_step(stmt);
-	if (ret == SQLITE_ROW) {
+	switch (ret) {
+	case SQLITE_ROW:
+		admin->chat_id = chat_id;
+		admin->user_id = user_id;
 		admin->is_creator = sqlite3_column_int(stmt, 0);
 		admin->privileges = sqlite3_column_int(stmt, 1);
-	} else if (ret == SQLITE_DONE) {
+
+		db_ret = DB_RET_OK;
+		break;
+	case SQLITE_DONE:
 		admin->is_creator = 0;
 		admin->privileges = 0;
-	} else {
-		ret = -1;
-		goto out0;
-	}
 
-	admin->chat_id = chat_id;
-	admin->user_id = user_id;
-	ret = 0;
+		db_ret = DB_RET_NOT_EXISTS;
+		break;
+	default:
+		log_err(0, "db: db_admin_get: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
+	}
 
 out0:
 	sqlite3_finalize(stmt);
-	return ret;
+	return db_ret;
 }
 
 
-int
+DbRet
 db_admin_clear(Db *d, int64_t chat_id)
 {
 	/* not tested yet! */
@@ -131,15 +173,38 @@ db_admin_clear(Db *d, int64_t chat_id)
 	 */
 	const char *const sql = "delete from Admin where (chat_id = ?);";
 
+	DbRet db_ret = DB_RET_ERROR;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_clear: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return db_ret;
+	}
 
-	(void)d;
-	(void)sql;
-	(void)chat_id;
-	return 0;
+	ret = sqlite3_bind_int64(stmt, 1, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_clear: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	switch (ret) {
+	case SQLITE_OK:
+	case SQLITE_DONE:
+		db_ret = DB_RET_OK;
+		break;
+	default:
+		log_err(0, "db: db_admin_clear: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
+	}
+
+out0:
+	sqlite3_finalize(stmt);
+	return db_ret;
 }
 
 
-int
+DbRet
 db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[])
 {
 	/* not tested yet! */
@@ -162,105 +227,143 @@ db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, con
 					"limit 1 "
 				") != ?;";
 
-	(void)sql;
-	(void)d;
-	(void)chat_id;
-	(void)user_id;
-	(void)is_gban;
-	(void)reason;
-	return 0;
+	DbRet db_ret = DB_RET_ERROR;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return db_ret;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 1, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 2, user_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int(stmt, 3, is_gban);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int: is_gban: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_text(stmt, 4, reason, -1, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_text: chat_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 5, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 6, user_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int(stmt, 7, is_gban);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_admin_gban_user_set: sqlite3_bind_int: is_gban: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	switch (ret) {
+	case SQLITE_OK:
+	case SQLITE_DONE:
+		db_ret = DB_RET_OK;
+		break;
+	default:
+		log_err(0, "db: db_admin_set: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
+	}
+
+out0:
+	sqlite3_finalize(stmt);
+	return db_ret;
 }
 
 
-int
+DbRet
 db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id)
 {
 	/* params:
 	 * 1. chat_id
 	 * 2. user_id
 	 */
-	const char *const sql = "select is_gban "
+	const char *const sql = "select is_gban, reason "
 				"from Gban "
 				"where (chat_id = ?) and (user_id = ?) "
 				"order by id desc "
 				"limit 1;";
 
+	DbRet db_ret = DB_RET_ERROR;
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_admin_gban_user_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return -1;
+		return db_ret;
 	}
 
 	ret = sqlite3_bind_int64(stmt, 1, chat_id);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_admin_gban_user_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
-		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_bind_int64(stmt, 2, user_id);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_admin_gban_user_get: sqlite3_bind_int64: user_id: %s", sqlite3_errstr(ret));
-		ret = -1;
 		goto out0;
 	}
 
-	if (sqlite3_step(stmt) != SQLITE_ROW) {
-		ret = -1;
-		goto out0;
+	ret = sqlite3_step(stmt);
+	switch (ret) {
+	case SQLITE_ROW:
+		gban->chat_id = chat_id;
+		gban->user_id = user_id;
+		gban->is_gban = sqlite3_column_int(stmt, 0);
+		cstr_copy_n(gban->reason, LEN(gban->reason), (const char *)sqlite3_column_text(stmt, 1));
+
+		db_ret = DB_RET_OK;
+		break;
+	case SQLITE_DONE:
+		db_ret = DB_RET_NOT_EXISTS;
+		break;
+	default:
+		log_err(0, "db: db_admin_gban_user_get: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
 	}
-
-	gban->chat_id = chat_id;
-	gban->user_id = user_id;
-	gban->is_gban = sqlite3_column_int(stmt, 0);
-
-	const char *const _reason = (char *)sqlite3_column_text(stmt, 1);
-	if (_reason != NULL)
-		cstr_copy_n(gban->reason, sizeof(gban->reason), _reason);
-	else
-		gban->reason[0] = '\0';
-
-	ret = 0;
 
 out0:
 	sqlite3_finalize(stmt);
-	return ret;
+	return db_ret;
 }
 
 
-int
-db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
+DbRet
+db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable)
 {
-	/* not tested yet! */
-	/* params:
-	 * 1. cmd_id
-	 * 2. chat_id
-	 * 3. is_enable
-	 * 4. cmd_name
-	 * 5. is_enable
-	 */
-	const char *const sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
-				"select ?, ?, ? "
-				"where ("
-					"select b.is_enable "
-					"from Cmd as a "
-					"join Cmd_Chat as b on (a.id = b.cmd_id) "
-					"where (a.name = ?) "
-					"order by a.id, b.id desc "
-					"limit 1 "
-				") != ?;";
-
-	(void)sql;
+	/* TODO */
 	(void)d;
 	(void)chat_id;
 	(void)name;
 	(void)is_enable;
-	return 0;
+	return DB_RET_OK;
 }
 
 
-int
+DbRet
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
 	/* not tested yet! */
@@ -275,16 +378,53 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 				"order by b.id desc "
 				"limit 1;";
 
-	(void)sql;
-	(void)d;
-	(void)cmd;
-	(void)chat_id;
-	(void)name;
-	return 0;
+	DbRet db_ret = DB_RET_ERROR;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return db_ret;
+	}
+
+	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_get: sqlite3_bind_text: cmd_name: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_bind_int64(stmt, 2, chat_id);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_cmd_get: sqlite3_bind_int64: chat_id: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	switch (ret) {
+	case SQLITE_ROW:
+		cmd->chat_id = chat_id;
+		cstr_copy_n(cmd->name, LEN(cmd->name), (const char *)sqlite3_column_text(stmt, 0));
+		cstr_copy_n(cmd->file, LEN(cmd->file), (const char *)sqlite3_column_text(stmt, 1));
+
+		cmd->args = sqlite3_column_int(stmt, 2);
+		cmd->is_enable = sqlite3_column_int(stmt, 3);
+
+		db_ret = DB_RET_OK;
+		break;
+	case SQLITE_DONE:
+		db_ret = DB_RET_NOT_EXISTS;
+		break;
+	default:
+		log_err(0, "db: db_cmd_get: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
+	}
+
+out0:
+	sqlite3_finalize(stmt);
+	return db_ret;
 }
 
 
-int
+DbRet
 db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[])
 {
 	/* params:
@@ -292,39 +432,37 @@ db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[])
 	 */
 	const char *const sql = "select message from Cmd_Message where (name = ?) order by id desc limit 1;";
 
-
+	DbRet db_ret = DB_RET_ERROR;
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_cmd_message_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return -1;
+		return db_ret;
 	}
 
 	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: db_cmd_message_get: sqlite3_bind_text: cmd_name: %s", sqlite3_errstr(ret));
-		ret = -1;
 		goto out0;
 	}
 
 	ret = sqlite3_step(stmt);
-	if (ret != SQLITE_ROW) {
-		ret = -1;
+	switch (ret) {
+	case SQLITE_ROW:
+		cstr_copy_n(buffer, size, (const char *)sqlite3_column_text(stmt, 0));
+		db_ret = DB_RET_OK;
+		break;
+	case SQLITE_DONE:
+		db_ret = DB_RET_NOT_EXISTS;
 		goto out0;
+	default:
+		log_err(0, "db: db_cmd_message_get: sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
 	}
-
-	const char *const res = (char *)sqlite3_column_text(stmt, 0);
-	if (res == NULL) {
-		ret = -1;
-		goto out0;
-	}
-
-	cstr_copy_n(buffer, size, res);
-	ret = 0;
 
 out0:
 	sqlite3_finalize(stmt);
-	return ret;
+	return db_ret;
 }
 
 

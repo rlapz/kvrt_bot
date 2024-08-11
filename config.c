@@ -99,6 +99,11 @@ config_load_from_env(Config *c)
 	else
 		c->db_file = CFG_DEFAULT_DB_FILE;
 
+	if (((env = getenv("KVRT_BOT_CMD_PATH")) != NULL) && (env[0] != '\0'))
+		c->cmd_path = env;
+	else
+		c->cmd_path = CFG_DEFAULT_CMD_PATH;
+
 
 	c->hook_url_len = strlen(c->hook_url);
 	c->hook_path_len = strlen(c->hook_path);
@@ -114,21 +119,22 @@ config_dump(const Config *c)
 	puts("---[CONFIG]---");
 
 #ifdef DEBUG
-	printf("Api Token      : %s\n", c->api_token);
-	printf("Api Secret     : %s\n", c->api_secret);
+	printf("Api Token        : %s\n", c->api_token);
+	printf("Api Secret       : %s\n", c->api_secret);
 #else
-	printf("Api Token      : *****************\n");
-	printf("Api Secret     : *****************\n");
+	printf("Api Token        : *****************\n");
+	printf("Api Secret       : *****************\n");
 #endif
 
-	printf("Hook URL       : %s%s\n", c->hook_url, c->hook_path);
+	printf("Hook URL         : %s%s\n", c->hook_url, c->hook_path);
 
-	printf("Listen Host    : %s\n", c->listen_host);
-	printf("Listen Port    : %d\n", c->listen_port);
-	printf("Worker Threads : %u\n", c->worker_threads_num);
-	printf("Worker Jobs Min: %u\n", c->worker_jobs_min);
-	printf("Worker Jobs Max: %u\n", c->worker_jobs_max);
-	printf("Db file        : %s\n", c->db_file);
-	printf("Owner ID       : %" PRIi64 "\n", c->owner_id);
+	printf("Listen Host      : %s\n", c->listen_host);
+	printf("Listen Port      : %d\n", c->listen_port);
+	printf("Worker Threads   : %u\n", c->worker_threads_num);
+	printf("Worker Jobs Min  : %u\n", c->worker_jobs_min);
+	printf("Worker Jobs Max  : %u\n", c->worker_jobs_max);
+	printf("Db file          : %s\n", c->db_file);
+	printf("Owner ID         : %" PRIi64 "\n", c->owner_id);
+	printf("External cmd path: %s\n", c->cmd_path);
 	puts("---[CONFIG]---");
 }

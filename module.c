@@ -20,7 +20,7 @@ static int _external_handle_command(Module *m, const BotCmd *cmd, const TgMessag
 
 
 int
-module_init(Module *m, int64_t owner_id, TgApi *api, Db *db)
+module_init(Module *m, int64_t owner_id, TgApi *api, Db *db, const char cmd_path[])
 {
 	const int ret = str_init_alloc(&m->str, 1024);
 	if (ret < 0) {
@@ -31,6 +31,7 @@ module_init(Module *m, int64_t owner_id, TgApi *api, Db *db)
 	m->owner_id = owner_id;
 	m->api = api;
 	m->db = db;
+	m->cmd_path = cmd_path;
 	return 0;
 }
 
@@ -102,7 +103,7 @@ static int
 _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj)
 {
 	if (_cmd_compare("/cmd_set", cmd))
-		general_cmd_set(m, msg, cmd->args, cmd->args_len);
+		general_cmd_set_enable(m, msg, cmd->args, cmd->args_len);
 	else if (_cmd_compare("/dump", cmd))
 		general_dump(m, msg, json_obj);
 	else if (_cmd_compare("/dump_admin", cmd))

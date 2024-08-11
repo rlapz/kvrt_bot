@@ -54,7 +54,7 @@ general_dump_admin(Module *m, const TgMessage *message)
 
 
 void
-general_cmd_set(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
+general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
 {
 	int is_valid = 0;
 	int is_enable;
@@ -94,7 +94,8 @@ general_cmd_set(Module *m, const TgMessage *message, const BotCmdArg args[], uns
 	else
 		goto out1;
 
-	if (db_cmd_set(m->db, message->chat.id, cmd_name, is_enable) < 0)
+	log_info("chat_id: %d", (int)message->chat.id);
+	if (db_cmd_set_enable(m->db, message->chat.id, cmd_name, is_enable) < 0)
 		return;
 
 	is_valid = 1;
