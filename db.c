@@ -1,8 +1,41 @@
+#include <string.h>
+
 #include "db.h"
 #include "util.h"
 
 
+typedef enum db_data_type {
+	DB_DATA_TYPE_INT,
+	DB_DATA_TYPE_INT64,
+	DB_DATA_TYPE_TEXT,
+} DbDataType;
+
+typedef struct db_arg {
+	DbDataType type;
+	union {
+		int         int_;
+		int64_t     int64;
+		const char *text;
+	};
+} DbArg;
+
+typedef struct db_out_text {
+	char   *cstr;
+	size_t  size;
+} DbOutText;
+
+typedef struct db_out {
+	DbDataType type;
+	union {
+		int       *int_;
+		int64_t   *int64;
+		DbOutText  text;
+	};
+} DbOut;
+
+
 static int _create_tables(sqlite3 *s);
+static int _exec_one(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len);
 
 
 /*
@@ -45,361 +78,147 @@ db_deinit(Db *d)
 DbRet
 db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges)
 {
-	/* not tested yet! */
-	/* params:
-	 * 1. chat_id
-	 * 2. user_id
-	 * 3. is_creator
-	 * 4. privileges
-	 */
-	const char *const sql = "insert into Admin(chat_id, user_id, is_creator, privileges) "
-				"values (?, ?, ?, ?)";
-
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_set: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
-	}
-
-	ret = sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, user_id) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 3, is_creator) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 4, privileges) : ret;
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_set: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_DONE:
-		db_ret = DB_RET_OK;
-		break;
-	default:
-		log_err(0, "db: db_admin_set: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
+	/* TODO */
+	(void)d;
+	(void)chat_id;
+	(void)user_id;
+	(void)is_creator;
+	(void)privileges;
+	return DB_RET_OK;
 }
 
 
 DbRet
 db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 {
-	/* not tested yet! */
-	/* params:
-	 * 1. chat_id
-	 * 2. user_id
-	 */
 	const char *const sql = "select is_creator, privileges "
 				"from Admin "
 				"where (chat_id = ?) and (user_id = ?)"
 				"order by id desc limit 1;";
 
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
-	}
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
+	};
+	DbOut out[] = {
+		{ .type = DB_DATA_TYPE_INT, .int_ = &admin->is_creator },
+		{ .type = DB_DATA_TYPE_INT, .int_ = (int *)&admin->privileges },
+	};
 
-	ret = sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, user_id) : ret;
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_get: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
+	switch (_exec_one(d->sql, sql, args, LEN(args), out, LEN(out))) {
 	case SQLITE_ROW:
-		admin->chat_id = chat_id;
-		admin->user_id = user_id;
-		admin->is_creator = sqlite3_column_int(stmt, 0);
-		admin->privileges = sqlite3_column_int(stmt, 1);
-
-		db_ret = DB_RET_OK;
-		break;
+		return DB_RET_OK;
 	case SQLITE_DONE:
 		admin->is_creator = 0;
 		admin->privileges = 0;
-
-		db_ret = DB_RET_NOT_EXISTS;
-		break;
-	default:
-		log_err(0, "db: db_admin_get: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
+		return DB_RET_EMPTY;
 	}
 
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
+	return DB_RET_ERROR;
 }
 
 
 DbRet
 db_admin_clear(Db *d, int64_t chat_id)
 {
-	/* not tested yet! */
-	/* params:
-	 * 1. chat_id
-	 */
-	const char *const sql = "delete from Admin where (chat_id = ?);";
-
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_clear: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
-	}
-
-	ret = sqlite3_bind_int64(stmt, 1, chat_id);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_clear: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_DONE:
-		db_ret = DB_RET_OK;
-		break;
-	default:
-		log_err(0, "db: db_admin_clear: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
-}
-
-
-DbRet
-db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[])
-{
-	/* not tested yet! */
-	/* params:
-	 * 1. chat_id
-	 * 2. user_id
-	 * 3. is_gban
-	 * 4. reason
-	 * 5. chat_id
-	 * 6. user_id
-	 * 7. is_gban
-	 */
-	const char *const sql = "insert into Gban(chat_id, user_id, is_gban, reason) "
-				"select ?, ?, ?, ? "
-				"where ("
-					"select is_gban "
-					"from Gban "
-					"where (chat_id = ?) and (user_id = ?) "
-					"order by id desc "
-					"limit 1 "
-				") != ?;";
-
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_gban_user_set: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
-	}
-
-	ret = sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, user_id) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int(stmt, 3, is_gban) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_text(stmt, 4, reason, -1, NULL) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 5, chat_id) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 6, user_id) : ret;
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int(stmt, 7, is_gban) : ret;
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_gban_user_set: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_DONE:
-		db_ret = DB_RET_OK;
-		break;
-	default:
-		log_err(0, "db: db_admin_set: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
-}
-
-
-DbRet
-db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id)
-{
-	/* params:
-	 * 1. chat_id
-	 * 2. user_id
-	 */
-	const char *const sql = "select is_gban, reason "
-				"from Gban "
-				"where (chat_id = ?) and (user_id = ?) "
-				"order by id desc "
-				"limit 1;";
-
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_gban_user_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
-	}
-
-	ret = sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, user_id) : ret;
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_admin_gban_user_get: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_ROW:
-		gban->chat_id = chat_id;
-		gban->user_id = user_id;
-		gban->is_gban = sqlite3_column_int(stmt, 0);
-		cstr_copy_n(gban->reason, LEN(gban->reason), (const char *)sqlite3_column_text(stmt, 1));
-
-		db_ret = DB_RET_OK;
-		break;
-	case SQLITE_DONE:
-		db_ret = DB_RET_NOT_EXISTS;
-		break;
-	default:
-		log_err(0, "db: db_admin_gban_user_get: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
-}
-
-
-DbRet
-db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable)
-{
 	/* TODO */
 	(void)d;
 	(void)chat_id;
-	(void)name;
-	(void)is_enable;
 	return DB_RET_OK;
+}
+
+
+DbRet
+db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
+{
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT, .int_ = is_enable },
+		{ .type = DB_DATA_TYPE_TEXT, .text = name },
+	};
+
+	int is_exists = 0;
+	const char *sql = "select exists(select 1 from Cmd where (name = ?) limit 1);";
+	DbOut out = { .type = DB_DATA_TYPE_INT, .int_ = &is_exists };
+
+	switch (_exec_one(d->sql, sql, &args[2], 1, &out, 1)) {
+	case SQLITE_ROW:
+		if (is_exists)
+			break;
+
+		return DB_RET_EMPTY;
+	case SQLITE_DONE:
+		return DB_RET_EMPTY;
+	default:
+		return DB_RET_ERROR;
+	}
+
+
+	sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
+	      "select a.id, ?, ? "
+	      "from Cmd as a "
+	      "where (a.name = ?) "
+	      "order by a.id desc "
+	      "limit 1;";
+
+	switch (_exec_one(d->sql, sql, args, LEN(args), NULL, 0)) {
+	case SQLITE_ROW:
+	case SQLITE_DONE:
+		return DB_RET_OK;
+	}
+
+	return DB_RET_ERROR;
 }
 
 
 DbRet
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
-	/* not tested yet! */
-	/* params:
-	 * 1. cmd_name
-	 * 2. chat_id
-	 */
 	const char *const sql = "select a.name, a.file, a.args, b.is_enable "
 				"from Cmd as a "
-				"join Cmd_Chat as b on (a.id = b.chat_id) "
+				"join Cmd_Chat as b on (a.id = b.cmd_id) "
 				"where (a.name = ?) and (b.chat_id = ?) "
 				"order by b.id desc "
 				"limit 1;";
 
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_TEXT, .text = name },
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+	};
+	DbOut out[] = {
+		{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = LEN(cmd->name) } },
+		{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = LEN(cmd->file) } },
+		{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_enable },
+	};
+
+	switch (_exec_one(d->sql, sql, args, LEN(args), out, LEN(out))) {
+	case SQLITE_DONE: return DB_RET_EMPTY;
+	case SQLITE_ROW: return DB_RET_OK;
 	}
 
-	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	ret = (ret == SQLITE_OK) ? sqlite3_bind_int64(stmt, 2, chat_id) : ret;
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_get: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_ROW:
-		cmd->chat_id = chat_id;
-		cstr_copy_n(cmd->name, LEN(cmd->name), (const char *)sqlite3_column_text(stmt, 0));
-		cstr_copy_n(cmd->file, LEN(cmd->file), (const char *)sqlite3_column_text(stmt, 1));
-
-		cmd->args = sqlite3_column_int(stmt, 2);
-		cmd->is_enable = sqlite3_column_int(stmt, 3);
-
-		db_ret = DB_RET_OK;
-		break;
-	case SQLITE_DONE:
-		db_ret = DB_RET_NOT_EXISTS;
-		break;
-	default:
-		log_err(0, "db: db_cmd_get: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
+	return DB_RET_ERROR;
 }
 
 
 DbRet
 db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[])
 {
-	/* params:
-	 * 1. cmd_name
-	 */
+	const DbArg arg = {
+		.type = DB_DATA_TYPE_TEXT,
+		.text = name,
+	};
+	DbOut out = {
+		.type = DB_DATA_TYPE_TEXT,
+		.text = { .cstr = buffer, .size = size },
+	};
+
 	const char *const sql = "select message from Cmd_Message where (name = ?) order by id desc limit 1;";
-
-	DbRet db_ret = DB_RET_ERROR;
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, sql, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_message_get: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return db_ret;
+	switch (_exec_one(d->sql, sql, &arg, 1, &out, 1)) {
+	case SQLITE_DONE: return DB_RET_EMPTY;
+	case SQLITE_ROW: return DB_RET_OK;
 	}
 
-	ret = sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: db_cmd_message_get: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_ROW:
-		cstr_copy_n(buffer, size, (const char *)sqlite3_column_text(stmt, 0));
-		db_ret = DB_RET_OK;
-		break;
-	case SQLITE_DONE:
-		db_ret = DB_RET_NOT_EXISTS;
-		goto out0;
-	default:
-		log_err(0, "db: db_cmd_message_get: sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return db_ret;
+	return DB_RET_ERROR;
 }
 
 
@@ -415,14 +234,6 @@ _create_tables(sqlite3 *s)
 				  "chat_id    bigint not null,"			/* telegram chat id */
 				  "user_id    bigint not null,"			/* telegram user id */
 				  "privileges integer not null,"		/* O-Ring TgChatAdminPrivilege */
-				  "created_at datetime default (datetime('now', 'localtime')) not null);";
-
-	const char *const gban = "create table if not exists Gban("
-				  "id         integer primary key autoincrement,"
-				  "user_id    bigint not null,"			/* telegram user id */
-				  "chat_id    bigint not null,"			/* telegram chat id */
-				  "is_gban    boolean not null,"
-				  "reason     varchar(2047) null,"
 				  "created_at datetime default (datetime('now', 'localtime')) not null);";
 
 	const char *const cmd = "create table if not exists Cmd("
@@ -452,11 +263,6 @@ _create_tables(sqlite3 *s)
 		goto err0;
 	}
 
-	if (sqlite3_exec(s, gban, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: user_gban: %s", err_msg);
-		goto err0;
-	}
-
 	if (sqlite3_exec(s, cmd, NULL, NULL, &err_msg) != 0) {
 		log_err(0, "db: _create_tables: cmd: %s", err_msg);
 		goto err0;
@@ -477,4 +283,93 @@ _create_tables(sqlite3 *s)
 err0:
 	sqlite3_free(err_msg);
 	return -1;
+}
+
+
+static int
+_exec_one(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len)
+{
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: _exec_one: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return ret;
+	}
+
+	for (int i = 0; i < args_len; i++) {
+		const DbArg *const arg = &args[i];
+		switch (arg->type) {
+		case DB_DATA_TYPE_INT:
+			ret = sqlite3_bind_int(stmt, (i + 1), arg->int_);
+			if (ret != SQLITE_OK)
+				goto out2;
+			break;
+		case DB_DATA_TYPE_INT64:
+			ret = sqlite3_bind_int64(stmt, (i + 1), arg->int64);
+			if (ret != SQLITE_OK)
+				goto out2;
+			break;
+		case DB_DATA_TYPE_TEXT:
+			ret = sqlite3_bind_text(stmt, (i + 1), arg->text, -1, NULL);
+			if (ret != SQLITE_OK)
+				goto out2;
+			break;
+		default:
+			log_err(0, "db: _exec_one: invalid arg type: [%d]:%d", i, arg->type);
+			goto out0;
+		}
+	}
+
+out2:
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: _exec: bind: failed to bind: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	ret = sqlite3_step(stmt);
+	if (ret == SQLITE_ERROR) {
+		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	if (ret != SQLITE_ROW)
+		goto out0;
+
+	int is_type_matched = 0;
+	for (int i = 0; i < out_len; i++) {
+		DbOut *const o = &out[i];
+		const int type = sqlite3_column_type(stmt, i);
+		switch (o->type) {
+		case DB_DATA_TYPE_INT:
+			if (type != SQLITE_INTEGER)
+				goto out1;
+
+			*o->int_ = sqlite3_column_int(stmt, i);
+			break;
+		case DB_DATA_TYPE_INT64:
+			if (type != SQLITE_INTEGER)
+				goto out1;
+
+			*o->int64 = sqlite3_column_int64(stmt, i);
+			break;
+		case DB_DATA_TYPE_TEXT:
+			if (type != SQLITE_TEXT)
+				goto out1;
+
+			cstr_copy_n(o->text.cstr, o->text.size, (const char *)sqlite3_column_text(stmt, i));
+			break;
+		default:
+			log_err(0, "db: _exec_one: invalid out type: [%d]:%d", i, o->type);
+			goto out0;
+		}
+	}
+
+	is_type_matched = 1;
+
+out1:
+	if (is_type_matched == 0)
+		log_err(0, "db: column type doesn't match");
+out0:
+	sqlite3_finalize(stmt);
+	return ret;
 }

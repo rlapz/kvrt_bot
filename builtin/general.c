@@ -63,11 +63,8 @@ general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args
 	DbAdmin admin;
 
 
-	if (args_len != 2)
-		goto out1;
-
 	if (message->from->id != m->owner_id) {
-		if (db_admin_get(m->db, &admin, message->chat.id, message->from->id) < 0) {
+		if (db_admin_get(m->db, &admin, message->chat.id, message->from->id) == DB_RET_ERROR) {
 			resp = "failed to get admin list";
 			goto out0;
 		}
@@ -78,12 +75,16 @@ general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args
 		}
 	}
 
+	if (args_len != 2)
+		goto out1;
+
 	cmd_name[0] = '/';
 	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, args[0].name, (size_t)args[0].len);
 	if (cstr_cmp_n(cmd_name + 1, args[0].name, args[0].len) == 0) {
 		resp = "invalid command name: maybe truncated";
 		goto out0;
 	}
+
 
 	const char *const st = args[1].name;
 	const size_t st_len = (size_t)args[1].len;
@@ -94,53 +95,26 @@ general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args
 	else
 		goto out1;
 
-	log_info("chat_id: %d", (int)message->chat.id);
-	if (db_cmd_set_enable(m->db, message->chat.id, cmd_name, is_enable) < 0)
-		return;
-
 	is_valid = 1;
 
-out1:
-	if (is_valid)
+	DbRet db_ret = db_cmd_set(m->db, message->chat.id, cmd_name, is_enable);
+	switch (db_ret) {
+	case DB_RET_ERROR:
+		return;
+	case DB_RET_EMPTY:
+		resp = str_set_fmt(&m->str, "command: \"%s\" doesn't exists", cmd_name);
+		goto out0;
+	default:
 		resp = str_set_fmt(&m->str, "\"%s\" now %s", cmd_name, ((is_enable) ? "enabled" : "disabled"));
-	else
+		break;
+	}
+
+out1:
+	if (is_valid == 0)
 		resp = str_set_fmt(&m->str, "invalid argument!\n[cmd_name] [enable/disable]");
 
 out0:
 	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
-}
-
-
-void
-general_test(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len)
-{
-	const char *ret = NULL;
-	if (args_len == 0)
-		goto out0;
-
-	const char *_arg = args[0].name;
-	unsigned _arg_len = args[0].len;
-	if (cstr_casecmp_n("link", _arg, _arg_len)) {
-		ret = "link: https://telegram\\.org";
-	} else if (cstr_casecmp_n("button", _arg, _arg_len)) {
-		ret = "button: [TODO]";
-	} else if (cstr_casecmp_n("photo", _arg, _arg_len)) {
-		tg_api_send_photo(m->api, TG_API_PHOTO_TYPE_LINK, message->chat.id, &message->id,
-				  "A cat\nsrc: https://cdn.freecodecamp.org/curriculum/cat-photo-app/relaxing-cat.jpg",
-				  "https://cdn.freecodecamp.org/curriculum/cat-photo-app/relaxing-cat.jpg");
-		return;
-	}
-
-	if (ret == NULL) {
-out0:
-		ret = "```\nAvailable 'test': \n"
-		       "1. Link   - Send a website link\n"
-		       "2. Button - Send buttons\n"
-		       "3. Photo  - Send a photo\n"
-		       "```";
-	}
-
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, ret);
 }
 
 

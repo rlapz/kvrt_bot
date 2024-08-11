@@ -16,7 +16,8 @@
 typedef enum db_ret {
 	DB_RET_ERROR = -1,
 	DB_RET_OK,
-	DB_RET_NOT_EXISTS,
+	DB_RET_EXISTS,
+	DB_RET_EMPTY,
 } DbRet;
 
 
@@ -34,13 +35,6 @@ typedef struct db_admin {
 	int64_t              user_id;
 	TgChatAdminPrivilege privileges;
 } DbAdmin;
-
-typedef struct db_admin_gban_user {
-	int     is_gban;
-	int64_t user_id;
-	int64_t chat_id;
-	char    reason[2048];
-} DbAdminGbanUser;
 
 typedef struct db_cmd {
 	int          is_enable;
@@ -67,10 +61,8 @@ void db_deinit(Db *d);
 DbRet db_admin_set(Db *d, int64_t chat_id, int64_t user_id, int is_creator, TgChatAdminPrivilege privileges);
 DbRet db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
 DbRet db_admin_clear(Db *d, int64_t chat_id);
-DbRet db_admin_gban_user_set(Db *d, int64_t chat_id, int64_t user_id, int is_gban, const char reason[]);
-DbRet db_admin_gban_user_get(Db *d, DbAdminGbanUser *gban, int64_t chat_id, int64_t user_id);
 
-DbRet db_cmd_set_enable(Db *d, int64_t chat_id, const char name[], int is_enable);
+DbRet db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
 DbRet db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
 DbRet db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
