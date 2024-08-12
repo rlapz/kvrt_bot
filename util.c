@@ -11,7 +11,9 @@
 #include <threads.h>
 #include <time.h>
 #include <unistd.h>
+#include <spawn.h>
 
+#include <sys/wait.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -441,6 +443,95 @@ buffer_resize(Buffer *b, size_t len)
 	b->mem = new_mem;
 	b->size = new_size;
 	return 1;
+}
+
+
+/*
+ * Chld
+ */
+int
+chld_init(Chld *c)
+{
+	if (mtx_init(&c->mutex, mtx_plain) != 0)
+		return -1;
+
+	unsigned i = CHLD_ITEM_SIZE;
+	while (i--) {
+		c->slots[i] = i;
+		c->items[i].pid = -1;
+	}
+
+	c->count = 0;
+	return 0;
+}
+
+
+void
+chld_deinit(Chld *c)
+{
+	for (unsigned i = 0; i < CHLD_ITEM_SIZE; i++) {
+		const pid_t pid = c->items[i].pid;
+		if (pid < 0)
+			continue;
+
+		log_info("chld: chld_deinit: waiting child process: %d...", pid);
+		waitpid(pid, NULL, 0);
+	}
+
+	mtx_destroy(&c->mutex);
+}
+
+
+int
+chld_spawn(Chld *c, const char path[], char *const argv[])
+{
+	int ret = -1;
+	mtx_lock(&c->mutex);
+	const unsigned count = c->count;
+	if (count == CHLD_ITEM_SIZE)
+		goto out0;
+
+	const unsigned slot = c->slots[count];
+	ChldItem *const chld = &c->items[slot];
+	if (posix_spawn(&chld->pid, path, NULL, NULL, argv, NULL) < 0)
+		goto out0;
+
+	chld->slot = slot;
+	c->count = count + 1;
+	ret = 0;
+	log_debug("chld: chld_spawn: spawn: (%u:%u): %d", c->count, slot, chld->pid);
+
+out0:
+	mtx_unlock(&c->mutex);
+	return ret;
+}
+
+
+/* TODO: optimize */
+void
+chld_reap(Chld *c)
+{
+	mtx_lock(&c->mutex);
+
+	for (unsigned i = 0; i < CHLD_ITEM_SIZE; i++) {
+		ChldItem *const chld = &c->items[i];
+		if (chld->pid < 0)
+			continue;
+
+		const pid_t ret = waitpid(chld->pid, NULL, WNOHANG);
+		if ((ret < 0) || (ret == chld->pid)) {
+			if (c->count == 0)
+				break;
+
+			c->count--;
+			c->slots[c->count] = chld->slot;
+
+			log_debug("chld: chld_reap: reap: (%u:%u): %d", c->count, chld->slot, chld->pid);
+			chld->pid = -1;
+		}
+	}
+
+	mtx_unlock(&c->mutex);
 }
 
 

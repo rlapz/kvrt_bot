@@ -1,26 +1,38 @@
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "util.h"
-#include "db.h"
 
 
 int main(void)
 {
 	log_init(4096);
 
-	Db db;
-	Str str;
-	char buffer[4096];
+	Chld chld;
+	if (chld_init(&chld) < 0)
+		goto out0;
 
-	str_init(&str, buffer, sizeof(buffer));
-	db_init(&db, "db.sql");
+	char *argv[] = { "chld", NULL };
+	chld_spawn(&chld, "/tmp/chld", argv);
+	chld_spawn(&chld, "/tmp/chld", argv);
+	chld_spawn(&chld, "/tmp/chld", argv);
 
-	int is_gban = 10;
-	if (db_admin_gban_user_get(&db, 0, 0, &is_gban) == 0)
-		printf("ret: %d\n", is_gban);
 
-	db_deinit(&db);
+	for (int i = 0; i < 13; i++) {
+		chld_reap(&chld);
+		sleep(1);
+
+		if (i > 10)
+			chld_spawn(&chld, "/tmp/chld", argv);
+	}
+
+	puts("deinit");
+	chld_deinit(&chld);
+	puts("end");
+	sleep(3);
+
+out0:
 	log_deinit();
 	return 0;
 }

@@ -3,6 +3,7 @@
 
 
 #include <stddef.h>
+#include <threads.h>
 
 
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
@@ -80,6 +81,29 @@ typedef struct buffer {
 void buffer_init(Buffer *b, size_t max_size);
 void buffer_deinit(Buffer *b);
 int  buffer_resize(Buffer *b, size_t len);
+
+
+/*
+ * Chld
+ */
+#define CHLD_ITEM_SIZE (64)
+
+typedef struct chld_item {
+	unsigned slot;
+	pid_t    pid;
+} ChldItem;
+
+typedef struct chld {
+	unsigned count;
+	unsigned slots[CHLD_ITEM_SIZE];
+	ChldItem items[CHLD_ITEM_SIZE];
+	mtx_t    mutex;
+} Chld;
+
+int  chld_init(Chld *c);
+void chld_deinit(Chld *c);
+int  chld_spawn(Chld *c, const char path[], char *const argv[]);
+void chld_reap(Chld *c);
 
 
 /*

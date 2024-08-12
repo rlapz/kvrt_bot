@@ -73,6 +73,11 @@ kvrt_bot_init(KvrtBot *k)
 
 	memset(k, 0, sizeof(*k));
 
+	if (chld_init(&k->chld) < 0) {
+		fprintf(stderr, "kvrt_bot: kvrt_bot_init: chld_init: failed to initialize\n");
+		goto err0;
+	}
+
 	unsigned i = CFG_CLIENTS_MAX;
 	while (i--) {
 		k->clients.slots[i] = i;
@@ -81,12 +86,14 @@ kvrt_bot_init(KvrtBot *k)
 	}
 
 	if (config_load_from_env(&k->config) < 0)
-		goto err0;
+		goto err1;
 
 	k->listen_fd = -1;
 	k->event_fd = -1;
 	return 0;
 
+err1:
+	chld_deinit(&k->chld);
 err0:
 	log_deinit();
 	return -1;
@@ -111,6 +118,7 @@ kvrt_bot_deinit(KvrtBot *k)
 	if (k->event_fd > 0)
 		close(k->event_fd);
 
+	chld_deinit(&k->chld);
 	log_deinit();
 }
 
@@ -251,13 +259,19 @@ _run_event_loop(KvrtBot *k)
 
 	k->is_alive = 1;
 	while (k->is_alive) {
-		const int num = epoll_wait(event_fd, events, CFG_EVENTS_MAX, -1);
+		const int num = epoll_wait(event_fd, events, CFG_EVENTS_MAX, 500);
 		if (num < 0) {
 			if (errno == EINTR)
 				goto out2;
 
 			log_err(errno, "kvrt_bot: _run_event_loop: epoll_wait");
 			goto out1;
+		}
+
+		log_info("..");
+		if (num == 0) {
+			chld_reap(&k->chld);
+			continue;
 		}
 
 		for (int i = 0; i < num; i++) {

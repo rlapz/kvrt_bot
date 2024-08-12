@@ -36,6 +36,7 @@ typedef struct kvrt_bot {
 	int                listen_fd;
 	int                event_fd;
 	Config             config;
+	Chld               chld;
 	ThrdPool           thrd_pool;
 	KvrtBotClientStack clients;
 } KvrtBot;
