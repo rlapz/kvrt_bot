@@ -493,7 +493,7 @@ chld_spawn(Chld *c, const char path[], char *const argv[])
 
 	const unsigned slot = c->slots[count];
 	ChldItem *const chld = &c->items[slot];
-	if (posix_spawn(&chld->pid, path, NULL, NULL, argv, NULL) < 0)
+	if (posix_spawn(&chld->pid, path, NULL, NULL, argv, NULL) != 0)
 		goto out0;
 
 	chld->slot = slot;

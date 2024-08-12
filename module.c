@@ -1,5 +1,7 @@
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <strings.h>
 
 #include "module.h"
 
@@ -186,12 +188,75 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 }
 
 
+/* not tested yet! */
 static int
 _external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj)
 {
-	(void)m;
-	(void)cmd;
-	(void)msg;
-	(void)json_obj;
-	return 0;
+	DbCmd db_cmd;
+	char cmd_name[34];
+	char *argv[DB_CMD_ARGS_MAX_SIZE + 1];
+	const int64_t chat_id = msg->chat.id;
+
+
+	cmd_name[0] = '/';
+	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, cmd->name, cmd->name_len);
+
+	switch (db_cmd_get(&m->db, &db_cmd, chat_id, cmd_name)) {
+	case DB_RET_EMPTY:
+		/* command  not found */
+		return 0;
+	case DB_RET_OK:
+		assert(strcasecmp(cmd_name, db_cmd.name) == 0);
+		/* success */
+		break;
+	default:
+		/* maybe error */
+		return 1;
+	}
+
+	log_debug("module: _external_handle_command: chat_id: %" PRIi64 ", name: %s, file: %s, "
+		  "enable: %d, args: %d", chat_id, db_cmd.name, db_cmd.file, db_cmd.is_enable,
+		  db_cmd.args);
+
+	if (db_cmd.is_enable == 0)
+		return 1;
+
+	const char *const fname = str_set_fmt(&m->str, "%s/%s", m->cmd_path, db_cmd.file);
+	if (fname == NULL)
+		return 1;
+
+	int count = 0;
+	char chat_id_buf[16];
+	char user_id_buf[16];
+	const int args = db_cmd.args;
+	if (args & DB_CMD_ARG_TYPE_CHAT_ID) {
+		if (snprintf(chat_id_buf, LEN(chat_id_buf), "%" PRIi64, chat_id) < 0)
+			return 1;
+
+		argv[count++] = chat_id_buf;
+	}
+
+	if (args & DB_CMD_ARG_TYPE_USER_ID) {
+		if (snprintf(user_id_buf, LEN(user_id_buf), "%" PRIi64, msg->from->id) < 0)
+			return 1;
+
+		argv[count++] = user_id_buf;
+	}
+
+	if (args & DB_CMD_ARG_TYPE_TEXT) {
+		const char *const txt = msg->text.text;
+		if (txt == NULL)
+			return 1;
+
+		argv[count++] = (char *)txt;
+	}
+
+	if (args & DB_CMD_ARG_TYPE_RAW)
+		argv[count++] = (char *)json_object_to_json_string(json_obj);
+
+	argv[count] = NULL;
+	if (chld_spawn(m->chld, fname, argv) < 0)
+		log_err(0, "module: _external_handle_command: chld_spawn: failed");
+
+	return 1;
 }
