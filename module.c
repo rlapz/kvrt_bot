@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <string.h>
 
 #include "module.h"
@@ -10,7 +11,12 @@
 #include "builtin/general.h"
 
 
-static int _cmd_compare(const char cmd[], const BotCmd *src);
+static int  _cmd_compare(const char cmd[], const BotCmd *src);
+static void _handle_message(Module *m, const TgMessage *t, json_object *json_obj);
+static void _handle_text(Module *m, const TgMessage *msg, json_object *json_obj);
+static void _handle_command(Module *m, const TgMessage *msg, json_object *json_obj);
+static void _handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj);
+static void _handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj);
 
 /* ret: 0: command not found */
 static int _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj);
@@ -20,19 +26,30 @@ static int _external_handle_command(Module *m, const BotCmd *cmd, const TgMessag
 
 
 int
-module_init(Module *m, int64_t owner_id, TgApi *api, Db *db, const char cmd_path[])
+module_init(Module *m, Chld *chld, int64_t owner_id, const char base_api[], const char cmd_path[],
+	    const char db_path[])
 {
-	const int ret = str_init_alloc(&m->str, 1024);
-	if (ret < 0) {
-		log_err(ret, "module: module_init: str_init_alloc");
+	if (db_init(&m->db, db_path) < 0)
 		return -1;
+
+	if (tg_api_init(&m->api, base_api) < 0)
+		goto err0;
+
+	if (str_init_alloc(&m->str, 1024) < 0) {
+		log_err(ENOMEM, "module: module_init: str_init_alloc");
+		goto err1;
 	}
 
+	m->chld = chld;
 	m->owner_id = owner_id;
-	m->api = api;
-	m->db = db;
 	m->cmd_path = cmd_path;
 	return 0;
+
+err1:
+	tg_api_deinit(&m->api);
+err0:
+	db_deinit(&m->db);
+	return -1;
 }
 
 
@@ -40,11 +57,73 @@ void
 module_deinit(Module *m)
 {
 	str_deinit(&m->str);
+	tg_api_deinit(&m->api);
+	db_deinit(&m->db);
 }
 
 
 void
-module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
+module_handle(Module *m, json_object *json_obj)
+{
+	TgUpdate update;
+	if (tg_update_parse(&update, json_obj) < 0) {
+		json_object_put(json_obj);
+		return;
+	}
+
+	log_debug("module: module_handle: %s", json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY));
+
+	switch (update.type) {
+	case TG_UPDATE_TYPE_MESSAGE:
+		_handle_message(m, &update.message, json_obj);
+		break;
+	case TG_UPDATE_TYPE_CALLBACK_QUERY:
+		_handle_callback_query(m, &update.callback_query, json_obj);
+		break;
+	case TG_UPDATE_TYPE_INLINE_QUERY:
+		_handle_inline_query(m, &update.inline_query, json_obj);
+		break;
+	default:
+		break;
+	}
+
+	tg_update_free(&update);
+	json_object_put(json_obj);
+}
+
+
+/*
+ * private
+ */
+static inline int
+_cmd_compare(const char cmd[], const BotCmd *src)
+{
+	return cstr_casecmp_n(cmd, src->name, (size_t)src->name_len);
+}
+
+
+static void
+_handle_message(Module *m, const TgMessage *t, json_object *json_obj)
+{
+	if (t->from == NULL)
+		return;
+
+	log_debug("module: _handle_message: message type: %s", tg_message_type_str(t->type));
+	switch (t->type) {
+	case TG_MESSAGE_TYPE_COMMAND:
+		_handle_command(m, t, json_obj);
+		break;
+	case TG_MESSAGE_TYPE_TEXT:
+		_handle_text(m, t, json_obj);
+		break;
+	default:
+		break;
+	}
+}
+
+
+static void
+_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 {
 	const char *const text = msg->text.text;
 	filter_text(m, msg, text);
@@ -53,8 +132,8 @@ module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 }
 
 
-void
-module_handle_command(Module *m, const TgMessage *msg, json_object *json_obj)
+static void
+_handle_command(Module *m, const TgMessage *msg, json_object *json_obj)
 {
 	BotCmd cmd;
 	if (bot_cmd_parse(&cmd, '/', msg->text.text) < 0)
@@ -71,8 +150,8 @@ err0:
 }
 
 
-void
-module_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj)
+static void
+_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj)
 {
 	(void)m;
 	(void)query;
@@ -80,22 +159,12 @@ module_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *j
 }
 
 
-void
-module_handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj)
+static void
+_handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj)
 {
 	(void)m;
 	(void)query;
 	(void)json_obj;
-}
-
-
-/*
- * private
- */
-static inline int
-_cmd_compare(const char cmd[], const BotCmd *src)
-{
-	return cstr_casecmp_n(cmd, src->name, (size_t)src->name_len);
 }
 
 

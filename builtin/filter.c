@@ -14,5 +14,5 @@ filter_text(Module *m, const TgMessage *msg, const char text[])
 	if (resp == NULL)
 		return;
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, resp);
 }

@@ -13,19 +13,17 @@
 
 typedef struct module {
 	int64_t     owner_id;
-	TgApi      *api;
-	Db         *db;
+	TgApi       api;
+	Db          db;
 	Str         str;
+	Chld       *chld;
 	const char *cmd_path;
 } Module;
 
-int  module_init(Module *m, int64_t owner_id, TgApi *api, Db *db, const char cmd_path[]);
+int  module_init(Module *m, Chld *chld, int64_t owner_id, const char base_api[], const char cmd_path[],
+		 const char db_path[]);
 void module_deinit(Module *m);
-
-void module_handle_text(Module *m, const TgMessage *msg, json_object *json_obj);
-void module_handle_command(Module *m, const TgMessage *msg, json_object *json_obj);
-void module_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj);
-void module_handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj);
+void module_handle(Module *m, json_object *json_obj);
 
 
 #endif

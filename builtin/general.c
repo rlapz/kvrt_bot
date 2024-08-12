@@ -14,8 +14,8 @@ general_message(Module *m, const TgMessage *message, const char cmd[], unsigned 
 	char buffer[2048];
 	cstr_copy_n2(buffer, sizeof(buffer), cmd, (size_t)cmd_len);
 
-	if (db_cmd_message_get(m->db, buffer, sizeof(buffer), cmd) == DB_RET_OK) {
-		tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, buffer);
+	if (db_cmd_message_get(&m->db, buffer, sizeof(buffer), cmd) == DB_RET_OK) {
+		tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, buffer);
 		return 1;
 	}
 
@@ -31,7 +31,7 @@ general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 	if (resp == NULL)
 		return;
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
 
 
@@ -39,7 +39,7 @@ void
 general_dump_admin(Module *m, const TgMessage *message)
 {
 	json_object *json_obj;
-	if (tg_api_get_admin_list(m->api, message->chat.id, NULL, &json_obj, 0) < 0)
+	if (tg_api_get_admin_list(&m->api, message->chat.id, NULL, &json_obj, 0) < 0)
 		return;
 
 	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
@@ -49,7 +49,7 @@ general_dump_admin(Module *m, const TgMessage *message)
 		return;
 	}
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 	json_object_put(json_obj);
 }
 
@@ -66,7 +66,7 @@ general_admin_reload(Module *m, const TgMessage *message)
 	if (general_admin_check(m, message) < 0)
 		return;
 
-	if (tg_api_get_admin_list(m->api, chat_id, &admin_list, &json_obj, 1) < 0)
+	if (tg_api_get_admin_list(&m->api, chat_id, &admin_list, &json_obj, 1) < 0)
 		goto out0;
 
 	DbAdmin db_admins[50];
@@ -81,10 +81,10 @@ general_admin_reload(Module *m, const TgMessage *message)
 		};
 	}
 
-	if (db_admin_clear(m->db, chat_id) == DB_RET_ERROR)
+	if (db_admin_clear(&m->db, chat_id) == DB_RET_ERROR)
 		goto out1;
 
-	if (db_admin_set(m->db, db_admins, db_admins_len) == DB_RET_ERROR)
+	if (db_admin_set(&m->db, db_admins, db_admins_len) == DB_RET_ERROR)
 		goto out1;
 
 	resp = "done";
@@ -93,7 +93,7 @@ out1:
 	json_object_put(json_obj);
 	tg_chat_admin_list_free(&admin_list);
 out0:
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, chat_id, &message->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, chat_id, &message->id, resp);
 }
 
 
@@ -131,7 +131,7 @@ general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args
 
 	is_valid = 1;
 
-	DbRet db_ret = db_cmd_set(m->db, message->chat.id, cmd_name, is_enable);
+	DbRet db_ret = db_cmd_set(&m->db, message->chat.id, cmd_name, is_enable);
 	switch (db_ret) {
 	case DB_RET_ERROR:
 		return;
@@ -148,7 +148,7 @@ out1:
 		resp = str_set_fmt(&m->str, "invalid argument!\n[cmd_name] [enable/disable]");
 
 out0:
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 }
 
 
@@ -160,7 +160,7 @@ general_admin_check(Module *m, const TgMessage *message)
 
 	DbAdmin admin;
 	const char *resp = NULL;
-	if (db_admin_get(m->db, &admin, message->chat.id, message->from->id) == DB_RET_ERROR) {
+	if (db_admin_get(&m->db, &admin, message->chat.id, message->from->id) == DB_RET_ERROR) {
 		resp = "failed to get admin list";
 		goto out0;
 	}
@@ -173,7 +173,7 @@ general_admin_check(Module *m, const TgMessage *message)
 	return 0;
 
 out0:
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 	return -1;
 }
 
@@ -188,7 +188,7 @@ general_inval(Module *m, const TgMessage *message)
 	if (resp == NULL)
 		return;
 
-	tg_api_send_text(m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
 }
 
 

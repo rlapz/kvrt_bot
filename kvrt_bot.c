@@ -14,9 +14,9 @@
 #include "kvrt_bot.h"
 
 #include "config.h"
+#include "module.h"
 #include "picohttpparser.h"
 #include "thrd_pool.h"
-#include "update_manager.h"
 #include "util.h"
 
 
@@ -129,7 +129,7 @@ kvrt_bot_run(KvrtBot *k)
 	Config *const cfg = &k->config;
 	unsigned iter = 0;
 	Str str_api;
-	UpdateManager *upm;
+	Module *modules;
 	config_dump(cfg);
 
 
@@ -149,22 +149,21 @@ kvrt_bot_run(KvrtBot *k)
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
 
 
-	/* Add 'update_manager' for each worker threads */
-	upm = malloc(sizeof(UpdateManager) * cfg->worker_threads_num);
-	if (upm == NULL) {
-		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: update_manager");
+	/* Add 'module' for each worker threads */
+	modules = malloc(sizeof(Module) * cfg->worker_threads_num);
+	if (modules == NULL) {
+		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: module");
 		goto out0;
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = update_manager_init(&upm[iter], cfg->owner_id, api, cfg->cmd_path, cfg->db_file);
+		ret = module_init(&modules[iter], &k->chld, cfg->owner_id, api, cfg->cmd_path, cfg->db_file);
 		if (ret < 0)
 			goto out1;
 	}
 
-	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, upm,
-			       sizeof(UpdateManager), cfg->worker_jobs_min,
-			       cfg->worker_jobs_max);
+	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, modules, sizeof(Module),
+			       cfg->worker_jobs_min, cfg->worker_jobs_max);
 	if (ret < 0)
 		goto out1;
 
@@ -174,9 +173,9 @@ kvrt_bot_run(KvrtBot *k)
 
 out1:
 	while (iter--)
-		update_manager_deinit(&upm[iter]);
+		module_deinit(&modules[iter]);
 
-	free(upm);
+	free(modules);
 out0:
 	str_deinit(&str_api);
 	return ret;
@@ -259,7 +258,7 @@ _run_event_loop(KvrtBot *k)
 
 	k->is_alive = 1;
 	while (k->is_alive) {
-		const int num = epoll_wait(event_fd, events, CFG_EVENTS_MAX, 500);
+		const int num = epoll_wait(event_fd, events, CFG_EVENTS_MAX, 700);
 		if (num < 0) {
 			if (errno == EINTR)
 				goto out2;
@@ -268,7 +267,6 @@ _run_event_loop(KvrtBot *k)
 			goto out1;
 		}
 
-		log_info("..");
 		if (num == 0) {
 			chld_reap(&k->chld);
 			continue;
@@ -707,5 +705,5 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 static void
 _request_handler_fn(void *ctx, void *udata)
 {
-	update_manager_handle((UpdateManager *)ctx, (json_object *)udata);
+	module_handle((Module *)ctx, (json_object *)udata);
 }
