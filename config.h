@@ -21,6 +21,9 @@
 #define CFG_EVENT_RESPONSE_ERR         "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
 #define CFG_TELEGRAM_API               "https://api.telegram.org/bot"
 
+#define CFG_UTIL_BOT_CMD_ARGS_SIZE     (16)
+#define CFG_UTIL_CHLD_ITEMS_SIZE       (128)
+
 
 typedef struct config {
 	const char *hook_url;

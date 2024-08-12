@@ -5,6 +5,8 @@
 #include <stddef.h>
 #include <threads.h>
 
+#include "config.h"
+
 
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
 #define FIELD_PARENT_PTR(T, FIELD, PTR) ((T *)(((char *)(PTR)) - offsetof(T, FIELD)))
@@ -28,7 +30,7 @@ char *cstr_trim_r(char dest[]);
 /*
  * BotCmd
  */
-#define BOT_CMD_ARGS_SIZE (16)
+#define BOT_CMD_ARGS_SIZE CFG_UTIL_BOT_CMD_ARGS_SIZE
 
 typedef struct bot_cmd_arg {
 	const char *name;
@@ -86,7 +88,7 @@ int  buffer_resize(Buffer *b, size_t len);
 /*
  * Chld
  */
-#define CHLD_ITEM_SIZE (64)
+#define CHLD_ITEM_SIZE CFG_UTIL_CHLD_ITEMS_SIZE
 
 typedef struct chld_item {
 	unsigned slot;
