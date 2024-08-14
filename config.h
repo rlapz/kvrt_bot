@@ -22,7 +22,7 @@
 #define CFG_TELEGRAM_API               "https://api.telegram.org/bot"
 
 #define CFG_UTIL_BOT_CMD_ARGS_SIZE     (16)
-#define CFG_UTIL_CHLD_ITEMS_SIZE       (128)
+#define CFG_UTIL_CHLD_ITEMS_SIZE       (256)
 
 
 typedef struct config {

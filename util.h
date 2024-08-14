@@ -90,15 +90,11 @@ int  buffer_resize(Buffer *b, size_t len);
  */
 #define CHLD_ITEM_SIZE CFG_UTIL_CHLD_ITEMS_SIZE
 
-typedef struct chld_item {
-	unsigned slot;
-	pid_t    pid;
-} ChldItem;
-
 typedef struct chld {
 	unsigned count;
 	unsigned slots[CHLD_ITEM_SIZE];
-	ChldItem items[CHLD_ITEM_SIZE];
+	unsigned entries[CHLD_ITEM_SIZE];
+	pid_t    pids[CHLD_ITEM_SIZE];
 	mtx_t    mutex;
 } Chld;
 

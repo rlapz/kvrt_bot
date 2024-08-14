@@ -456,10 +456,8 @@ chld_init(Chld *c)
 		return -1;
 
 	unsigned i = CHLD_ITEM_SIZE;
-	while (i--) {
+	while (i--)
 		c->slots[i] = i;
-		c->items[i].pid = -1;
-	}
 
 	c->count = 0;
 	return 0;
@@ -469,12 +467,13 @@ chld_init(Chld *c)
 void
 chld_deinit(Chld *c)
 {
-	for (unsigned i = 0; i < CHLD_ITEM_SIZE; i++) {
-		const pid_t pid = c->items[i].pid;
-		if (pid < 0)
-			continue;
+	const unsigned count = c->count;
+	for (unsigned i = 0; i < count; i++) {
+		const unsigned slot = c->entries[i];
+		const pid_t pid = c->pids[slot];
 
-		log_info("chld: chld_deinit: waiting child process: %d...", pid);
+		log_info("chld: chld_deinit: waiting child process: (%u:%u): %d...", i, slot, pid);
+
 		waitpid(pid, NULL, 0);
 	}
 
@@ -492,14 +491,14 @@ chld_spawn(Chld *c, const char path[], char *const argv[])
 		goto out0;
 
 	const unsigned slot = c->slots[count];
-	ChldItem *const chld = &c->items[slot];
-	if (posix_spawn(&chld->pid, path, NULL, NULL, argv, NULL) != 0)
+	if (posix_spawn(&c->pids[slot], path, NULL, NULL, argv, NULL) != 0)
 		goto out0;
 
-	chld->slot = slot;
+	c->entries[count] = slot;
 	c->count = count + 1;
 	ret = 0;
-	log_debug("chld: chld_spawn: spawn: (%u:%u): %d", c->count, slot, chld->pid);
+
+	log_debug("chld: chld_spawn: spawn: (%u:%u): %d", c->count, slot, c->pids[slot]);
 
 out0:
 	mtx_unlock(&c->mutex);
@@ -507,28 +506,23 @@ out0:
 }
 
 
-/* TODO: optimize */
 void
 chld_reap(Chld *c)
 {
 	mtx_lock(&c->mutex);
 
-	for (unsigned i = 0; i < CHLD_ITEM_SIZE; i++) {
-		ChldItem *const chld = &c->items[i];
-		if (chld->pid < 0)
+	const unsigned count = c->count;
+	for (unsigned i = 0; i < count; i++) {
+		log_debug("chld: chld_reap: %u:%u", i, count);
+
+		const unsigned slot = c->entries[i];
+		const pid_t pid = waitpid(c->pids[slot], NULL, WNOHANG);
+		if (pid == 0)
 			continue;
 
-		const pid_t ret = waitpid(chld->pid, NULL, WNOHANG);
-		if ((ret < 0) || (ret == chld->pid)) {
-			if (c->count == 0)
-				break;
-
-			c->count--;
-			c->slots[c->count] = chld->slot;
-
-			log_debug("chld: chld_reap: reap: (%u:%u): %d", c->count, chld->slot, chld->pid);
-			chld->pid = -1;
-		}
+		log_debug("chld: chld_reap: reap: (%u:%u): %d", c->count, slot, pid);
+		c->slots[i] = slot;
+		c->count--;
 	}
 
 	mtx_unlock(&c->mutex);
