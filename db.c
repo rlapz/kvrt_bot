@@ -354,7 +354,7 @@ _exec_get_outputs(sqlite3_stmt *s, DbOut out[], int *out_len)
 	DbRet db_ret = DB_RET_ERROR;
 	int count = 0;
 	if ((out == NULL) || (out_len == NULL))
-		goto out1;
+		return DB_RET_OK;
 
 	int is_type_matched = 0;
 	const int row_len = *out_len;
