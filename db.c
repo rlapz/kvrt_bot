@@ -23,20 +23,27 @@ typedef struct db_arg {
 typedef struct db_out_text {
 	char   *cstr;
 	size_t  size;
-} DbOutText;
+} DbOutItemText;
 
-typedef struct db_out {
+typedef struct db_out_item {
 	DbDataType type;
 	union {
-		int       *int_;
-		int64_t   *int64;
-		DbOutText  text;
+		int           *int_;
+		int64_t       *int64;
+		DbOutItemText  text;
 	};
+} DbOutItem;
+
+typedef struct db_out {
+	int        len;
+	DbOutItem *items;
 } DbOut;
 
 
-static int _create_tables(sqlite3 *s);
-static int _exec_one(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len);
+static int   _create_tables(sqlite3 *s);
+static DbRet _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
+static DbRet _exec_get_outputs(sqlite3_stmt *s, DbOut out[], int *out_len);
+static DbRet _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int *out_len);
 
 
 /*
@@ -89,7 +96,7 @@ db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len)
 			{ .type = DB_DATA_TYPE_INT, .int_ = admin->privileges },
 		};
 
-		if (_exec_one(d->sql, sql, args, LEN(args), NULL, 0) == SQLITE_ERROR)
+		if (_exec(d->sql, sql, args, LEN(args), NULL, NULL) == DB_RET_ERROR)
 			return DB_RET_ERROR;
 	}
 
@@ -109,21 +116,27 @@ db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id)
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
 	};
-	DbOut out[] = {
-		{ .type = DB_DATA_TYPE_INT, .int_ = &admin->is_creator },
-		{ .type = DB_DATA_TYPE_INT, .int_ = (int *)&admin->privileges },
+
+	int row_len = 1;
+	DbOut out = {
+		.len = 2,
+		.items = (DbOutItem[]) {
+			{ .type = DB_DATA_TYPE_INT, .int_ = &admin->is_creator },
+			{ .type = DB_DATA_TYPE_INT, .int_ = (int *)&admin->privileges },
+		},
 	};
 
-	switch (_exec_one(d->sql, sql, args, LEN(args), out, LEN(out))) {
-	case SQLITE_ROW:
-		return DB_RET_OK;
-	case SQLITE_DONE:
+	const DbRet ret = _exec(d->sql, sql, args, LEN(args), &out, &row_len);
+	if (ret == DB_RET_ERROR)
+		return ret;
+
+	if (row_len == 0) {
 		admin->is_creator = 0;
 		admin->privileges = 0;
 		return DB_RET_EMPTY;
 	}
 
-	return DB_RET_ERROR;
+	return ret;
 }
 
 
@@ -132,10 +145,7 @@ db_admin_clear(Db *d, int64_t chat_id)
 {
 	const char *const sql = "delete from Admin where (chat_id = ?);";
 	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-	if (_exec_one(d->sql, sql, &arg, 1, NULL, 0) == SQLITE_ERROR)
-		return DB_RET_ERROR;
-
-	return DB_RET_OK;
+	return _exec(d->sql, sql, &arg, 1, NULL, NULL);
 }
 
 
@@ -150,20 +160,22 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 
 	int is_exists = 0;
 	const char *sql = "select exists(select 1 from Cmd where (name = ?) limit 1);";
-	DbOut out = { .type = DB_DATA_TYPE_INT, .int_ = &is_exists };
 
-	switch (_exec_one(d->sql, sql, &args[2], 1, &out, 1)) {
-	case SQLITE_ROW:
-		if (is_exists)
-			break;
+	int row_len = 1;
+	DbOut out = {
+		.len = 1,
+		.items = &(DbOutItem) {
+			.type = DB_DATA_TYPE_INT,
+			.int_ = &is_exists,
+		},
+	};
 
+	DbRet ret = _exec(d->sql, sql, &args[2], 1, &out, &row_len);
+	if (ret == DB_RET_ERROR)
+		return ret;
+
+	if ((row_len == 0) || (is_exists == 0))
 		return DB_RET_EMPTY;
-	case SQLITE_DONE:
-		return DB_RET_EMPTY;
-	default:
-		return DB_RET_ERROR;
-	}
-
 
 	sql = "insert into Cmd_Chat(cmd_id, chat_id, is_enable) "
 	      "select a.id, ?, ? "
@@ -172,13 +184,7 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 	      "order by a.id desc "
 	      "limit 1;";
 
-	switch (_exec_one(d->sql, sql, args, LEN(args), NULL, 0)) {
-	case SQLITE_ROW:
-	case SQLITE_DONE:
-		return DB_RET_OK;
-	}
-
-	return DB_RET_ERROR;
+	return _exec(d->sql, sql, args, LEN(args), NULL, NULL);
 }
 
 
@@ -196,18 +202,25 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 	};
-	DbOut out[] = {
-		{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = LEN(cmd->name) } },
-		{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = LEN(cmd->file) } },
-		{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_enable },
+
+	int row_len = 1;
+	DbOut out = {
+		.len = 3,
+		.items = (DbOutItem[]) {
+			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = LEN(cmd->name) } },
+			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = LEN(cmd->file) } },
+			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_enable },
+		},
 	};
 
-	switch (_exec_one(d->sql, sql, args, LEN(args), out, LEN(out))) {
-	case SQLITE_DONE: return DB_RET_EMPTY;
-	case SQLITE_ROW: return DB_RET_OK;
-	}
+	const DbRet ret = _exec(d->sql, sql, args, LEN(args), &out, &row_len);
+	if (ret == DB_RET_ERROR)
+		return ret;
 
-	return DB_RET_ERROR;
+	if (row_len == 0)
+		return DB_RET_EMPTY;
+
+	return DB_RET_OK;
 }
 
 
@@ -218,18 +231,25 @@ db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[])
 		.type = DB_DATA_TYPE_TEXT,
 		.text = name,
 	};
+
+	int row_len = 1;
 	DbOut out = {
-		.type = DB_DATA_TYPE_TEXT,
-		.text = { .cstr = buffer, .size = size },
+		.len = 1,
+		.items = &(DbOutItem) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = { .cstr = buffer, .size = size },
+		},
 	};
 
 	const char *const sql = "select message from Cmd_Message where (name = ?) order by id desc limit 1;";
-	switch (_exec_one(d->sql, sql, &arg, 1, &out, 1)) {
-	case SQLITE_DONE: return DB_RET_EMPTY;
-	case SQLITE_ROW: return DB_RET_OK;
-	}
+	const DbRet ret = _exec(d->sql, sql, &arg, 1, &out, &row_len);
+	if (ret == DB_RET_ERROR)
+		return ret;
 
-	return DB_RET_ERROR;
+	if (row_len == 0)
+		return DB_RET_EMPTY;
+
+	return DB_RET_OK;
 }
 
 
@@ -297,93 +317,122 @@ err0:
 }
 
 
-static int
-_exec_one(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len)
+static DbRet
+_exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len)
 {
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: _exec_one: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return ret;
-	}
-
 	for (int i = 0; i < args_len; i++) {
+		int ret;
 		const DbArg *const arg = &args[i];
 		switch (arg->type) {
 		case DB_DATA_TYPE_INT:
-			ret = sqlite3_bind_int(stmt, (i + 1), arg->int_);
-			if (ret != SQLITE_OK)
-				goto out2;
+			ret = sqlite3_bind_int(s, (i + 1), arg->int_);
 			break;
 		case DB_DATA_TYPE_INT64:
-			ret = sqlite3_bind_int64(stmt, (i + 1), arg->int64);
-			if (ret != SQLITE_OK)
-				goto out2;
+			ret = sqlite3_bind_int64(s, (i + 1), arg->int64);
 			break;
 		case DB_DATA_TYPE_TEXT:
-			ret = sqlite3_bind_text(stmt, (i + 1), arg->text, -1, NULL);
-			if (ret != SQLITE_OK)
-				goto out2;
+			ret = sqlite3_bind_text(s, (i + 1), arg->text, -1, NULL);
 			break;
 		default:
-			log_err(0, "db: _exec_one: invalid arg type: [%d]:%d", i, arg->type);
-			goto out0;
+			log_err(0, "db: _exec_set_args: invalid arg type: [%d]:%d", i, arg->type);
+			return DB_RET_ERROR;
+		}
+
+		if (ret != SQLITE_OK) {
+			log_err(0, "db: _exec_set_args: bind: failed to bind: %s", sqlite3_errstr(ret));
+			return DB_RET_ERROR;
 		}
 	}
 
-out2:
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: _exec: bind: failed to bind: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
+	return DB_RET_OK;
+}
 
-	ret = sqlite3_step(stmt);
-	if (ret == SQLITE_ERROR) {
-		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
 
-	if (ret != SQLITE_ROW)
-		goto out0;
+static DbRet
+_exec_get_outputs(sqlite3_stmt *s, DbOut out[], int *out_len)
+{
+	DbRet db_ret = DB_RET_ERROR;
+	int count = 0;
+	if ((out == NULL) || (out_len == NULL))
+		goto out1;
 
 	int is_type_matched = 0;
-	for (int i = 0; i < out_len; i++) {
-		DbOut *const o = &out[i];
-		const int type = sqlite3_column_type(stmt, i);
-		switch (o->type) {
-		case DB_DATA_TYPE_INT:
-			if (type != SQLITE_INTEGER)
-				goto out1;
-
-			*o->int_ = sqlite3_column_int(stmt, i);
-			break;
-		case DB_DATA_TYPE_INT64:
-			if (type != SQLITE_INTEGER)
-				goto out1;
-
-			*o->int64 = sqlite3_column_int64(stmt, i);
-			break;
-		case DB_DATA_TYPE_TEXT:
-			if (type != SQLITE_TEXT)
-				goto out1;
-
-			cstr_copy_n(o->text.cstr, o->text.size, (const char *)sqlite3_column_text(stmt, i));
+	const int row_len = *out_len;
+	for (; count < row_len; count++) {
+		int ret = sqlite3_step(s);
+		switch (ret) {
+		case SQLITE_DONE:
+			goto out1;
+		case SQLITE_ROW:
 			break;
 		default:
-			log_err(0, "db: _exec_one: invalid out type: [%d]:%d", i, o->type);
-			ret = SQLITE_ERROR;
+			log_err(0, "db: _exec_get_outputs: sqlite3_step: %s", sqlite3_errstr(ret));
 			goto out0;
+		}
+
+		DbOut *const p = &out[count];
+		for (int i = 0; i < p->len; i++) {
+			DbOutItem *const o = &p->items[i];
+			const int type = sqlite3_column_type(s, i);
+			switch (o->type) {
+			case DB_DATA_TYPE_INT:
+				if (type != SQLITE_INTEGER)
+					goto out2;
+
+				*o->int_ = sqlite3_column_int(s, i);
+				break;
+			case DB_DATA_TYPE_INT64:
+				if (type != SQLITE_INTEGER)
+					goto out2;
+
+				*o->int64 = sqlite3_column_int64(s, i);
+				break;
+			case DB_DATA_TYPE_TEXT:
+				if (type != SQLITE_TEXT)
+					goto out2;
+
+				cstr_copy_n(o->text.cstr, o->text.size, (const char *)sqlite3_column_text(s, i));
+				break;
+			default:
+				log_err(0, "db: _exec_get_outputs: invalid out type: [%d]:%d", i, o->type);
+				goto out0;
+			}
 		}
 	}
 
 	is_type_matched = 1;
 
-out1:
+out2:
 	if (is_type_matched == 0) {
-		log_err(0, "db: column type doesn't match");
-		ret = SQLITE_ERROR;
+		log_err(0, "db: _exec_get_outputs: column type doesn't match");
+		goto out0;
 	}
+out1:
+	db_ret = DB_RET_OK;
+out0:
+	*out_len = count;
+	return db_ret;
+}
+
+
+static DbRet
+_exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int *out_len)
+{
+	DbRet db_ret;
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: _exec_many: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return DB_RET_ERROR;
+	}
+
+	db_ret = _exec_set_args(stmt, args, args_len);
+	if (ret == DB_RET_ERROR)
+		goto out0;
+
+	db_ret = _exec_get_outputs(stmt, out, out_len);
+
 out0:
 	sqlite3_finalize(stmt);
-	return ret;
+	return db_ret;
 }
