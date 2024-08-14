@@ -13,14 +13,6 @@
 #define DB_CMD_ARGS_MAX_SIZE (16)
 
 
-typedef enum db_ret {
-	DB_RET_ERROR = -1,
-	DB_RET_OK,
-	DB_RET_EXISTS,
-	DB_RET_EMPTY,
-} DbRet;
-
-
 typedef enum db_cmd_arg_type {
 	DB_CMD_ARG_TYPE_CHAT_ID = (1 << 0),
 	DB_CMD_ARG_TYPE_USER_ID = (1 << 1),
@@ -58,14 +50,21 @@ typedef struct db {
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 
-DbRet db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len);
-DbRet db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
-DbRet db_admin_clear(Db *d, int64_t chat_id);
+/*
+ * return:
+ * <0: error
+ *  0: success, 0 row
+ * >0: success
+ *
+ */
+int db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len);
+int db_admin_get(Db *d, DbAdmin *admin, int64_t chat_id, int64_t user_id);
+int db_admin_clear(Db *d, int64_t chat_id);
 
-DbRet db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
-DbRet db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
+int db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
+int db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
-DbRet db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
+int db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
 
 
 #endif

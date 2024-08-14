@@ -14,7 +14,7 @@ general_message(Module *m, const TgMessage *message, const char cmd[], unsigned 
 	char buffer[2048];
 	cstr_copy_n2(buffer, sizeof(buffer), cmd, (size_t)cmd_len);
 
-	if (db_cmd_message_get(&m->db, buffer, sizeof(buffer), cmd) == DB_RET_OK) {
+	if (db_cmd_message_get(&m->db, buffer, sizeof(buffer), cmd) > 0) {
 		tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, buffer);
 		return 1;
 	}
@@ -81,10 +81,10 @@ general_admin_reload(Module *m, const TgMessage *message)
 		};
 	}
 
-	if (db_admin_clear(&m->db, chat_id) == DB_RET_ERROR)
+	if (db_admin_clear(&m->db, chat_id) < 0)
 		goto out1;
 
-	if (db_admin_set(&m->db, db_admins, db_admins_len) == DB_RET_ERROR)
+	if (db_admin_set(&m->db, db_admins, db_admins_len) < 0)
 		goto out1;
 
 	resp = "done";
@@ -131,17 +131,16 @@ general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args
 
 	is_valid = 1;
 
-	DbRet db_ret = db_cmd_set(&m->db, message->chat.id, cmd_name, is_enable);
-	switch (db_ret) {
-	case DB_RET_ERROR:
+	const int ret = db_cmd_set(&m->db, message->chat.id, cmd_name, is_enable);
+	if (ret < 0)
 		return;
-	case DB_RET_EMPTY:
+
+	if (ret == 0) {
 		resp = str_set_fmt(&m->str, "command: \"%s\" doesn't exists", cmd_name);
 		goto out0;
-	default:
-		resp = str_set_fmt(&m->str, "\"%s\" now %s", cmd_name, ((is_enable) ? "enabled" : "disabled"));
-		break;
 	}
+
+	resp = str_set_fmt(&m->str, "\"%s\" now %s", cmd_name, ((is_enable) ? "enabled" : "disabled"));
 
 out1:
 	if (is_valid == 0)
@@ -160,12 +159,13 @@ general_admin_check(Module *m, const TgMessage *message)
 
 	DbAdmin admin;
 	const char *resp = NULL;
-	if (db_admin_get(&m->db, &admin, message->chat.id, message->from->id) == DB_RET_ERROR) {
+	const int ret = db_admin_get(&m->db, &admin, message->chat.id, message->from->id);
+	if (ret < 0) {
 		resp = "failed to get admin list";
 		goto out0;
 	}
 
-	if (admin.is_creator == 0 && admin.privileges == 0) {
+	if ((ret == 0) || ((admin.is_creator == 0) && (admin.privileges == 0))) {
 		resp = "permission denied!";
 		goto out0;
 	}

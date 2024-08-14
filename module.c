@@ -201,18 +201,13 @@ _external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, jso
 	cmd_name[0] = '/';
 	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, cmd->name, cmd->name_len);
 
-	switch (db_cmd_get(&m->db, &db_cmd, chat_id, cmd_name)) {
-	case DB_RET_EMPTY:
-		/* command  not found */
-		return 0;
-	case DB_RET_OK:
-		assert(strcasecmp(cmd_name, db_cmd.name) == 0);
-		/* success */
-		break;
-	default:
-		/* maybe error */
+	const int ret = db_cmd_get(&m->db, &db_cmd, chat_id, cmd_name);
+	if (ret < 0)
 		return 1;
-	}
+
+	/* command  not found */
+	if (ret == 0)
+		return 0;
 
 	log_debug("module: _external_handle_command: chat_id: %" PRIi64 ", name: %s, file: %s, "
 		  "enable: %d, args: %d", chat_id, db_cmd.name, db_cmd.file, db_cmd.is_enable,
