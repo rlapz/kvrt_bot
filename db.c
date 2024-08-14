@@ -353,9 +353,6 @@ _exec_get_outputs(sqlite3_stmt *s, DbOut out[], int *out_len)
 {
 	DbRet db_ret = DB_RET_ERROR;
 	int count = 0;
-	if ((out == NULL) || (out_len == NULL))
-		return DB_RET_OK;
-
 	int is_type_matched = 0;
 	const int row_len = *out_len;
 	for (; count < row_len; count++) {
@@ -419,9 +416,9 @@ static DbRet
 _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int *out_len)
 {
 	sqlite3_stmt *stmt;
-	const int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
+	int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: _exec_many: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		log_err(0, "db: _exec: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
 		return DB_RET_ERROR;
 	}
 
@@ -429,7 +426,21 @@ _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut ou
 	if (db_ret == DB_RET_ERROR)
 		goto out0;
 
-	db_ret = _exec_get_outputs(stmt, out, out_len);
+	if ((out == NULL) || (out_len == NULL)) {
+		ret = sqlite3_step(stmt);
+		switch (ret) {
+		case SQLITE_ROW:
+		case SQLITE_DONE:
+			db_ret = DB_RET_OK;
+			break;
+		default:
+			log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
+			db_ret = DB_RET_ERROR;
+			break;
+		}
+	} else {
+		db_ret = _exec_get_outputs(stmt, out, out_len);
+	}
 
 out0:
 	sqlite3_finalize(stmt);
