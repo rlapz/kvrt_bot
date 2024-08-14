@@ -418,16 +418,15 @@ out0:
 static DbRet
 _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int *out_len)
 {
-	DbRet db_ret;
 	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
+	const int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
 		log_err(0, "db: _exec_many: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
 		return DB_RET_ERROR;
 	}
 
-	db_ret = _exec_set_args(stmt, args, args_len);
-	if (ret == DB_RET_ERROR)
+	DbRet db_ret = _exec_set_args(stmt, args, args_len);
+	if (db_ret == DB_RET_ERROR)
 		goto out0;
 
 	db_ret = _exec_get_outputs(stmt, out, out_len);
