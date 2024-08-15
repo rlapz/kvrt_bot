@@ -498,8 +498,6 @@ chld_spawn(Chld *c, const char path[], char *const argv[])
 	c->count = count + 1;
 	ret = 0;
 
-	log_debug("chld: chld_spawn: spawn: (%u:%u): %d", c->count, slot, c->pids[slot]);
-
 out0:
 	mtx_unlock(&c->mutex);
 	return ret;
@@ -511,19 +509,23 @@ chld_reap(Chld *c)
 {
 	mtx_lock(&c->mutex);
 
-	const unsigned count = c->count;
+	unsigned rcount = 0;
+	unsigned *const entries = c->entries;
+	unsigned count = c->count;
 	for (unsigned i = 0; i < count; i++) {
-		log_debug("chld: chld_reap: %u:%u", i, count);
-
-		const unsigned slot = c->entries[i];
-		const pid_t pid = waitpid(c->pids[slot], NULL, WNOHANG);
-		if (pid == 0)
+		const unsigned slot = entries[i];
+		if (waitpid(c->pids[slot], NULL, WNOHANG) == 0)
 			continue;
 
-		log_debug("chld: chld_reap: reap: (%u:%u): %d", c->count, slot, pid);
+		count--;
+		entries[i] = entries[count];
 		c->slots[i] = slot;
-		c->count--;
+		rcount++;
+		i--;
 	}
+
+	if (rcount > 0)
+		c->count -= rcount;
 
 	mtx_unlock(&c->mutex);
 }
