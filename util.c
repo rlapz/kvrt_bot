@@ -519,7 +519,7 @@ chld_reap(Chld *c)
 
 		count--;
 		entries[i] = entries[count];
-		c->slots[i] = slot;
+		c->slots[count] = slot;
 		rcount++;
 		i--;
 	}
