@@ -30,21 +30,16 @@ typedef struct db_admin {
 
 typedef struct db_cmd {
 	int          is_enable;
+	int          is_nsfw;
 	int64_t      chat_id;
 	char         name[34];
 	char         file[1024];
 	DbCmdArgType args;
 } DbCmd;
 
-typedef struct db_bot {
-	int64_t id;				/* telegram bot id */
-	int64_t owner_id;			/* telegram user id */
-} DbBot;
-
 typedef struct db {
 	const char *path;
 	sqlite3    *sql;
-	DbBot       bot;
 } Db;
 
 int  db_init(Db *d, const char path[]);
@@ -64,7 +59,8 @@ int db_admin_clear(Db *d, int64_t chat_id);
 int db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable);
 int db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[]);
 
-int db_cmd_message_get(Db *d, char buffer[], size_t size, const char name[]);
+int db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], const char message[]);
+int db_cmd_message_get(Db *d, char buffer[], size_t size, int64_t chat_id, const char name[]);
 
 
 #endif

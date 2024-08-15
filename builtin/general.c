@@ -8,13 +8,54 @@
 /*
  * public
  */
+void
+general_message_set(Module *m, const TgMessage *message, const BotCmdArg args[], int args_len)
+{
+	const char *resp;
+	char buffer[34];
+	if ((message->chat.type != TG_CHAT_TYPE_PRIVATE) && general_admin_check(m, message) < 0)
+		return;
+
+	if (args_len < 2) {
+		resp = "invalid argument!\n[command_name] [message...]";
+		goto out0;
+	}
+
+	if (args[0].len >= LEN(buffer)) {
+		resp = "command_name too long: max: 32 chars";
+		goto out0;
+	}
+
+	unsigned max_msg_len = 0;
+	for (int i = 1; i < args_len -1; i++)
+		max_msg_len += args[i].len;
+
+	if (max_msg_len >= 8192) {
+		resp = "message too long: max: 8192 chars";
+		goto out0;
+	}
+
+	buffer[0] = '/';
+	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, args[0].name, args[0].len);
+	if (db_cmd_message_set(&m->db, message->chat.id, message->from->id, buffer, args[1].name) < 0) {
+		resp = "failed";
+		goto out0;
+	}
+
+	resp = "ok";
+
+out0:
+	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+}
+
+
 int
-general_message(Module *m, const TgMessage *message, const char cmd[], unsigned cmd_len)
+general_message_get(Module *m, const TgMessage *message, const char cmd[], unsigned cmd_len)
 {
 	char buffer[2048];
-	cstr_copy_n2(buffer, sizeof(buffer), cmd, (size_t)cmd_len);
+	cstr_copy_n2(buffer, LEN(buffer), cmd, (size_t)cmd_len);
 
-	if (db_cmd_message_get(&m->db, buffer, sizeof(buffer), cmd) > 0) {
+	if (db_cmd_message_get(&m->db, buffer, sizeof(buffer), message->chat.id, cmd) > 0) {
 		tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, buffer);
 		return 1;
 	}

@@ -181,7 +181,9 @@ _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json
 		general_dump(m, msg, json_obj);
 	else if (_cmd_compare("/dump_admin", cmd))
 		general_dump_admin(m, msg);
-	else if (general_message(m, msg, cmd->name, cmd->name_len) == 0)
+	else if (_cmd_compare("/cmd_msg", cmd))
+		general_message_set(m, msg, cmd->args, cmd->args_len);
+	else if (general_message_get(m, msg, cmd->name, cmd->name_len) == 0)
 		return 0;
 
 	return 1;
