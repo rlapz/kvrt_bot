@@ -322,14 +322,14 @@ _exec_get_outputs(sqlite3_stmt *s, DbOut out[], int out_len)
 {
 	int count = 0;
 	for (; count < out_len; count++) {
-		int _ret = sqlite3_step(s);
-		switch (_ret) {
+		const int ret = sqlite3_step(s);
+		switch (ret) {
 		case SQLITE_DONE:
 			return count;
 		case SQLITE_ROW:
 			break;
 		default:
-			log_err(0, "db: _exec_get_outputs: sqlite3_step: %s", sqlite3_errstr(_ret));
+			log_err(0, "db: _exec_get_outputs: sqlite3_step: %s", sqlite3_errstr(ret));
 			return -1;
 		}
 

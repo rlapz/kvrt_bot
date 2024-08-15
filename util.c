@@ -455,7 +455,7 @@ chld_init(Chld *c)
 	if (mtx_init(&c->mutex, mtx_plain) != 0)
 		return -1;
 
-	unsigned i = CHLD_ITEM_SIZE;
+	unsigned i = CHLD_ITEMS_SIZE;
 	while (i--)
 		c->slots[i] = i;
 
@@ -487,7 +487,7 @@ chld_spawn(Chld *c, const char path[], char *const argv[])
 	int ret = -1;
 	mtx_lock(&c->mutex);
 	const unsigned count = c->count;
-	if (count == CHLD_ITEM_SIZE)
+	if (count == CHLD_ITEMS_SIZE)
 		goto out0;
 
 	const unsigned slot = c->slots[count];
