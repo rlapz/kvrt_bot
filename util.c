@@ -21,6 +21,9 @@
 #include "util.h"
 
 
+#define ASCII_SPACE_CHARS " \r\n\f\t\v"
+
+
 /*
  * cstr
  */
@@ -99,7 +102,7 @@ cstr_trim_l(char dest[])
 {
 	char *ret = dest;
 	while (*ret != '\0') {
-		if (isblank(*ret) == 0)
+		if (isspace(*ret) == 0)
 			break;
 
 		ret++;
@@ -118,7 +121,7 @@ cstr_trim_r(char dest[])
 
 	ptr += (strlen(ptr) - 1);
 	while ((*ptr != '\0') && (ptr > dest)) {
-		if (isblank(*ptr) == 0)
+		if (isspace(*ptr) == 0)
 			break;
 
 		*(ptr--) = '\0';
@@ -139,13 +142,13 @@ bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[])
 
 	unsigned args_len = 0;
 	while ((*src != '\0') && (args_len < size)) {
-		const char *const p = strchr(src, ' ');
+		const char *const p = strpbrk(src, ASCII_SPACE_CHARS);
 		if (p == NULL) {
 			a[args_len++] = (BotCmdArg){ .name = src, .len = (unsigned)strlen(src) };
 			break;
 		}
 
-		if (isblank(*src)) {
+		if (isspace(*src)) {
 			src = p + 1;
 			continue;
 		}
@@ -161,15 +164,12 @@ bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[])
 int
 bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 {
-	const char *name = src;
-	unsigned name_len = 0;
-	while ((*name != '\0') && isblank(*name))
-		name++;
-
+	const char *const name = cstr_trim_l((char *)src);
 	if (*name != prefix)
 		return -1;
 
-	const char *name_end = strchr(name, ' ');
+	unsigned name_len = 0;
+	const char *name_end = strpbrk(name, ASCII_SPACE_CHARS);
 	const char *const username = strchr(name, '@');
 	if (name_end == NULL) {
 		/* ignore @username */
