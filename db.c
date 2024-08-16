@@ -204,6 +204,9 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 int
 db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], const char message[])
 {
+	if (message == NULL)
+		message = "";
+
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
