@@ -42,8 +42,14 @@ general_message_set(Module *m, const TgMessage *message, const BotCmdArg args[],
 
 	buffer[0] = '/';
 	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, args[0].name, args[0].len);
-	if (db_cmd_message_set(&m->db, message->chat.id, message->from->id, buffer, msg_text) < 0) {
+	const int ret = db_cmd_message_set(&m->db, message->chat.id, message->from->id, buffer, msg_text);
+	if (ret < 0) {
 		resp = "failed";
+		goto out0;
+	}
+
+	if (ret == 0) {
+		resp = "no such command message";
 		goto out0;
 	}
 

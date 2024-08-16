@@ -20,7 +20,7 @@ typedef struct db_arg {
 	};
 } DbArg;
 
-typedef struct db_out_text {
+typedef struct db_out_item_text {
 	char   *cstr;
 	size_t  size;
 } DbOutItemText;
@@ -204,18 +204,47 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 int
 db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], const char message[])
 {
-	if (message == NULL)
-		message = "";
-
-	const DbArg args[] = {
+	DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
 		{ .type = DB_DATA_TYPE_TEXT, .text = message },
 		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
 	};
 
-	const char *const sql = "insert into Cmd_Message(chat_id, name, message, created_by) values (?, ?, ?, ?)";
-	return _exec(d->sql, sql, args, LEN(args), NULL, 0);
+	const char *sql;
+	if (message == NULL) {
+		int is_exists = 0;
+		DbOut out = {
+			.len = 1,
+			.items = &(DbOutItem) {
+				.type = DB_DATA_TYPE_INT,
+				.int_ = &is_exists,
+			},
+		};
+
+		sql = "select iif((message = ''), 0, 1) "
+		      "from Cmd_Message "
+		      "where (chat_id = ?) and (name = ?) "
+		      "order by id desc "
+		      "limit 1;";
+
+		const int ret = _exec(d->sql, sql, args, 2, &out, 1);
+		if (ret <= 0)
+			return ret;
+
+		if (is_exists == 0)
+			return 0;
+
+		args[2].text = "";
+	}
+
+	/* avoid 'delete' query */
+
+	sql = "insert into Cmd_Message(chat_id, name, message, created_by) values (?, ?, ?, ?)";
+	if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
+		return -1;
+
+	return 1;
 }
 
 
