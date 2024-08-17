@@ -176,7 +176,7 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 int
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
-	const char *const sql = "select a.name, a.file, a.args, b.is_enable "
+	const char *const sql = "select a.name, a.file, a.args, b.is_enable, b.is_admin "
 				"from Cmd as a "
 				"join Cmd_Chat as b on (a.id = b.cmd_id) "
 				"where (a.name = ?) and (b.chat_id = ?) "
@@ -189,11 +189,12 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 	};
 
 	DbOut out = {
-		.len = 3,
+		.len = 4,
 		.items = (DbOutItem[]) {
 			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = LEN(cmd->name) } },
 			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = LEN(cmd->file) } },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_enable },
+			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_admin },
 		},
 	};
 
@@ -294,6 +295,7 @@ _create_tables(sqlite3 *s)
 				"file       varchar(1023) not null,"
 				"args       integer not null,"			/* Bitwise DbCmdArgType */
 				"is_nsfw    boolean not null,"
+				"is_admin   boolean not null,"
 				"created_at datetime default (datetime('now', 'localtime')) not null,"
 				"updated_at datetime);";
 

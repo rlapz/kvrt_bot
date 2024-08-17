@@ -235,6 +235,9 @@ _external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, jso
 	if (db_cmd.is_enable == 0)
 		return 1;
 
+	if ((db_cmd.is_admin) && (general_admin_check(m, msg) < 0))
+		return 1;
+
 	const char *const fname = str_set_fmt(&m->str, "%s/%s", m->cmd_path, db_cmd.file);
 	if (fname == NULL)
 		return 1;

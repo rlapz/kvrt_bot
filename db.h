@@ -31,6 +31,7 @@ typedef struct db_admin {
 typedef struct db_cmd {
 	int          is_enable;
 	int          is_nsfw;
+	int          is_admin;
 	int64_t      chat_id;
 	char         name[34];
 	char         file[1024];
