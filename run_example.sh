@@ -12,6 +12,8 @@ export KVRT_BOT_WORKER_THREADS_NUM=4
 export KVRT_BOT_WORKER_JOBS_MIN=8
 export KVRT_BOT_WORKER_JOBS_MAX=32
 export KVRT_BOT_DB_FILE='./db.sql'
+
+export KVRT_BOT_ID=''
 export KVRT_BOT_OWNER_ID=''
 
 # external command path
@@ -36,6 +38,11 @@ webhook_info() {
 	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getWebhookInfo"
 }
 
+get_me() {
+	echo "get me:"
+	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getMe"
+}
+
 
 if [ -z "$*" ]; then
 	webhook_set
@@ -50,6 +57,8 @@ elif [ "$*" = "webhook-del" ]; then
 	webhook_del
 elif [ "$*" = "webhook-info" ]; then
 	webhook_info
+elif [ "$*" = "get-me" ]; then
+	get_me
 else
 	echo "invalid argument!"
 	exit 1

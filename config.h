@@ -40,6 +40,7 @@ typedef struct config {
 	unsigned    worker_jobs_min;
 	unsigned    worker_jobs_max;
 	const char *db_file;
+	int64_t     bot_id;
 	int64_t     owner_id;
 	const char *cmd_path; /* external command path */
 } Config;

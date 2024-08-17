@@ -51,6 +51,12 @@ config_load_from_env(Config *c)
 	}
 	c->hook_path = env;
 
+	if (((env = getenv("KVRT_BOT_ID")) == NULL) || (env[0] == '\0') ||
+	    ((c->bot_id = strtoll(env, NULL, 10)) == 0)) {
+		log_err(0, "config: config_load_from_env: invalid 'BOT_ID'");
+		return -1;
+	}
+
 	if (((env = getenv("KVRT_BOT_OWNER_ID")) == NULL) || (env[0] == '\0') ||
 	    ((c->owner_id = strtoll(env, NULL, 10)) == 0)) {
 		log_err(0, "config: config_load_from_env: invalid 'OWNER_ID'");
@@ -136,6 +142,7 @@ config_dump(const Config *c)
 	printf("Child Process Max: %u\n", CFG_UTIL_CHLD_ITEMS_SIZE);
 	printf("Db file          : %s\n", c->db_file);
 	printf("Owner ID         : %" PRIi64 "\n", c->owner_id);
+	printf("Bot ID           : %" PRIi64 "\n", c->bot_id);
 	printf("External cmd path: %s\n", c->cmd_path);
 	puts("---[CONFIG]---");
 }
