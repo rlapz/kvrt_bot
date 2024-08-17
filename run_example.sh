@@ -25,22 +25,22 @@ ALLOWED_UPDATES="\[\"message\",\"callback_query\",\"inline_query\"\]"
 
 webhook_set() {
 	echo "setting up webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&allowed_updates=${ALLOWED_UPDATES}&drop_pending_updates=True&secret_token=${KVRT_BOT_API_SECRET}"
+	curl -s "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/setWebhook?url=https://${KVRT_BOT_HOOK_URL}${KVRT_BOT_HOOK_PATH}&allowed_updates=${ALLOWED_UPDATES}&drop_pending_updates=True&secret_token=${KVRT_BOT_API_SECRET}" | jq
 }
 
 webhook_del() {
 	echo "deleting webhook..."
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/deleteWebhook?drop_pending_updates=True"
+	curl -s "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/deleteWebhook?drop_pending_updates=True" | jq
 }
 
 webhook_info() {
 	echo "webhook info:"
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getWebhookInfo"
+	curl -s "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getWebhookInfo" | jq
 }
 
 get_me() {
 	echo "get me:"
-	curl "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getMe"
+	curl -s "https://api.telegram.org/bot${KVRT_BOT_API_TOKEN}/getMe" | jq
 }
 
 
