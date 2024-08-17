@@ -157,7 +157,8 @@ kvrt_bot_run(KvrtBot *k)
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = module_init(&modules[iter], &k->chld, cfg->owner_id, api, cfg->cmd_path, cfg->db_file);
+		ret = module_init(&modules[iter], &k->chld, cfg->bot_id, cfg->owner_id, api,
+				  cfg->cmd_path, cfg->db_file);
 		if (ret < 0)
 			goto out1;
 	}

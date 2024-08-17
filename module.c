@@ -17,6 +17,7 @@ static int  _cmd_compare(const char cmd[], const BotCmd *src);
 static void _handle_message(Module *m, const TgMessage *t, json_object *json_obj);
 static void _handle_text(Module *m, const TgMessage *msg, json_object *json_obj);
 static void _handle_command(Module *m, const TgMessage *msg, json_object *json_obj);
+static void _handle_new_member(Module *m, const TgMessage *msg);
 static void _handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj);
 static void _handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj);
 
@@ -27,9 +28,12 @@ static int _builtin_handle_command(Module *m, const BotCmd *cmd, const TgMessage
 static int _external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, json_object *json_obj);
 
 
+/*
+ * Public
+ */
 int
-module_init(Module *m, Chld *chld, int64_t owner_id, const char base_api[], const char cmd_path[],
-	    const char db_path[])
+module_init(Module *m, Chld *chld, int64_t bot_id, int64_t owner_id, const char base_api[],
+	    const char cmd_path[], const char db_path[])
 {
 	if (db_init(&m->db, db_path) < 0)
 		return -1;
@@ -43,6 +47,7 @@ module_init(Module *m, Chld *chld, int64_t owner_id, const char base_api[], cons
 	}
 
 	m->chld = chld;
+	m->bot_id = bot_id;
 	m->owner_id = owner_id;
 	m->cmd_path = cmd_path;
 	return 0;
@@ -118,6 +123,9 @@ _handle_message(Module *m, const TgMessage *t, json_object *json_obj)
 	case TG_MESSAGE_TYPE_TEXT:
 		_handle_text(m, t, json_obj);
 		break;
+	case TG_MESSAGE_TYPE_NEW_MEMBER:
+		_handle_new_member(m, t);
+		break;
 	default:
 		break;
 	}
@@ -149,6 +157,15 @@ _handle_command(Module *m, const TgMessage *msg, json_object *json_obj)
 
 err0:
 	general_inval(m, msg);
+}
+
+
+static void
+_handle_new_member(Module *m, const TgMessage *msg)
+{
+	const TgUser *const user = &msg->new_member;
+	if (user->id == m->bot_id)
+		general_admin_reload(m, msg);
 }
 
 

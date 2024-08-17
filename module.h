@@ -12,6 +12,7 @@
 
 
 typedef struct module {
+	int64_t     bot_id;
 	int64_t     owner_id;
 	TgApi       api;
 	Db          db;
@@ -20,8 +21,8 @@ typedef struct module {
 	const char *cmd_path;
 } Module;
 
-int  module_init(Module *m, Chld *chld, int64_t owner_id, const char base_api[], const char cmd_path[],
-		 const char db_path[]);
+int  module_init(Module *m, Chld *chld, int64_t bot_id, int64_t owner_id, const char base_api[],
+		 const char cmd_path[], const char db_path[]);
 void module_deinit(Module *m);
 void module_handle(Module *m, json_object *json_obj);
 
