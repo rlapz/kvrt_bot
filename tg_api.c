@@ -51,6 +51,37 @@ tg_api_deinit(TgApi *t)
 
 
 int
+tg_api_get_me(TgApi *t, TgUser *me)
+{
+	int ret = -1;
+	const char *const req = str_set_fmt(&t->str, "%s/getMe", t->api);
+	if (req == NULL) {
+		log_err(errno, "tg_api: tg_api_get_me: str");
+		return -1;
+	}
+
+	if (_curl_request_get(t, req) < 0)
+		return -1;
+
+	json_object *const json = json_tokener_parse(t->str.cstr);
+	if (json == NULL) {
+		log_err(0, "tg_api: tg_api_get_me: json_tokener_parse: failed");
+		return -1;
+	}
+
+	json_object *const result_obj = _parse_response(json);
+	if (result_obj == NULL)
+		goto out0;
+
+	ret = tg_user_parse(me, result_obj);
+
+out0:
+	json_object_put(json);
+	return ret;
+}
+
+
+int
 tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *reply_to, const char text[])
 {
 	int ret = -1;
