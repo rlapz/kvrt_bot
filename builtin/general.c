@@ -98,17 +98,10 @@ void
 general_dump_admin(Module *m, const TgMessage *message)
 {
 	json_object *json_obj;
-	if (tg_api_get_admin_list(&m->api, message->chat.id, NULL, &json_obj, 0) < 0)
+	if (tg_api_get_admin_list(&m->api, message->chat.id, NULL, &json_obj) < 0)
 		return;
 
-	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
-	const char *const resp = str_set_fmt(&m->str, "```json\n%s```", json_str);
-	if (resp == NULL) {
-		json_object_put(json_obj);
-		return;
-	}
-
-	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
+	general_dump(m, message, json_obj);
 	json_object_put(json_obj);
 }
 
@@ -125,7 +118,7 @@ general_admin_reload(Module *m, const TgMessage *message)
 	if (general_admin_check(m, message) < 0)
 		return;
 
-	if (tg_api_get_admin_list(&m->api, chat_id, &admin_list, &json_obj, 1) < 0)
+	if (tg_api_get_admin_list(&m->api, chat_id, &admin_list, &json_obj) < 0)
 		goto out0;
 
 	DbAdmin db_admins[50];

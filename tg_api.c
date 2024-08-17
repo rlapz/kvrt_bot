@@ -212,7 +212,7 @@ out0:
 
 
 int
-tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res, int need_parse)
+tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res)
 {
 	const char *const req = str_set_fmt(&t->str, "%s/getChatAdministrators?chat_id=%" PRIi64, t->api,
 					    chat_id);
@@ -230,7 +230,7 @@ tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_obj
 		return -1;
 	}
 
-	if (need_parse) {
+	if (list != NULL) {
 		json_object *const result_obj = _parse_response(json);
 		if (result_obj == NULL)
 			goto err0;

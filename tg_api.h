@@ -35,8 +35,7 @@ int  tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64
 		      const char text[]);
 int  tg_api_send_photo(TgApi *t, TgApiPhotoType type, int64_t chat_id, const int64_t *reply_to,
 		       const char caption[], const char src[]);
-int  tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res,
-			   int need_parse);
+int  tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res);
 
 
 #endif
