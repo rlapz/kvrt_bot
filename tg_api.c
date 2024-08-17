@@ -51,9 +51,8 @@ tg_api_deinit(TgApi *t)
 
 
 int
-tg_api_get_me(TgApi *t, TgUser *me)
+tg_api_get_me(TgApi *t, TgUser *me, json_object **res)
 {
-	int ret = -1;
 	const char *const req = str_set_fmt(&t->str, "%s/getMe", t->api);
 	if (req == NULL) {
 		log_err(errno, "tg_api: tg_api_get_me: str");
@@ -71,13 +70,19 @@ tg_api_get_me(TgApi *t, TgUser *me)
 
 	json_object *const result_obj = _parse_response(json);
 	if (result_obj == NULL)
-		goto out0;
+		goto err0;
 
-	ret = tg_user_parse(me, result_obj);
+	if (me != NULL) {
+		if (tg_user_parse(me, result_obj) < 0)
+			goto err0;
+	}
 
-out0:
+	*res = json;
+	return 0;
+
+err0:
 	json_object_put(json);
-	return ret;
+	return -1;
 }
 
 

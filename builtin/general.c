@@ -85,8 +85,10 @@ general_dump(Module *m, const TgMessage *message, json_object *json_obj)
 {
 	const char *const json_str = json_object_to_json_string_ext(json_obj, JSON_C_TO_STRING_PRETTY);
 	const char *const resp = str_set_fmt(&m->str, "```json\n%s```", json_str);
-	if (resp == NULL)
+	if (resp == NULL) {
+		tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, "failed");
 		return;
+	}
 
 	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_FORMAT, message->chat.id, &message->id, resp);
 }
@@ -205,6 +207,20 @@ out1:
 
 out0:
 	tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, resp);
+}
+
+
+void
+general_get_me(Module *m, const TgMessage *message)
+{
+	json_object *json;
+	if (tg_api_get_me(&m->api, NULL, &json) < 0) {
+		tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, "failed");
+		return;
+	}
+
+	general_dump(m, message, json);
+	json_object_put(json);
 }
 
 

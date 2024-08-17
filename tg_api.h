@@ -30,7 +30,7 @@ typedef struct tg_api {
 
 int  tg_api_init(TgApi *t, const char base_api[]);
 void tg_api_deinit(TgApi *t);
-int  tg_api_get_me(TgApi *t, TgUser *me);
+int  tg_api_get_me(TgApi *t, TgUser *me, json_object **res);
 int  tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *reply_to,
 		      const char text[]);
 int  tg_api_send_photo(TgApi *t, TgApiPhotoType type, int64_t chat_id, const int64_t *reply_to,
