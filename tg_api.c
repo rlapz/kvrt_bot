@@ -11,10 +11,11 @@
 #include "util.h"
 
 
-static int    _curl_init(TgApi *t);
-static void   _curl_deinit(TgApi *t);
-static size_t _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
-static int    _curl_request_get(TgApi *t, const char url[]);
+static int          _curl_init(TgApi *t);
+static void         _curl_deinit(TgApi *t);
+static size_t       _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
+static int          _curl_request_get(TgApi *t, const char url[]);
+static json_object *_parse_response(json_object *json_obj);
 
 
 /*
@@ -194,23 +195,9 @@ tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_obj
 	}
 
 	if (need_parse) {
-		json_object *ok_obj;
-		if (json_object_object_get_ex(json, "ok", &ok_obj) == 0) {
-			log_err(0, "tg_api: tg_api_get_admin_list: json_object_object_get_ex: ok: invalid");
+		json_object *const result_obj = _parse_response(json);
+		if (result_obj == NULL)
 			goto err0;
-		}
-
-		const int is_ok = json_object_get_boolean(ok_obj);
-		if (is_ok == 0) {
-			log_err(0, "tg_api: tg_api_get_admin_list: ok: false");
-			goto err0;
-		}
-
-		json_object *result_obj;
-		if (json_object_object_get_ex(json, "result", &result_obj) == 0) {
-			log_err(0, "tg_api: tg_api_get_admin_list: json_object_object_get_ex: result: invalid");
-			goto err0;
-		}
 
 		if (tg_chat_admin_list_parse(list, result_obj) < 0)
 			goto err0;
@@ -293,4 +280,29 @@ _curl_request_get(TgApi *t, const char url[])
 	json_object_put(json);
 #endif
 	return 0;
+}
+
+
+static json_object *
+_parse_response(json_object *json_obj)
+{
+	json_object *ok_obj;
+	if (json_object_object_get_ex(json_obj, "ok", &ok_obj) == 0) {
+		log_err(0, "tg_api: _parse_response: json_object_object_get_ex: ok: invalid");
+		return NULL;
+	}
+
+	const int is_ok = json_object_get_boolean(ok_obj);
+	if (is_ok == 0) {
+		log_err(0, "tg_api: _parse_response: ok: false");
+		return NULL;
+	}
+
+	json_object *result_obj;
+	if (json_object_object_get_ex(json_obj, "result", &result_obj) == 0) {
+		log_err(0, "tg_api: _parse_response: json_object_object_get_ex: result: invalid");
+		return NULL;
+	}
+
+	return result_obj;
 }

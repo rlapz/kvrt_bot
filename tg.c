@@ -19,7 +19,7 @@ static int  _parse_sticker(TgSticker *s, json_object *sticker_obj);
 static int  _parse_message_entities(TgMessage *m, json_object *message_obj);
 static int  _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj);
 static int  _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj);
-static int  _parse_user(TgUser **u, json_object *user_obj);
+static int  _parse_user_alloc(TgUser **u, json_object *user_obj);
 static int  _parse_chat(TgChat *c, json_object *chat_obj);
 static void _free_message(TgMessage *m);
 
@@ -27,6 +27,36 @@ static void _free_message(TgMessage *m);
 /*
  * Public
  */
+int
+tg_user_parse(TgUser *u, json_object *user_obj)
+{
+	json_object *id_obj;
+	if (json_object_object_get_ex(user_obj, "id", &id_obj) == 0)
+		return -1;
+
+	json_object *is_bot_obj;
+	if (json_object_object_get_ex(user_obj, "is_bot", &is_bot_obj) == 0)
+		return -1;
+
+	json_object *obj;
+	if (json_object_object_get_ex(user_obj, "username", &obj) != 0)
+		u->username = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(user_obj, "first_name", &obj) != 0)
+		u->first_name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(user_obj, "last_name", &obj) != 0)
+		u->last_name = json_object_get_string(obj);
+
+	if (json_object_object_get_ex(user_obj, "is_premium", &obj) != 0)
+		u->is_premium = json_object_get_boolean(obj);
+
+	u->id = json_object_get_int64(id_obj);
+	u->is_bot = json_object_get_boolean(is_bot_obj);
+	return 0;
+}
+
+
 const char *
 tg_chat_type_str(TgChatType type)
 {
@@ -188,7 +218,7 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 
 out0:
 	a->privileges = privs;
-	return _parse_user(&a->user, user_obj);
+	return _parse_user_alloc(&a->user, user_obj);
 }
 
 
@@ -275,6 +305,7 @@ tg_message_type_str(TgMessageType type)
 	case TG_MESSAGE_TYPE_PHOTO: return "photo";
 	case TG_MESSAGE_TYPE_STICKER: return "sticker";
 	case TG_MESSAGE_TYPE_COMMAND: return "bot command";
+	case TG_MESSAGE_TYPE_NEW_MEMBER: return "new chat member";
 	default: break;
 	}
 
@@ -395,7 +426,7 @@ _parse_message(TgMessage *m, json_object *message_obj)
 
 	json_object *from_obj;
 	if (json_object_object_get_ex(message_obj, "from", &from_obj) != 0) {
-		if (_parse_user(&m->from, from_obj) < 0)
+		if (_parse_user_alloc(&m->from, from_obj) < 0)
 			return -1;
 	}
 
@@ -421,7 +452,6 @@ err0:
 }
 
 
-/* TODO */
 static int
 _parse_message_type(TgMessage *m, json_object *message_obj)
 {
@@ -485,6 +515,14 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 			return -1;
 
 		m->type = TG_MESSAGE_TYPE_STICKER;
+		return 0;
+	}
+
+	if (json_object_object_get_ex(message_obj, "new_chat_member", &obj)) {
+		if (tg_user_parse(&m->new_member, obj) < 0)
+			return -1;
+
+		m->type = TG_MESSAGE_TYPE_NEW_MEMBER;
 		return 0;
 	}
 
@@ -776,7 +814,7 @@ _parse_message_entities(TgMessage *m, json_object *message_obj)
 			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_PRE;
 		} else if (strcmp(type, "text_mention") == 0) {
 			if (json_object_object_get_ex(obj, "user", &res) != 0)
-				_parse_user(&e->user, res);
+				_parse_user_alloc(&e->user, res);
 
 			e->type = TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION;
 		} else if (strcmp(type, "text_link") == 0) {
@@ -870,7 +908,7 @@ _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj)
 
 	c->id = json_object_get_int64(id_obj);
 	c->chat_instance = json_object_get_string(chat_instance_obj);
-	return _parse_user(&c->from, from_obj);
+	return _parse_user_alloc(&c->from, from_obj);
 }
 
 
@@ -913,40 +951,21 @@ _pares_inline_query(TgInlineQuery *i, json_object *inline_query_obj)
 	i->id = json_object_get_int64(id_obj);
 	i->query = json_object_get_string(query_obj);
 	i->offset = json_object_get_string(offset_obj);
-	return _parse_user(&i->from, from_obj);
+	return _parse_user_alloc(&i->from, from_obj);
 }
 
 
 static int
-_parse_user(TgUser **u, json_object *user_obj)
+_parse_user_alloc(TgUser **u, json_object *user_obj)
 {
-	json_object *id_obj;
-	if (json_object_object_get_ex(user_obj, "id", &id_obj) == 0)
-		return -1;
-
-	json_object *is_bot_obj;
-	if (json_object_object_get_ex(user_obj, "is_bot", &is_bot_obj) == 0)
-		return -1;
-
 	TgUser *const user = calloc(1, sizeof(TgUser));
 	if (user == NULL)
 		return -1;
 
-	json_object *obj;
-	if (json_object_object_get_ex(user_obj, "username", &obj) != 0)
-		user->username = json_object_get_string(obj);
-
-	if (json_object_object_get_ex(user_obj, "first_name", &obj) != 0)
-		user->first_name = json_object_get_string(obj);
-
-	if (json_object_object_get_ex(user_obj, "last_name", &obj) != 0)
-		user->last_name = json_object_get_string(obj);
-
-	if (json_object_object_get_ex(user_obj, "is_premium", &obj) != 0)
-		user->is_premium = json_object_get_boolean(obj);
-
-	user->id = json_object_get_int64(id_obj);
-	user->is_bot = json_object_get_boolean(is_bot_obj);
+	if (tg_user_parse(user, user_obj) < 0) {
+		free(user);
+		return -1;
+	}
 
 	*u = user;
 	return 0;
@@ -956,11 +975,16 @@ _parse_user(TgUser **u, json_object *user_obj)
 static void
 _free_message(TgMessage *m)
 {
-	if (m->type == TG_MESSAGE_TYPE_PHOTO)
+	switch (m->type) {
+	case TG_MESSAGE_TYPE_PHOTO:
 		free(m->photo);
-
-	if (m->type == TG_MESSAGE_TYPE_STICKER)
+		break;
+	case TG_MESSAGE_TYPE_STICKER:
 		free(m->sticker.thumbnail);
+		break;
+	default:
+		break;
+	}
 
 	free(m->from);
 	free(m->entities);

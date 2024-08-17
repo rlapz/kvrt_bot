@@ -21,6 +21,8 @@ typedef struct tg_user {
 	const char *last_name;
 } TgUser;
 
+int tg_user_parse(TgUser *u, json_object *user_obj);
+
 
 /* Chat */
 typedef enum tg_chat_type {
@@ -174,7 +176,7 @@ typedef struct tg_sticker {
 	int64_t        size;
 } TgSticker;
 
-const char * tg_sticker_type_str(TgStickerType type);
+const char *tg_sticker_type_str(TgStickerType type);
 
 
 /*
@@ -226,6 +228,7 @@ typedef enum tg_mesage_type {
 	TG_MESSAGE_TYPE_PHOTO,
 	TG_MESSAGE_TYPE_STICKER,
 	TG_MESSAGE_TYPE_COMMAND,
+	TG_MESSAGE_TYPE_NEW_MEMBER,
 	TG_MESSAGE_TYPE_UNKNOWN,
 } TgMessageType;
 
@@ -246,6 +249,7 @@ typedef struct tg_message {
 		TgPhotoSize *photo;	/* "NULL-terminated" array */
 		TgVideo      video;
 		TgSticker    sticker;
+		TgUser       new_member;
 	};
 } TgMessage;
 
