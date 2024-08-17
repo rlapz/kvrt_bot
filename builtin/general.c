@@ -203,20 +203,6 @@ out0:
 }
 
 
-void
-general_get_me(Module *m, const TgMessage *message)
-{
-	json_object *json;
-	if (tg_api_get_me(&m->api, NULL, &json) < 0) {
-		tg_api_send_text(&m->api, TG_API_TEXT_TYPE_PLAIN, message->chat.id, &message->id, "failed");
-		return;
-	}
-
-	general_dump(m, message, json);
-	json_object_put(json);
-}
-
-
 int
 general_admin_check(Module *m, const TgMessage *message)
 {

@@ -15,7 +15,6 @@ void general_dump(Module *m, const TgMessage *message, json_object *json_obj);
 void general_dump_admin(Module *m, const TgMessage *message);
 void general_admin_reload(Module *m, const TgMessage *message);
 void general_cmd_set_enable(Module *m, const TgMessage *message, const BotCmdArg args[], unsigned args_len);
-void general_get_me(Module *m, const TgMessage *message);
 
 int  general_admin_check(Module *m, const TgMessage *message);
 void general_inval(Module *m, const TgMessage *message);
