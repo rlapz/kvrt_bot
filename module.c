@@ -228,8 +228,8 @@ _external_handle_command(Module *m, const BotCmd *cmd, const TgMessage *msg, jso
 		return 1;
 
 	int count = 0;
-	char chat_id_buf[16];
-	char user_id_buf[16];
+	char chat_id_buf[INT64_BUFFER_SIZE];
+	char user_id_buf[INT64_BUFFER_SIZE];
 	const int args = db_cmd.args;
 	if (args & DB_CMD_ARG_TYPE_CHAT_ID) {
 		if (snprintf(chat_id_buf, LEN(chat_id_buf), "%" PRIi64, chat_id) < 0)

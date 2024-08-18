@@ -2,6 +2,7 @@
 #define __UTIL_H__
 
 
+#include <fcntl.h>
 #include <stddef.h>
 #include <threads.h>
 
@@ -10,6 +11,7 @@
 
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
 #define FIELD_PARENT_PTR(T, FIELD, PTR) ((T *)(((char *)(PTR)) - offsetof(T, FIELD)))
+#define INT64_BUFFER_SIZE               (24)
 
 
 /*

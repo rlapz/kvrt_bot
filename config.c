@@ -24,7 +24,7 @@ config_load_from_env(Config *c)
 		return -1;
 	}
 
-	cstr_copy_n(c->api_token, sizeof(c->api_token), env);
+	cstr_copy_n(c->api_token, CFG_API_TOKEN_SIZE, env);
 	if (unsetenv("KVRT_BOT_API_TOKEN") < 0)
 		log_err(errno, "config: config_load_from_env: unsetenv: 'API_TOKEN'");
 
@@ -34,7 +34,7 @@ config_load_from_env(Config *c)
 		return -1;
 	}
 
-	cstr_copy_n(c->api_secret, sizeof(c->api_secret), env);
+	cstr_copy_n(c->api_secret, CFG_API_SECRET_SIZE, env);
 	if (unsetenv("KVRT_BOT_API_SECRET") < 0)
 		log_err(errno, "config: config_load_from_env: unsetenv: 'API_SECRET'");
 

@@ -191,8 +191,8 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 	DbOut out = {
 		.len = 4,
 		.items = (DbOutItem[]) {
-			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = LEN(cmd->name) } },
-			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = LEN(cmd->file) } },
+			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = DB_CMD_NAME_SIZE } },
+			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = DB_CMD_FILE_NAME_SIZE } },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_enable },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_admin },
 		},

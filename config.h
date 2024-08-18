@@ -12,6 +12,8 @@
 #define CFG_DEFAULT_DB_FILE            "db.sql"
 #define CFG_DEFAULT_CMD_PATH           "./extern"
 
+#define CFG_API_TOKEN_SIZE             (64)
+#define CFG_API_SECRET_SIZE            (256)
 #define CFG_LOG_BUFFER_SIZE            (1024 * 1024)
 #define CFG_CLIENTS_MAX                (32)
 #define CFG_CLIENT_BUFFER_IN_MIN       (2048)
@@ -32,9 +34,9 @@ typedef struct config {
 	size_t      hook_path_len;
 	const char *listen_host;
 	int         listen_port;
-	char        api_token[64];
+	char        api_token[CFG_API_TOKEN_SIZE];
 	size_t      api_token_len;
-	char        api_secret[256];
+	char        api_secret[CFG_API_SECRET_SIZE];
 	size_t      api_secret_len;
 	unsigned    worker_threads_num;
 	unsigned    worker_jobs_min;

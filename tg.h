@@ -80,9 +80,11 @@ void tg_chat_admin_free(TgChatAdmin *a);
 
 
 /* ChatAdmin */
+#define TG_CHAT_ADMIN_LIST_SIZE (50)
+
 typedef struct tg_chat_admin_list {
 	unsigned    len;
-	TgChatAdmin list[50];
+	TgChatAdmin list[TG_CHAT_ADMIN_LIST_SIZE];
 } TgChatAdminList;
 
 int  tg_chat_admin_list_parse(TgChatAdminList *a, json_object *json);

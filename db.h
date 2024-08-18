@@ -10,14 +10,17 @@
 #include "util.h"
 
 
-#define DB_CMD_ARGS_MAX_SIZE (16)
+#define DB_CMD_ARGS_MAX_SIZE  (16)
+#define DB_CMD_NAME_SIZE      (34)
+#define DB_CMD_FILE_NAME_SIZE (1024)
 
 
 typedef enum db_cmd_arg_type {
 	DB_CMD_ARG_TYPE_CHAT_ID = (1 << 0),
 	DB_CMD_ARG_TYPE_USER_ID = (1 << 1),
 	DB_CMD_ARG_TYPE_TEXT    = (1 << 2),
-	DB_CMD_ARG_TYPE_RAW     = (1 << 3),
+
+	DB_CMD_ARG_TYPE_RAW     = (1 << 30),
 } DbCmdArgType;
 
 
@@ -33,8 +36,8 @@ typedef struct db_cmd {
 	int          is_nsfw;
 	int          is_admin;
 	int64_t      chat_id;
-	char         name[34];
-	char         file[1024];
+	char         name[DB_CMD_NAME_SIZE];
+	char         file[DB_CMD_FILE_NAME_SIZE];
 	DbCmdArgType args;
 } DbCmd;
 
@@ -50,7 +53,7 @@ void db_deinit(Db *d);
  * return:
  * <0: error
  *  0: success, 0 row
- * >0: success
+ * >0: success, >= 1 rows
  *
  */
 int db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len);

@@ -236,7 +236,7 @@ tg_chat_admin_list_parse(TgChatAdminList *a, json_object *json)
 		return -1;
 
 	const size_t len = array_list_length(arr);
-	if (len >= LEN(a->list))
+	if (len >= TG_CHAT_ADMIN_LIST_SIZE)
 		return -1;
 
 	unsigned count = 0;
