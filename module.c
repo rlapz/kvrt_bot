@@ -9,7 +9,6 @@
 #include "tg_api.h"
 #include "util.h"
 
-#include "builtin/filter.h"
 #include "builtin/general.h"
 
 
@@ -131,9 +130,8 @@ _handle_message(Module *m, const TgMessage *t, json_object *json_obj)
 static void
 _handle_text(Module *m, const TgMessage *msg, json_object *json_obj)
 {
-	const char *const text = msg->text.text;
-	filter_text(m, msg, text);
-
+	(void)m;
+	(void)msg;
 	(void)json_obj;
 }
 
