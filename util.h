@@ -102,6 +102,7 @@ int  chld_init(Chld *c);
 void chld_deinit(Chld *c);
 int  chld_spawn(Chld *c, const char path[], char *const argv[]);
 void chld_reap(Chld *c);
+void chld_wait_all(Chld *c);
 
 
 /*

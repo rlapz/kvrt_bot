@@ -42,22 +42,22 @@ typedef struct http_request {
 } HttpRequest;
 
 
-static int    _create_listener(KvrtBot *k);
-static int    _run_event_loop(KvrtBot *k);
-static void   _add_client(KvrtBot *k);
-static void   _del_client(KvrtBot *k, KvrtBotClient *client);
-static void   _handle_client_state(KvrtBot *k, KvrtBotClient *client);
-static State  _state_request_header(KvrtBot *k, KvrtBotClient *client);
-static int    _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[],
-					  size_t len, size_t last_len);
-static int    _state_request_header_validate(const Config *c, const HttpRequest *req,
-					     size_t *content_len);
-static void   _state_request_body_parse(KvrtBotClient *c);
-static State  _state_request_body(KvrtBot *k, KvrtBotClient *client);
-static State  _state_response_prepare(KvrtBot *k, KvrtBotClient *client);
-static State  _state_response(KvrtBotClient *client);
-static void   _state_finish(KvrtBot *k, KvrtBotClient *client);
-static void   _request_handler_fn(void *json_obj, void *udata1);
+static int   _create_listener(KvrtBot *k);
+static int   _run_event_loop(KvrtBot *k);
+static void  _add_client(KvrtBot *k);
+static void  _del_client(KvrtBot *k, KvrtBotClient *client);
+static void  _handle_client_state(KvrtBot *k, KvrtBotClient *client);
+static State _state_request_header(KvrtBot *k, KvrtBotClient *client);
+static int   _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, char buffer[],
+					 size_t len, size_t last_len);
+static int   _state_request_header_validate(const Config *c, const HttpRequest *req,
+					    size_t *content_len);
+static void  _state_request_body_parse(KvrtBotClient *c);
+static State _state_request_body(KvrtBot *k, KvrtBotClient *client);
+static State _state_response_prepare(KvrtBot *k, KvrtBotClient *client);
+static State _state_response(KvrtBotClient *client);
+static void  _state_finish(KvrtBot *k, KvrtBotClient *client);
+static void  _request_handler_fn(void *json_obj, void *udata1);
 
 
 /*
@@ -173,6 +173,7 @@ kvrt_bot_run(KvrtBot *k)
 	thrd_pool_destroy(&k->thrd_pool);
 
 out1:
+	chld_wait_all(&k->chld);
 	while (iter--)
 		module_deinit(&modules[iter]);
 

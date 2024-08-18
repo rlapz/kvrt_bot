@@ -467,16 +467,6 @@ chld_init(Chld *c)
 void
 chld_deinit(Chld *c)
 {
-	const unsigned count = c->count;
-	for (unsigned i = 0; i < count; i++) {
-		const unsigned slot = c->entries[i];
-		const pid_t pid = c->pids[slot];
-
-		log_info("chld: chld_deinit: waiting child process: (%u:%u): %d...", i, slot, pid);
-
-		waitpid(pid, NULL, 0);
-	}
-
 	mtx_destroy(&c->mutex);
 }
 
@@ -524,8 +514,28 @@ chld_reap(Chld *c)
 		i--;
 	}
 
+	assert(rcount <= c->count);
 	if (rcount > 0)
 		c->count -= rcount;
+
+	mtx_unlock(&c->mutex);
+}
+
+
+void
+chld_wait_all(Chld *c)
+{
+	mtx_lock(&c->mutex);
+
+	const unsigned count = c->count;
+	for (unsigned i = 0; i < count; i++) {
+		const unsigned slot = c->entries[i];
+		const pid_t pid = c->pids[slot];
+
+		log_info("chld: chld_wait: waiting child process: (%u:%u): %d...", i, slot, pid);
+
+		waitpid(pid, NULL, 0);
+	}
 
 	mtx_unlock(&c->mutex);
 }
