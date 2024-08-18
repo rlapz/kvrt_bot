@@ -10,6 +10,7 @@ static int  _cmd_compare(const char cmd[], const BotCmd *src);
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
 static int  _handle_commands(Update *u, const TgMessage *msg, json_object *json);
+static void _handler_new_member(Update *u, const TgMessage *msg);
 
 
 /*
@@ -106,6 +107,7 @@ _handle_message(Update *u, const TgMessage *msg, json_object *json)
 		_handle_text(u, msg, json);
 		break;
 	case TG_MESSAGE_TYPE_NEW_MEMBER:
+		_handler_new_member(u, msg);
 		break;
 	default:
 		break;
@@ -144,4 +146,13 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 		return 1;
 
 	return 0;
+}
+
+
+static void
+_handler_new_member(Update *u, const TgMessage *msg)
+{
+	const TgUser *const user = &msg->new_member;
+	if (user->id == u->bot_id)
+		common_admin_reload(u, msg, 0);
 }
