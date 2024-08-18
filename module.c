@@ -18,7 +18,6 @@ static void _handle_message(Module *m, const TgMessage *t, json_object *json_obj
 static void _handle_text(Module *m, const TgMessage *msg, json_object *json_obj);
 static void _handle_command(Module *m, const TgMessage *msg, json_object *json_obj);
 static void _handle_new_member(Module *m, const TgMessage *msg);
-static void _handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj);
 static void _handle_callback_query(Module *m, const TgCallbackQuery *query, json_object *json_obj);
 
 /* ret: 0: command not found */
@@ -86,9 +85,6 @@ module_handle(Module *m, json_object *json_obj)
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
 		_handle_callback_query(m, &update.callback_query, json_obj);
-		break;
-	case TG_UPDATE_TYPE_INLINE_QUERY:
-		_handle_inline_query(m, &update.inline_query, json_obj);
 		break;
 	default:
 		break;
@@ -166,15 +162,6 @@ _handle_new_member(Module *m, const TgMessage *msg)
 	const TgUser *const user = &msg->new_member;
 	if (user->id == m->bot_id)
 		general_admin_reload(m, msg);
-}
-
-
-static void
-_handle_inline_query(Module *m, const TgInlineQuery *query, json_object *json_obj)
-{
-	(void)m;
-	(void)query;
-	(void)json_obj;
 }
 
 
