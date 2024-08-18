@@ -13,6 +13,7 @@
 #define DB_CMD_ARGS_MAX_SIZE  (16)
 #define DB_CMD_NAME_SIZE      (34)
 #define DB_CMD_FILE_NAME_SIZE (1024)
+#define DB_CMD_MSG_SIZE       (34)
 
 
 typedef enum db_cmd_arg_type {

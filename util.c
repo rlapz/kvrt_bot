@@ -450,29 +450,38 @@ buffer_resize(Buffer *b, size_t len)
  * Chld
  */
 int
-chld_init(Chld *c)
+chld_init(Chld *c, const char path[])
 {
-	if (mtx_init(&c->mutex, mtx_plain) != 0)
+	if (str_init_alloc(&c->str, 4096) < 0)
 		return -1;
+
+	if (mtx_init(&c->mutex, mtx_plain) != 0)
+		goto err0;
 
 	unsigned i = CHLD_ITEMS_SIZE;
 	while (i--)
 		c->slots[i] = i;
 
+	c->path = path;
 	c->count = 0;
 	return 0;
+
+err0:
+	str_deinit(&c->str);
+	return -1;
 }
 
 
 void
 chld_deinit(Chld *c)
 {
+	str_deinit(&c->str);
 	mtx_destroy(&c->mutex);
 }
 
 
 int
-chld_spawn(Chld *c, const char path[], char *const argv[])
+chld_spawn(Chld *c, const char file[], char *const argv[])
 {
 	int ret = -1;
 	mtx_lock(&c->mutex);
@@ -480,8 +489,12 @@ chld_spawn(Chld *c, const char path[], char *const argv[])
 	if (count == CHLD_ITEMS_SIZE)
 		goto out0;
 
+	const char *const file_path = str_set_fmt(&c->str, "%s/%s", c->path, file);
+	if (file_path == NULL)
+		goto out0;
+
 	const unsigned slot = c->slots[count];
-	if (posix_spawn(&c->pids[slot], path, NULL, NULL, argv, NULL) != 0)
+	if (posix_spawn(&c->pids[slot], file_path, NULL, NULL, argv, NULL) != 0)
 		goto out0;
 
 	c->entries[count] = slot;

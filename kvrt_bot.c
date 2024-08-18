@@ -14,9 +14,9 @@
 #include "kvrt_bot.h"
 
 #include "config.h"
-#include "module.h"
 #include "picohttpparser.h"
 #include "thrd_pool.h"
+#include "update.h"
 #include "util.h"
 
 
@@ -72,8 +72,10 @@ kvrt_bot_init(KvrtBot *k)
 	}
 
 	memset(k, 0, sizeof(*k));
+	if (config_load_from_env(&k->config) < 0)
+		goto err0;
 
-	if (chld_init(&k->chld) < 0) {
+	if (chld_init(&k->chld, k->config.cmd_path) < 0) {
 		fprintf(stderr, "kvrt_bot: kvrt_bot_init: chld_init: failed to initialize\n");
 		goto err0;
 	}
@@ -85,15 +87,10 @@ kvrt_bot_init(KvrtBot *k)
 		buffer_init(&k->clients.list[i].buffer_in, CFG_CLIENT_BUFFER_IN_MAX);
 	}
 
-	if (config_load_from_env(&k->config) < 0)
-		goto err1;
-
 	k->listen_fd = -1;
 	k->event_fd = -1;
 	return 0;
 
-err1:
-	chld_deinit(&k->chld);
 err0:
 	log_deinit();
 	return -1;
@@ -129,7 +126,7 @@ kvrt_bot_run(KvrtBot *k)
 	Config *const cfg = &k->config;
 	unsigned iter = 0;
 	Str str_api;
-	Module *modules;
+	Update *updates;
 	config_dump(cfg);
 
 
@@ -149,21 +146,20 @@ kvrt_bot_run(KvrtBot *k)
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
 
 
-	/* Add 'module' for each worker threads */
-	modules = malloc(sizeof(Module) * cfg->worker_threads_num);
-	if (modules == NULL) {
+	/* Add 'update' handler for each worker threads */
+	updates = malloc(sizeof(Update) * cfg->worker_threads_num);
+	if (updates == NULL) {
 		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: module");
 		goto out0;
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
-		ret = module_init(&modules[iter], &k->chld, cfg->bot_id, cfg->owner_id, api,
-				  cfg->cmd_path, cfg->db_file);
+		ret = update_init(&updates[iter], cfg->bot_id, cfg->owner_id, api, cfg->db_file, &k->chld);
 		if (ret < 0)
 			goto out1;
 	}
 
-	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, modules, sizeof(Module),
+	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates, sizeof(Update),
 			       cfg->worker_jobs_min, cfg->worker_jobs_max);
 	if (ret < 0)
 		goto out1;
@@ -175,9 +171,9 @@ kvrt_bot_run(KvrtBot *k)
 out1:
 	chld_wait_all(&k->chld);
 	while (iter--)
-		module_deinit(&modules[iter]);
+		update_deinit(&updates[iter]);
 
-	free(modules);
+	free(updates);
 out0:
 	str_deinit(&str_api);
 	return ret;
@@ -707,5 +703,5 @@ _state_finish(KvrtBot *k, KvrtBotClient *client)
 static void
 _request_handler_fn(void *ctx, void *udata)
 {
-	module_handle((Module *)ctx, (json_object *)udata);
+	update_handle((Update *)ctx, (json_object *)udata);
 }

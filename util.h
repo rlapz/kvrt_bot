@@ -93,16 +93,18 @@ int  buffer_resize(Buffer *b, size_t len);
 #define CHLD_ITEMS_SIZE CFG_UTIL_CHLD_ITEMS_SIZE
 
 typedef struct chld {
-	unsigned count;
-	unsigned slots[CHLD_ITEMS_SIZE];
-	unsigned entries[CHLD_ITEMS_SIZE];
-	pid_t    pids[CHLD_ITEMS_SIZE];
-	mtx_t    mutex;
+	const char *path;
+	Str         str;
+	unsigned    count;
+	unsigned    slots[CHLD_ITEMS_SIZE];
+	unsigned    entries[CHLD_ITEMS_SIZE];
+	pid_t       pids[CHLD_ITEMS_SIZE];
+	mtx_t       mutex;
 } Chld;
 
-int  chld_init(Chld *c);
+int  chld_init(Chld *c, const char path[]);
 void chld_deinit(Chld *c);
-int  chld_spawn(Chld *c, const char path[], char *const argv[]);
+int  chld_spawn(Chld *c, const char file[], char *const argv[]);
 void chld_reap(Chld *c);
 void chld_wait_all(Chld *c);
 
