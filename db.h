@@ -15,6 +15,7 @@
 #define DB_CMD_FILE_NAME_SIZE (1024)
 #define DB_CMD_MSG_SIZE       (34)
 #define DB_CMD_MSG_VAL_SIZE   (8194)
+#define DB_CMD_DESC_SIZE      (256)
 
 
 typedef enum db_cmd_arg_type {
@@ -36,11 +37,12 @@ typedef struct db_admin {
 typedef struct db_cmd {
 	int          is_enable;
 	int          is_nsfw;
-	int          is_admin;
+	int          is_admin_only;
+	DbCmdArgType args;
 	int64_t      chat_id;
 	char         name[DB_CMD_NAME_SIZE];
 	char         file[DB_CMD_FILE_NAME_SIZE];
-	DbCmdArgType args;
+	char         description[DB_CMD_DESC_SIZE];
 } DbCmd;
 
 typedef struct db {

@@ -176,7 +176,8 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 int
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
-	const char *const sql = "select a.name, a.file, a.args, b.is_enable, b.is_admin "
+	const char *const sql = "select a.name, a.file, a.args, a.description, b.is_enable, "
+				"a.is_nsfw, a.is_admin_only "
 				"from Cmd as a "
 				"join Cmd_Chat as b on (a.id = b.cmd_id) "
 				"where (a.name = ?) and (b.chat_id = ?) "
@@ -189,15 +190,19 @@ db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 	};
 
 	DbOut out = {
-		.len = 4,
+		.len = 7,
 		.items = (DbOutItem[]) {
 			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->name, .size = DB_CMD_NAME_SIZE } },
 			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->file, .size = DB_CMD_FILE_NAME_SIZE } },
+			{ .type = DB_DATA_TYPE_INT, .int_ = (int *)&cmd->args },
+			{ .type = DB_DATA_TYPE_TEXT, .text = { .cstr = cmd->description, .size = DB_CMD_DESC_SIZE } },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_enable },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_admin },
+			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_nsfw },
+			{ .type = DB_DATA_TYPE_INT, .int_ = &cmd->is_admin_only },
 		},
 	};
 
+	cmd->chat_id = chat_id;
 	return _exec(d->sql, sql, args, LEN(args), &out, 1);
 }
 
@@ -294,6 +299,7 @@ _create_tables(sqlite3 *s)
 				"name          varchar(33) unique not null,"
 				"file          varchar(1023) not null,"
 				"args          integer not null,"		/* Bitwise OR DbCmdArgType */
+				"description   varchar(255),"
 				"is_nsfw       boolean not null,"
 				"is_admin_only boolean not null,"
 				"created_at    datetime default (datetime('now', 'localtime')) not null,"
