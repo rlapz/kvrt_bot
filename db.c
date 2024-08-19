@@ -285,19 +285,19 @@ _create_tables(sqlite3 *s)
 				  "is_creator boolean not null,"
 				  "chat_id    bigint not null,"			/* telegram chat id */
 				  "user_id    bigint not null,"			/* telegram user id */
-				  "privileges integer not null,"		/* Bitwise TgChatAdminPrivilege */
+				  "privileges integer not null,"		/* Bitwise OR TgChatAdminPrivilege */
 				  "created_at datetime default (datetime('now', 'localtime')) not null,"
 				  "updated_at datetime);";
 
 	const char *const cmd = "create table if not exists Cmd("
-				"id         integer primary key autoincrement,"
-				"name       varchar(33) unique not null,"
-				"file       varchar(1023) not null,"
-				"args       integer not null,"			/* Bitwise DbCmdArgType */
-				"is_nsfw    boolean not null,"
-				"is_admin   boolean not null,"
-				"created_at datetime default (datetime('now', 'localtime')) not null,"
-				"updated_at datetime);";
+				"id            integer primary key autoincrement,"
+				"name          varchar(33) unique not null,"
+				"file          varchar(1023) not null,"
+				"args          integer not null,"		/* Bitwise OR DbCmdArgType */
+				"is_nsfw       boolean not null,"
+				"is_admin_only boolean not null,"
+				"created_at    datetime default (datetime('now', 'localtime')) not null,"
+				"updated_at    datetime);";
 
 	const char *const cmd_chat = "create table if not exists Cmd_Chat("
 				     "id         integer primary key autoincrement,"

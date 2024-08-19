@@ -11,6 +11,7 @@ static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
 static int  _handle_commands(Update *u, const TgMessage *msg, json_object *json);
 static void _handler_new_member(Update *u, const TgMessage *msg);
+static void _admin_load(Update *u, const TgMessage *msg);
 
 
 /*
@@ -142,6 +143,8 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 		}
 	}
 
+	/* TODO: call external command */
+
 	if (common_cmd_message(u, msg, &cmd))
 		return 1;
 
@@ -154,5 +157,35 @@ _handler_new_member(Update *u, const TgMessage *msg)
 {
 	const TgUser *const user = &msg->new_member;
 	if (user->id == u->bot_id)
-		common_admin_reload(u, msg, 0);
+		_admin_load(u, msg);
+}
+
+
+static void
+_admin_load(Update *u, const TgMessage *msg)
+{
+	json_object *json_obj;
+	TgChatAdminList admin_list;
+	int64_t chat_id = msg->chat.id;
+	if (tg_api_get_admin_list(&u->api, chat_id, &admin_list, &json_obj) < 0)
+		return;
+
+	DbAdmin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
+	const int db_admins_len = (int)admin_list.len;
+	for (int i = 0; (i < db_admins_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
+		const TgChatAdmin *const adm = &admin_list.list[i];
+		db_admins[i] = (DbAdmin) {
+			.chat_id = chat_id,
+			.user_id = adm->user->id,
+			.is_creator = adm->is_creator,
+			.privileges = adm->privileges,
+		};
+	}
+
+	/* TODO: use transaction */
+	db_admin_clear(&u->db, chat_id);
+	db_admin_set(&u->db, db_admins, db_admins_len);
+
+	json_object_put(json_obj);
+	tg_chat_admin_list_free(&admin_list);
 }

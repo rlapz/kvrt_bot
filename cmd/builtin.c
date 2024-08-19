@@ -21,7 +21,55 @@ static void _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_o
 static void
 _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
-	common_admin_reload(u, msg, 1);
+	const char *resp = "failed";
+	json_object *json_obj;
+	TgChatAdminList admin_list;
+	int64_t chat_id = msg->chat.id;
+
+
+	if (tg_api_get_admin_list(&u->api, chat_id, &admin_list, &json_obj) < 0)
+		goto out0;
+
+	int is_priviledged = 0;
+	DbAdmin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
+	const int db_admins_len = (int)admin_list.len;
+	for (int i = 0; (i < db_admins_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
+		const TgChatAdmin *const adm = &admin_list.list[i];
+		if (msg->from->id == adm->user->id) {
+			if ((adm->is_creator == 0) && (adm->privileges == 0))
+				goto out2;
+
+			is_priviledged = 1;
+		}
+
+		db_admins[i] = (DbAdmin) {
+			.chat_id = chat_id,
+			.user_id = adm->user->id,
+			.is_creator = adm->is_creator,
+			.privileges = adm->privileges,
+		};
+	}
+
+out2:
+	if (is_priviledged == 0) {
+		resp = "permission denied!";
+		goto out1;
+	}
+
+	/* TODO: use transaction */
+	if (db_admin_clear(&u->db, chat_id) < 0)
+		goto out1;
+
+	if (db_admin_set(&u->db, db_admins, db_admins_len) < 0)
+		goto out1;
+
+	resp = "done";
+
+out1:
+	json_object_put(json_obj);
+	tg_chat_admin_list_free(&admin_list);
+out0:
+	tg_api_send_text(&u->api, TG_API_TEXT_TYPE_PLAIN, chat_id, &msg->id, resp);
 
 	(void)cmd;
 	(void)json;
@@ -91,6 +139,8 @@ _cmd_message_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object
 
 		msg_text = args[1].name;
 	}
+
+	/* TODO: validate command name */
 
 	buffer[0] = '/';
 	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, args[0].name, args[0].len);
