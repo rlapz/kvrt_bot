@@ -440,6 +440,7 @@ buffer_resize(Buffer *b, size_t len)
 	if (new_mem == NULL)
 		return -ENOMEM;
 
+	printf("resize: %zu -> %zu\n", b->size, new_size);
 	b->mem = new_mem;
 	b->size = new_size;
 	return 1;

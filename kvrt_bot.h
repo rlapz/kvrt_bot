@@ -21,14 +21,14 @@ typedef struct kvrt_bot_client {
 	size_t       req_total_len;
 	json_object *req_body_json;
 	size_t       bytes;
-	Buffer       buffer_in;
+	Buffer       buffer;
 	Event        event;
 } KvrtBotClient;
 
 typedef struct kvrt_bot_client_stack {
 	unsigned      count;
-	unsigned      slots[CFG_CLIENTS_MAX];
-	KvrtBotClient list[CFG_CLIENTS_MAX];
+	unsigned      slots[CFG_CLIENTS_SIZE];
+	KvrtBotClient list[CFG_CLIENTS_SIZE];
 } KvrtBotClientStack;
 
 typedef struct kvrt_bot {

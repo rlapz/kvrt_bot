@@ -10,15 +10,14 @@
 #define CFG_DEFAULT_WORKER_JOBS_MIN    (8)
 #define CFG_DEFAULT_WORKER_JOBS_MAX    (32)
 #define CFG_DEFAULT_DB_FILE            "db.sql"
-#define CFG_DEFAULT_CMD_PATH           "./extern"
+#define CFG_DEFAULT_CMD_PATH           "./extern/"
 
 #define CFG_API_TOKEN_SIZE             (64)
 #define CFG_API_SECRET_SIZE            (256)
 #define CFG_LOG_BUFFER_SIZE            (1024 * 1024)
-#define CFG_CLIENTS_MAX                (32)
-#define CFG_CLIENT_BUFFER_IN_MIN       (2048)
-#define CFG_CLIENT_BUFFER_IN_MAX       (1024 * 1024)
-#define CFG_EVENTS_MAX                 (32)
+#define CFG_CLIENTS_SIZE               (32)
+#define CFG_CLIENT_BUFFER_SIZE         (1024 * 1024)
+#define CFG_EVENTS_SIZE                (32)
 #define CFG_EVENT_RESPONSE_OK          "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
 #define CFG_EVENT_RESPONSE_ERR         "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
 #define CFG_TELEGRAM_API               "https://api.telegram.org/bot"
