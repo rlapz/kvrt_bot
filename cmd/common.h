@@ -8,6 +8,7 @@
 int  common_privileges_check(Update *u, const TgMessage *msg);
 int  common_cmd_message(Update *u, const TgMessage *msg, const BotCmd *cmd);
 void common_cmd_invalid(Update *u, const TgMessage *msg);
+void common_send_todo(Update *u, const TgMessage *msg);
 
 
 #endif

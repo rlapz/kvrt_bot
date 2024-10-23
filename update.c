@@ -70,6 +70,7 @@ update_handle(Update *u, json_object *json)
 		_handle_message(u, &update.message, json);
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
+		/* TODO */
 		break;
 	default:
 		break;
@@ -138,7 +139,11 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 			break;
 
 		if (_cmd_compare(builtin->name, &cmd)) {
-			builtin->func(u, msg, &cmd, json);
+			if (builtin->func != NULL)
+				builtin->func(u, msg, &cmd, json);
+			else
+				common_send_todo(u, msg);
+
 			return 1;
 		}
 	}

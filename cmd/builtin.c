@@ -173,15 +173,18 @@ _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 		if (b->name == NULL)
 			break;
 
-		const char *const icon = (b->admin_only) ? "🅰️" : "";
-		str_append_fmt(&u->str, "%u. %s - %s %s\n", i + 1 , b->name, b->description, icon);
+		str_append_fmt(&u->str, "%u. %s - %s %s%s\n", i + 1 , b->name, b->description,
+			       ((b->admin_only)? "🅰" : ""),
+			       ((b->func == NULL) ? "🚧" : ""));
 	}
 
 	str_append_fmt(&u->str, "\nExternal commands:\n");
-	str_append_fmt(&u->str, "[TODO]\n");
-	str_append_fmt(&u->str, "\n---\n✅: Enabled - ❎: Disabled - 🅰️: Admin only");
+	str_append_fmt(&u->str, "🚧\n");
+	str_append_fmt(&u->str, "\n---\n⛔️: Disabled - 🅰️: Admin only - 🚧: TODO");
 
 	tg_api_send_text(&u->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, u->str.cstr);
+
+	/* TODO: show external command list */
 
 	(void)cmd;
 	(void)json;
@@ -194,7 +197,7 @@ _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 const CmdBuiltin cmd_builtins[] = {
 	{
 		.name = "/admin_reload",
-		.description = "Reload admin",
+		.description = "Reload admin list",
 		.func = _cmd_admin_reload,
 		.admin_only = 1,
 	},
@@ -205,7 +208,7 @@ const CmdBuiltin cmd_builtins[] = {
 	},
 	{
 		.name = "/dump_admin",
-		.description = "Dump admin",
+		.description = "Dump admin list",
 		.func = _cmd_dump_admin,
 	},
 	{
@@ -215,11 +218,26 @@ const CmdBuiltin cmd_builtins[] = {
 		.admin_only = 1,
 	},
 	{
+		.name = "/cmd_list",
+		.description = "Show builtin commands",
+	},
+	{
+		.name = "/cmd_list_ext",
+		.description = "Show external commands",
+	},
+	{
+		.name = "/msg_list",
+		.description = "Show custom message commands",
+	},
+
+
+
+	/* END */
+	{
 		.name = "/help",
 		.description = "Show available commands",
 		.func = _cmd_help,
 	},
 
-	/* END */
 	{  NULL },
 };

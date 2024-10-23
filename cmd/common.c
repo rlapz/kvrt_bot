@@ -40,12 +40,10 @@ common_cmd_message(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	if (ret < 0)
 		return 1;
 
-	if (ret == 0)
+	if ((ret == 0) || (buffer[0] == '\0'))
 		return 0;
 
-	if (buffer[0] != '\0')
-		tg_api_send_text(&u->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, buffer);
-
+	tg_api_send_text(&u->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, buffer);
 	return 1;
 }
 
@@ -61,4 +59,11 @@ common_cmd_invalid(Update *u, const TgMessage *msg)
 		return;
 
 	tg_api_send_text(&u->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, resp);
+}
+
+
+void
+common_send_todo(Update *u, const TgMessage *msg)
+{
+	tg_api_send_text(&u->api, TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, "TODO");
 }
