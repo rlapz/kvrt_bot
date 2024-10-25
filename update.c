@@ -2,7 +2,7 @@
 
 #include "update.h"
 
-#include "cmd/common.h"
+#include "common.h"
 #include "cmd/builtin.h"
 
 
@@ -12,6 +12,7 @@ static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
 static int  _handle_commands(Update *u, const TgMessage *msg, json_object *json);
 static void _handler_new_member(Update *u, const TgMessage *msg);
 static void _admin_load(Update *u, const TgMessage *msg);
+static void _send_invalid_cmd(Update *u, const TgMessage *msg);
 
 
 /*
@@ -103,7 +104,7 @@ _handle_message(Update *u, const TgMessage *msg, json_object *json)
 		if (_handle_commands(u, msg, json))
 			break;
 
-		common_cmd_invalid(u, msg);
+		_send_invalid_cmd(u, msg);
 		break;
 	case TG_MESSAGE_TYPE_TEXT:
 		_handle_text(u, msg, json);
@@ -120,6 +121,7 @@ _handle_message(Update *u, const TgMessage *msg, json_object *json)
 static void
 _handle_text(Update *u, const TgMessage *msg, json_object *json)
 {
+	/* TODO */
 	(void)u;
 	(void)msg;
 	(void)json;
@@ -134,23 +136,22 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 		return 0;
 
 	for (unsigned i = 0; ; i++) {
-		const CmdBuiltin *const builtin = &cmd_builtins[i];
+		const CmdBuiltin *const builtin = &builtin_cmds[i];
 		if (builtin->name == NULL)
 			break;
 
-		if (_cmd_compare(builtin->name, &cmd)) {
-			if (builtin->func != NULL)
-				builtin->func(u, msg, &cmd, json);
-			else
-				common_send_todo(u, msg);
+		if (builtin->func == NULL)
+			continue;
 
+		if (_cmd_compare(builtin->name, &cmd)) {
+			builtin->func(u, msg, &cmd, json);
 			return 1;
 		}
 	}
 
 	/* TODO: call external command */
 
-	if (common_cmd_message(u, msg, &cmd))
+	if (builtin_cmd_message(u, msg, &cmd))
 		return 1;
 
 	return 0;
@@ -193,4 +194,14 @@ _admin_load(Update *u, const TgMessage *msg)
 
 	json_object_put(json_obj);
 	tg_chat_admin_list_free(&admin_list);
+}
+
+
+static void
+_send_invalid_cmd(Update *u, const TgMessage *msg)
+{
+	if (msg->chat.type != TG_CHAT_TYPE_PRIVATE)
+		return;
+
+	common_send_text_plain(u, msg, str_set_fmt(&u->str, "%s: invalid command!", msg->text));
 }

@@ -15,8 +15,8 @@ CC       := cc
 CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L
 LFLAGS   := -lcurl -ljson-c -lsqlite3
 SRC      := main.c kvrt_bot.c util.c config.c thrd_pool.c tg.c tg_api.c \
-			picohttpparser.c db.c update.c \
-			cmd/common.c cmd/builtin.c
+			picohttpparser.c db.c update.c common.c \
+			cmd/builtin.c
 OBJ      := $(SRC:.c=.o)
 
 

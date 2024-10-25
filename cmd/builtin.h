@@ -15,8 +15,12 @@ typedef struct cmd_builtin {
 } CmdBuiltin;
 
 
+int builtin_cmd_message(Update *u, const TgMessage *msg, const BotCmd *cmd);
+
+
 /* see: builtin.c */
-extern const CmdBuiltin cmd_builtins[];
+/* TODO: using string hashmap */
+extern const CmdBuiltin builtin_cmds[];
 
 
 #endif
