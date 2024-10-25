@@ -21,7 +21,7 @@ static void _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_o
 static void
 _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
-	const char *resp;
+	const char *resp = "Failed";
 	json_object *json_obj;
 	TgChatAdminList admin_list;
 	int64_t chat_id = msg->chat.id;
