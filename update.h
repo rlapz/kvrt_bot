@@ -7,7 +7,6 @@
 
 #include "db.h"
 #include "util.h"
-#include "tg.h"
 #include "tg_api.h"
 
 

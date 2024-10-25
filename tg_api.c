@@ -14,7 +14,7 @@
 static int          _curl_init(TgApi *t);
 static void         _curl_deinit(TgApi *t);
 static size_t       _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
-static int          _curl_request_get(TgApi *t, const char url[]);
+static const char  *_curl_request_get(TgApi *t, const char url[]);
 static json_object *_parse_response(json_object *json_obj);
 
 
@@ -59,10 +59,11 @@ tg_api_get_me(TgApi *t, TgUser *me, json_object **res)
 		return -1;
 	}
 
-	if (_curl_request_get(t, req) < 0)
+	const char *const resp = _curl_request_get(t, req);
+	if (resp == NULL)
 		return -1;
 
-	json_object *const json = json_tokener_parse(t->str.cstr);
+	json_object *const json = json_tokener_parse(resp);
 	if (json == NULL) {
 		log_err(0, "tg_api: tg_api_get_me: json_tokener_parse: failed");
 		return -1;
@@ -90,22 +91,18 @@ int
 tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *reply_to, const char text[])
 {
 	int ret = -1;
-	char *e_text = NULL;
-	const char *req = NULL;
-
-
 	if (text == NULL) {
 		log_err(EINVAL, "tg_api: tg_api_send_text: text null");
 		return -1;
 	}
 
-	e_text = curl_easy_escape(t->curl, text, 0);
+	char *const e_text = curl_easy_escape(t->curl, text, 0);
 	if (e_text == NULL) {
 		log_err(0, "tg_api: tg_api_send_text: curl_easy_escape: text: failed");
 		return -1;
 	}
 
-	req = str_set_fmt(&t->str, "%s/sendMessage?chat_id=%" PRIi64, t->api, chat_id);
+	const char *req = str_set_fmt(&t->str, "%s/sendMessage?chat_id=%" PRIi64, t->api, chat_id);
 	if (req == NULL)
 		goto out1;
 
@@ -134,7 +131,8 @@ out1:
 	}
 
 	log_debug("tg_api: tg_api_send_text: request: %s", req);
-	ret = _curl_request_get(t, req);
+	if (_curl_request_get(t, req) != NULL)
+		ret = 0;
 
 out0:
 	free(e_text);
@@ -147,11 +145,7 @@ tg_api_send_photo(TgApi *t, TgApiPhotoType type, int64_t chat_id, const int64_t 
 		  const char caption[], const char src[])
 {
 	int ret = -1;
-	char *e_src = NULL;
 	char *e_caption = NULL;
-	const char *req = NULL;
-
-
 	if (src == NULL) {
 		log_err(EINVAL, "tg_api: tg_api_send_photo: src null");
 		return -1;
@@ -163,13 +157,13 @@ tg_api_send_photo(TgApi *t, TgApiPhotoType type, int64_t chat_id, const int64_t 
 		return -1;
 	}
 
-	e_src = curl_easy_escape(t->curl, src, 0);
+	char *const e_src = curl_easy_escape(t->curl, src, 0);
 	if (e_src == NULL) {
 		log_err(0, "tg_api: tg_api_send_photo: curl_easy_escape: src: failed");
 		return -1;
 	}
 
-	req = str_set_fmt(&t->str, "%s/sendPhoto?chat_id=%" PRIi64, t->api, chat_id);
+	const char *req = str_set_fmt(&t->str, "%s/sendPhoto?chat_id=%" PRIi64, t->api, chat_id);
 	if (req == NULL)
 		goto out1;
 
@@ -202,7 +196,8 @@ out1:
 	}
 
 	log_debug("tg_api: tg_api_send_photo: request: %s", req);
-	ret = _curl_request_get(t, req);
+	if (_curl_request_get(t, req) != NULL)
+		ret = 0;
 
 out0:
 	free(e_src);
@@ -221,7 +216,8 @@ tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_obj
 		return -1;
 	}
 
-	if (_curl_request_get(t, req) < 0)
+	const char *const resp = _curl_request_get(t, req);
+	if (resp == NULL)
 		return -1;
 
 	json_object *const json = json_tokener_parse(t->str.cstr);
@@ -285,7 +281,7 @@ _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
 }
 
 
-static int
+static const char *
 _curl_request_get(TgApi *t, const char url[])
 {
 	curl_easy_reset(t->curl);
@@ -300,7 +296,7 @@ _curl_request_get(TgApi *t, const char url[])
 	const CURLcode res = curl_easy_perform(t->curl);
 	if (res != CURLE_OK) {
 		log_err(0, "tg_api: _curl_request_get: curl_easy_perform: %s", curl_easy_strerror(res));
-		return -1;
+		return NULL;
 	}
 
 
@@ -315,7 +311,7 @@ _curl_request_get(TgApi *t, const char url[])
 
 	json_object_put(json);
 #endif
-	return 0;
+	return t->str.cstr;
 }
 
 
