@@ -19,7 +19,7 @@ cmd_message_send(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	if (ret < 0)
 		return 1;
 
-	if ((ret == 0) || (buffer[0] == '\0'))
+	if (ret == 0)
 		return 0;
 
 	common_send_text_plain(u, msg, buffer);

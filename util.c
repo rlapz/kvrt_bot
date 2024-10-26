@@ -27,24 +27,25 @@
 /*
  * cstr
  */
-void
+size_t
 cstr_copy(char dest[], const char src[])
 {
 	const size_t slen = strlen(src);
 	memcpy(dest, src, slen);
 	dest[slen] = '\0';
+	return slen;
 }
 
 
-void
+size_t
 cstr_copy_n(char dest[], size_t size, const char src[])
 {
 	if (size == 0)
-		return;
+		return 0;
 
 	if ((size == 1) || (src == NULL)) {
 		dest[0] = '\0';
-		return;
+		return 0;
 	}
 
 	size_t slen = strlen(src);
@@ -53,10 +54,11 @@ cstr_copy_n(char dest[], size_t size, const char src[])
 
 	memcpy(dest, src, slen);
 	dest[slen] = '\0';
+	return slen;
 }
 
 
-void
+size_t
 cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 {
 	if (size <= len)
@@ -64,6 +66,7 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 
 	memcpy(dest, src, len);
 	dest[len] = '\0';
+	return len;
 }
 
 

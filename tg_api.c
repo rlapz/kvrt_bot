@@ -220,7 +220,7 @@ tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_obj
 	if (resp == NULL)
 		return -1;
 
-	json_object *const json = json_tokener_parse(t->str.cstr);
+	json_object *const json = json_tokener_parse(resp);
 	if (json == NULL) {
 		log_err(0, "tg_api: tg_api_get_admin_list: json_tokener_parse: failed");
 		return -1;

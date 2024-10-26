@@ -6,6 +6,7 @@
 
 
 typedef enum db_data_type {
+	DB_DATA_TYPE_NULL,
 	DB_DATA_TYPE_INT,
 	DB_DATA_TYPE_INT64,
 	DB_DATA_TYPE_TEXT,
@@ -22,6 +23,7 @@ typedef struct db_arg {
 
 typedef struct db_out_item_text {
 	char   *cstr;
+	size_t  len;
 	size_t  size;
 } DbOutItemText;
 
@@ -42,7 +44,8 @@ typedef struct db_out {
 
 static int _create_tables(sqlite3 *s);
 static int _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
-static int _exec_get_outputs(sqlite3_stmt *s, DbOut out[], int out_len);
+static int _exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len);
+static int _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len);
 static int _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len);
 
 
@@ -218,7 +221,7 @@ db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], c
 	};
 
 	const char *sql;
-	if (message == NULL) {
+	if ((message == NULL) || (message[0] == '\0')) {
 		int is_exists = 0;
 		DbOut out = {
 			.len = 1,
@@ -241,6 +244,7 @@ db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], c
 		if (is_exists == 0)
 			return 0;
 
+		/* invalidate cmd message */
 		args[2].text = "";
 	}
 
@@ -275,7 +279,11 @@ db_cmd_message_get(Db *d, char buffer[], size_t size, int64_t chat_id, const cha
 				"where (chat_id = ?) and (name = ?) "
 				"order by id desc "
 				"limit 1;";
-	return _exec(d->sql, sql, args, LEN(args), &out, 1);
+	int ret = _exec(d->sql, sql, args, LEN(args), &out, 1);
+	if (out.items[0].text.len == 0)
+		ret = 0;
+
+	return ret;
 }
 
 
@@ -355,21 +363,24 @@ err0:
 static int
 _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len)
 {
-	for (int i = 0; i < args_len; i++) {
+	for (int i = 0; i < args_len;) {
 		int ret;
-		const DbArg *const arg = &args[i];
+		const DbArg *const arg = &args[i++];
 		switch (arg->type) {
 		case DB_DATA_TYPE_INT:
-			ret = sqlite3_bind_int(s, (i + 1), arg->int_);
+			ret = sqlite3_bind_int(s, i, arg->int_);
 			break;
 		case DB_DATA_TYPE_INT64:
-			ret = sqlite3_bind_int64(s, (i + 1), arg->int64);
+			ret = sqlite3_bind_int64(s, i, arg->int64);
 			break;
 		case DB_DATA_TYPE_TEXT:
-			ret = sqlite3_bind_text(s, (i + 1), arg->text, -1, NULL);
+			ret = sqlite3_bind_text(s, i, arg->text, -1, NULL);
+			break;
+		case DB_DATA_TYPE_NULL:
+			ret = sqlite3_bind_null(s, i);
 			break;
 		default:
-			log_err(0, "db: _exec_set_args: invalid arg type: [%d]:%d", i, arg->type);
+			log_err(0, "db: _exec_set_args: invalid arg type: [%d]:%d", (i - 1), arg->type);
 			return -1;
 		}
 
@@ -384,57 +395,70 @@ _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len)
 
 
 static int
-_exec_get_outputs(sqlite3_stmt *s, DbOut out[], int out_len)
+_exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len)
 {
-	int count = 0;
-	for (; count < out_len; count++) {
+	int i = 0;
+	for (; i < out_len; i++) {
 		const int ret = sqlite3_step(s);
-		switch (ret) {
-		case SQLITE_DONE:
-			/* success */
-			return count;
-		case SQLITE_ROW:
+		if (ret == SQLITE_DONE)
 			break;
-		default:
+
+		if (ret != SQLITE_ROW) {
 			log_err(0, "db: _exec_get_outputs: sqlite3_step: %s", sqlite3_errstr(ret));
 			return -1;
 		}
 
-		DbOut *const p = &out[count];
-		for (int i = 0; i < p->len; i++) {
-			DbOutItem *const o = &p->items[i];
-			const int type = sqlite3_column_type(s, i);
-			switch (o->type) {
-			case DB_DATA_TYPE_INT:
-				if (type != SQLITE_INTEGER)
-					goto err0;
+		if (_exec_get_output_values(s, out[i].items, out[i].len) < 0)
+			return -1;
+	}
 
-				*o->int_ = sqlite3_column_int(s, i);
-				break;
-			case DB_DATA_TYPE_INT64:
-				if (type != SQLITE_INTEGER)
-					goto err0;
+	return i;
+}
 
-				*o->int64 = sqlite3_column_int64(s, i);
-				break;
-			case DB_DATA_TYPE_TEXT:
-				if (type != SQLITE_TEXT)
-					goto err0;
 
-				cstr_copy_n(o->text.cstr, o->text.size, (const char *)sqlite3_column_text(s, i));
-				break;
-			default:
-				log_err(0, "db: _exec_get_outputs: invalid out type: [%d]:%d", i, o->type);
-				return -1;
-			}
+static int
+_exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len)
+{
+	int i = 0;
+	for (; i < len; i++) {
+		DbOutItem *const item = &items[i];
+		const int type = sqlite3_column_type(s, i);
+		if (type == SQLITE_NULL) {
+			memset(item, 0, sizeof(*item));
+			item->type = DB_DATA_TYPE_NULL;
+			return 0;
+		}
+
+		switch (item->type) {
+		case DB_DATA_TYPE_INT:
+			if (type != SQLITE_INTEGER)
+				goto err0;
+
+			*item->int_ = sqlite3_column_int(s, i);
+			break;
+		case DB_DATA_TYPE_INT64:
+			if (type != SQLITE_INTEGER)
+				goto err0;
+
+			*item->int64 = sqlite3_column_int64(s, i);
+			break;
+		case DB_DATA_TYPE_TEXT:
+			if (type != SQLITE_TEXT)
+				goto err0;
+
+			DbOutItemText *const text = &item->text;
+			text->len = cstr_copy_n(text->cstr, text->size, (const char *)sqlite3_column_text(s, i));
+			break;
+		default:
+			log_err(0, "db: _exec_get_output_values: invalid out type: [%d:%d]", i, item->type);
+			return -1;
 		}
 	}
 
-	/* success */
-	return count;
+	return 0;
 
 err0:
-	log_err(0, "db: _exec_get_outputs: column type doesn't match");
+	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type doesn't match", i, items[i].type);
 	return -1;
 }
 
@@ -453,20 +477,20 @@ _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut ou
 	if (ret < 0)
 		goto out0;
 
-	if ((out == NULL) || (out_len == 0)) {
-		ret = sqlite3_step(stmt);
-		switch (ret) {
-		case SQLITE_ROW:
-		case SQLITE_DONE:
-			ret = 0;
-			break;
-		default:
-			log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
-			ret = -1;
-			break;
-		}
-	} else {
-		ret = _exec_get_outputs(stmt, out, out_len);
+	if (out != NULL) {
+		ret = _exec_get_output(stmt, out, out_len);
+		goto out0;
+	}
+
+	switch (sqlite3_step(stmt)) {
+	case SQLITE_ROW:
+	case SQLITE_DONE:
+		ret = 0;
+		break;
+	default:
+		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
+		ret = -1;
+		break;
 	}
 
 out0:

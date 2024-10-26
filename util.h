@@ -16,16 +16,16 @@
 /*
  * cstr
  */
-void  cstr_copy(char dest[], const char src[]);
-void  cstr_copy_n(char dest[], size_t size, const char src[]);
-void  cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
+size_t cstr_copy(char dest[], const char src[]);
+size_t cstr_copy_n(char dest[], size_t size, const char src[]);
+size_t cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
 
 /* ret: ~0: equals */
-int   cstr_cmp_n(const char a[], const char b[], size_t b_len);
-int   cstr_casecmp_n(const char a[], const char b[], size_t b_len);
+int    cstr_cmp_n(const char a[], const char b[], size_t b_len);
+int    cstr_casecmp_n(const char a[], const char b[], size_t b_len);
 
-char *cstr_trim_l(char dest[]);
-char *cstr_trim_r(char dest[]);
+char  *cstr_trim_l(char dest[]);
+char  *cstr_trim_r(char dest[]);
 
 
 /*
