@@ -2,22 +2,107 @@
 #include <string.h>
 
 #include "builtin.h"
+#include "external.h"
+#include "message.h"
 
 #include "../common.h"
 #include "../tg_api.h"
 #include "../util.h"
 
 
+typedef void (*CmdBuiltinFn)(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
+
+typedef struct cmd_builtin {
+	const char   *name;
+	const char   *description;
+	CmdBuiltinFn  func;
+	int           admin_only;
+} CmdBuiltin;
+
+
+static int  _cmd_compare(const char cmd[], const BotCmd *src);
+static void _cmd_start(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _cmd_dump(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _cmd_dump_admin(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _cmd_message_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
+static void _cmd_extern_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
+static void _cmd_message_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
+
+
+static const CmdBuiltin _cmd_list[] = {
+	{
+		.name = "/start",
+		.description = "Start",
+		.func = _cmd_start,
+	},
+	{
+		.name = "/admin_reload",
+		.description = "Reload admin list",
+		.func = _cmd_admin_reload,
+		.admin_only = 1,
+	},
+	{
+		.name = "/dump",
+		.description = "Dump raw JSON message",
+		.func = _cmd_dump,
+	},
+	{
+		.name = "/dump_admin",
+		.description = "Dump admin list",
+		.func = _cmd_dump_admin,
+	},
+	{
+		.name = "/msg_set",
+		.description = "Set/unset custom message command",
+		.func = _cmd_message_set,
+		.admin_only = 1,
+	},
+	{
+		.name = "/extern",
+		.description = "Show external commands",
+		.func = _cmd_extern_list,
+	},
+	{
+		.name = "/msg",
+		.description = "Show custom message commands",
+		.func = _cmd_message_list,
+	},
+
+
+
+	/* END */
+	{
+		.name = "/help",
+		.description = "Show available commands",
+		.func = _cmd_help,
+	},
+};
+
 
 
 /*
  * Private
  */
+static inline int
+_cmd_compare(const char cmd[], const BotCmd *src)
+{
+	return cstr_casecmp_n(cmd, src->name, (size_t)src->name_len);
+}
+
+
+static void
+_cmd_start(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
+{
+	if (msg->chat.type != TG_CHAT_TYPE_PRIVATE)
+		return;
+
+	common_send_text_plain(u, msg, "Hello!");
+	_cmd_help(u, msg, cmd, json);
+}
+
+
 static void
 _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
@@ -117,7 +202,12 @@ _cmd_message_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object
 {
 	const char *resp;
 	char buffer[DB_CMD_MSG_SIZE];
-	if ((msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (common_privileges_check(u, msg) < 0))
+	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
+		resp = "Not supported";
+		goto out0;
+	}
+
+	if (common_privileges_check(u, msg) < 0)
 		return;
 
 	const BotCmdArg *const args = cmd->args;
@@ -171,27 +261,52 @@ out0:
 
 
 static void
+_cmd_extern_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
+{
+	str_set_fmt(&u->str, "\nExternal commands:\n");
+	cmd_external_list(u);
+
+	str_append_fmt(&u->str, "\n---\n⛔️: Disabled - 🔞: NSFW - 🅰️: Admin only");
+	common_send_text_plain(u, msg, u->str.cstr);
+
+	(void)cmd;
+	(void)json;
+}
+
+
+static void
+_cmd_message_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
+{
+	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
+		common_send_text_plain(u, msg, "Not supported");
+		return;
+	}
+
+	str_set_fmt(&u->str, "\nMessage commands:\n");
+	cmd_message_list(u);
+	common_send_text_plain(u, msg, u->str.cstr);
+
+	(void)cmd;
+	(void)json;
+}
+
+
+static void
 _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
 	str_set_fmt(&u->str, "Builtin commands:\n");
-	for (unsigned i = 0, j = 0; ; i++) {
-		const CmdBuiltin *const b = &builtin_cmds[i];
-		if (b->name == NULL)
-			break;
-
-		if (b->func == NULL)
+	for (unsigned i = 0, j = 0; i < LEN(_cmd_list); i++) {
+		const CmdBuiltin *const b = &_cmd_list[i];
+		if ((b->name == NULL) || (b->description == NULL) || (b->func == NULL))
 			continue;
 
 		str_append_fmt(&u->str, "%u. %s - %s %s%s\n", ++j , b->name, b->description,
 			       ((b->admin_only)? "🅰️" : ""));
 	}
 
-	/* TODO: show external command list */
-	str_append_fmt(&u->str, "\nExternal commands:\n");
-	str_append_fmt(&u->str, "[TODO]\n");
-
-	str_append_fmt(&u->str, "\n---\n⛔️: Disabled - 🅰️: Admin only");
+	str_append_fmt(&u->str, "\n---\n⛔️: Disabled - 🔞: NSFW - 🅰️: Admin only");
 	common_send_text_plain(u, msg, u->str.cstr);
+
 	(void)cmd;
 	(void)json;
 }
@@ -201,70 +316,18 @@ _cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
  * Public
  */
 int
-builtin_cmd_message(Update *u, const TgMessage *msg, const BotCmd *cmd)
+cmd_builtin_exec(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
-	char buffer[DB_CMD_MSG_VAL_SIZE];
-	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
+	for (unsigned i = 0; i < LEN(_cmd_list); i++) {
+		const CmdBuiltin *const b = &_cmd_list[i];
+		if ((b->name == NULL) || (b->func == NULL))
+			continue;
 
-	const int ret = db_cmd_message_get(&u->db, buffer, LEN(buffer), msg->chat.id, buffer);
-	if (ret < 0)
-		return 1;
+		if (_cmd_compare(b->name, cmd)) {
+			b->func(u, msg, cmd, json);
+			return 1;
+		}
+	}
 
-	if ((ret == 0) || (buffer[0] == '\0'))
-		return 0;
-
-	common_send_text_plain(u, msg, buffer);
-	return 1;
+	return 0;
 }
-
-
-const CmdBuiltin builtin_cmds[] = {
-	{
-		.name = "/admin_reload",
-		.description = "Reload admin list",
-		.func = _cmd_admin_reload,
-		.admin_only = 1,
-	},
-	{
-		.name = "/dump",
-		.description = "Dump raw JSON message",
-		.func = _cmd_dump,
-	},
-	{
-		.name = "/dump_admin",
-		.description = "Dump admin list",
-		.func = _cmd_dump_admin,
-	},
-	{
-		.name = "/msg_set",
-		.description = "Set/unset custom message command",
-		.func = _cmd_message_set,
-		.admin_only = 1,
-	},
-	{
-		/* TODO */
-		.name = "/cmd_list",
-		.description = "Show builtin commands",
-	},
-	{
-		/* TODO */
-		.name = "/cmd_list_ext",
-		.description = "Show external commands",
-	},
-	{
-		/* TODO */
-		.name = "/msg_list",
-		.description = "Show custom message commands",
-	},
-
-
-
-	/* END */
-	{
-		.name = "/help",
-		.description = "Show available commands",
-		.func = _cmd_help,
-	},
-
-	{  NULL },
-};

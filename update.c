@@ -4,9 +4,10 @@
 
 #include "common.h"
 #include "cmd/builtin.h"
+#include "cmd/external.h"
+#include "cmd/message.h"
 
 
-static int  _cmd_compare(const char cmd[], const BotCmd *src);
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
 static int  _handle_commands(Update *u, const TgMessage *msg, json_object *json);
@@ -85,13 +86,6 @@ update_handle(Update *u, json_object *json)
 /*
  * Private
  */
-static inline int
-_cmd_compare(const char cmd[], const BotCmd *src)
-{
-	return cstr_casecmp_n(cmd, src->name, (size_t)src->name_len);
-}
-
-
 static void
 _handle_message(Update *u, const TgMessage *msg, json_object *json)
 {
@@ -135,23 +129,13 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 	if (bot_cmd_parse(&cmd, '/', msg->text.text) < 0)
 		return 0;
 
-	for (unsigned i = 0; ; i++) {
-		const CmdBuiltin *const builtin = &builtin_cmds[i];
-		if (builtin->name == NULL)
-			break;
+	if (cmd_builtin_exec(u, msg, &cmd, json))
+		return 1;
 
-		if (builtin->func == NULL)
-			continue;
+	if (cmd_external_exec(u, msg, &cmd, json))
+		return 1;
 
-		if (_cmd_compare(builtin->name, &cmd)) {
-			builtin->func(u, msg, &cmd, json);
-			return 1;
-		}
-	}
-
-	/* TODO: call external command */
-
-	if (builtin_cmd_message(u, msg, &cmd))
+	if (cmd_message_send(u, msg, &cmd))
 		return 1;
 
 	return 0;
