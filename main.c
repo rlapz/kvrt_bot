@@ -27,6 +27,10 @@ _set_signal_handler(KvrtBot *bot)
 	if (sigaction(SIGPIPE, &act, NULL) < 0)
 		return -1;
 
+	/* TODO: move -> util.c: chld_init() */
+	if (sigaction(SIGCHLD, &act, NULL) < 0)
+		return -1;
+
 	act.sa_handler = _signal_handler;
 	if (sigaction(SIGINT, &act, NULL) < 0)
 		return -1;
@@ -41,13 +45,13 @@ main(void)
 	KvrtBot bot;
 	if (kvrt_bot_init(&bot) < 0)
 		return 1;
-	
+
 	int ret = _set_signal_handler(&bot);
 	if (ret < 0) {
 		perror("main: _set_signal_handler");
 		goto out0;
 	}
-	
+
 	ret = kvrt_bot_run(&bot);
 
 out0:

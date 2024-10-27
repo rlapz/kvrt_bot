@@ -141,6 +141,7 @@ db_admin_clear(Db *d, int64_t chat_id)
 }
 
 
+/* TODO */
 int
 db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 {
@@ -179,17 +180,23 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 int
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
-	const char *const sql = "select a.name, a.file, a.args, a.description, b.is_enable, "
-				"a.is_nsfw, a.is_admin_only "
-				"from Cmd as a "
-				"join Cmd_Chat as b on (a.id = b.cmd_id) "
-				"where (a.name = ?) and (b.chat_id = ?) "
-				"order by b.id desc "
-				"limit 1;";
+	//const char *const sql = "select a.name, a.file, a.args, a.description, b.is_enable, "
+	//			"a.is_nsfw, a.is_admin_only "
+	//			"from Cmd as a "
+	//			"join Cmd_Chat as b on (a.name = b.cmd_name) "
+	//			"where (a.name = ?) and (b.chat_id = ?) "
+	//			"order by b.id desc "
+	//			"limit 1;";
+	const char *const sql = "select name, file, args, description, 1 as is_enable, "
+				"is_nsfw, is_admin_only "
+				"from Cmd "
+				"where (name = ?) ";
+				//"order by id desc "
+				//"limit 1;";
 
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		//{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 	};
 
 	DbOut out = {

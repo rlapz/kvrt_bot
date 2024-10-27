@@ -19,12 +19,13 @@
 
 
 typedef enum db_cmd_arg_type {
-	DB_CMD_ARG_TYPE_CHAT_ID = (1 << 0),
-	DB_CMD_ARG_TYPE_USER_ID = (1 << 1),
-	DB_CMD_ARG_TYPE_TEXT    = (1 << 2),
-
-	DB_CMD_ARG_TYPE_RAW     = (1 << 30),
+	DB_CMD_ARG_TYPE_RAW     = (1 << 0),
+	DB_CMD_ARG_TYPE_CHAT_ID = (1 << 1),
+	DB_CMD_ARG_TYPE_USER_ID = (1 << 2),
+	DB_CMD_ARG_TYPE_TEXT    = (1 << 3),
 } DbCmdArgType;
+
+#define DB_CMD_ARGS_TYPE_SIZE (4)
 
 
 typedef struct db_admin {
