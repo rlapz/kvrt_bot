@@ -106,20 +106,25 @@ _cmd_start(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json
 static void
 _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
+	Db db;
+	int need_rollback = 0;
 	const char *resp = "Failed";
 	json_object *json_obj;
 	TgChatAdminList admin_list;
 	int64_t chat_id = msg->chat.id;
 
 
+	if (db_init(&db, u->db.path, 0) < 0)
+		goto out0;
+
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
 		resp = "There are no administrators in the private chat!";
-		goto out0;
+		goto out1;
 	}
 
 	if (tg_api_get_admin_list(&u->api, chat_id, &admin_list, &json_obj) < 0) {
 		resp = "Failed to get admin list";
-		goto out0;
+		goto out1;
 	}
 
 	int is_priviledged = 0;
@@ -129,7 +134,7 @@ _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_objec
 		const TgChatAdmin *const adm = &admin_list.list[i];
 		if (msg->from->id == adm->user->id) {
 			if ((adm->is_creator == 0) && (adm->privileges == 0))
-				goto out2;
+				goto out3;
 
 			is_priviledged = 1;
 		}
@@ -142,24 +147,33 @@ _cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, json_objec
 		};
 	}
 
-out2:
+out3:
 	if (is_priviledged == 0) {
 		resp = "Permission denied!";
-		goto out1;
+		goto out2;
 	}
 
-	/* TODO: use transaction */
-	if (db_admin_clear(&u->db, chat_id) < 0)
-		goto out1;
+	if (db_begin_transaction(&db) < 0)
+		goto out2;
 
-	if (db_admin_set(&u->db, db_admins, db_admins_len) < 0)
-		goto out1;
+	need_rollback = 1;
+	if (db_admin_clear(&db, chat_id) < 0)
+		goto out2;
 
+	if (db_admin_set(&db, db_admins, db_admins_len) < 0)
+		goto out2;
+
+	db_commit_transaction(&db);
+	need_rollback = 0;
 	resp = "Done";
+out2:
+	if (need_rollback)
+		db_rollback_transaction(&u->db);
 
-out1:
 	json_object_put(json_obj);
 	tg_chat_admin_list_free(&admin_list);
+out1:
+	db_deinit(&db);
 out0:
 	common_send_text_plain(u, msg, resp);
 

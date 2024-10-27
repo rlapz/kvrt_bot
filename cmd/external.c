@@ -22,7 +22,7 @@ cmd_external_exec(Update *u, const TgMessage *msg, const BotCmd *cmd, json_objec
 	if (ret < 0)
 		goto err0;
 
-	if ((ret == 0) && (dbcmd.is_enable == 0))
+	if ((ret == 0) || (dbcmd.is_enable == 0))
 		return 0;
 
 	if ((dbcmd.is_admin_only != 0) && (common_privileges_check(u, msg) < 0))

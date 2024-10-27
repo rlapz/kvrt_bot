@@ -53,7 +53,7 @@ static int _exec(sqlite3 *s, const char query[], const DbArg args[], int args_le
  * Public
  */
 int
-db_init(Db *d, const char path[])
+db_init(Db *d, const char path[], int need_create_tables)
 {
 	sqlite3 *sql;
 	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
@@ -66,7 +66,7 @@ db_init(Db *d, const char path[])
 		goto err0;
 	}
 
-	if (_create_tables(sql) < 0)
+	if ((need_create_tables != 0) && (_create_tables(sql) < 0))
 		goto err0;
 
 	d->sql = sql;

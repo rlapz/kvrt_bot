@@ -23,7 +23,7 @@ int
 update_init(Update *u, int64_t bot_id, int64_t owner_id, const char base_api[], const char db_path[],
 	    Chld *chld)
 {
-	if (db_init(&u->db, db_path) < 0)
+	if (db_init(&u->db, db_path, 1) < 0)
 		return -1;
 
 	if (tg_api_init(&u->api, base_api) < 0)
