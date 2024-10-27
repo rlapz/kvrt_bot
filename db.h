@@ -51,7 +51,7 @@ typedef struct db {
 	sqlite3    *sql;
 } Db;
 
-int  db_init(Db *d, const char path[], int need_create_tables);
+int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 int  db_begin_transaction(Db *d);
 int  db_rollback_transaction(Db *d);
