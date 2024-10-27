@@ -87,6 +87,45 @@ db_deinit(Db *d)
 
 
 int
+db_begin_transaction(Db *d)
+{
+	char *err_msg;
+	if (sqlite3_exec(d->sql, "begin transaction;", NULL, NULL, &err_msg) != SQLITE_OK) {
+		log_err(0, "db: db_begin_transaction: sqlite3_exec: %s", err_msg);
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
+db_rollback_transaction(Db *d)
+{
+	char *err_msg;
+	if (sqlite3_exec(d->sql, "rollback transaction;", NULL, NULL, &err_msg) != SQLITE_OK) {
+		log_err(0, "db: db_rollback_transaction: sqlite3_exec: %s", err_msg);
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
+db_commit_transaction(Db *d)
+{
+	char *err_msg;
+	if (sqlite3_exec(d->sql, "commit transaction;", NULL, NULL, &err_msg) != SQLITE_OK) {
+		log_err(0, "db: db_commit_transaction: sqlite3_exec: %s", err_msg);
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
 db_admin_set(Db *d, const DbAdmin admin_list[], int admin_list_len)
 {
 	const char *const sql = "insert into Admin(is_creator, chat_id, user_id, privileges) values (?, ?, ?, ?);";
@@ -151,18 +190,8 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
 	};
 
-	int is_exists = 0;
 	const char *sql = "select exists(select 1 from Cmd where (name = ?) limit 1);";
-
-	DbOut out = {
-		.len = 1,
-		.items = &(DbOutItem) {
-			.type = DB_DATA_TYPE_INT,
-			.int_ = &is_exists,
-		},
-	};
-
-	const int ret = _exec(d->sql, sql, &args[2], 1, &out, 1);
+	const int ret = _exec(d->sql, sql, &args[2], 1, NULL, 0);
 	if (ret <= 0)
 		return ret;
 
@@ -180,23 +209,17 @@ db_cmd_set(Db *d, int64_t chat_id, const char name[], int is_enable)
 int
 db_cmd_get(Db *d, DbCmd *cmd, int64_t chat_id, const char name[])
 {
-	//const char *const sql = "select a.name, a.file, a.args, a.description, b.is_enable, "
-	//			"a.is_nsfw, a.is_admin_only "
-	//			"from Cmd as a "
-	//			"join Cmd_Chat as b on (a.name = b.cmd_name) "
-	//			"where (a.name = ?) and (b.chat_id = ?) "
-	//			"order by b.id desc "
-	//			"limit 1;";
-	const char *const sql = "select name, file, args, description, 1 as is_enable, "
-				"is_nsfw, is_admin_only "
-				"from Cmd "
-				"where (name = ?) ";
-				//"order by id desc "
-				//"limit 1;";
+	const char *const sql = "select a.name, a.file, a.args, a.description, b.is_enable, "
+				"a.is_nsfw, a.is_admin_only "
+				"from Cmd as a "
+				"join Cmd_Chat as b on (a.name = b.cmd_name) "
+				"where (a.name = ?) and (b.chat_id = ?) "
+				"order by b.id desc "
+				"limit 1;";
 
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-		//{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 	};
 
 	DbOut out = {

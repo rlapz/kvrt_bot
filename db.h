@@ -53,6 +53,9 @@ typedef struct db {
 
 int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
+int  db_begin_transaction(Db *d);
+int  db_rollback_transaction(Db *d);
+int  db_commit_transaction(Db *d);
 
 /*
  * return:
