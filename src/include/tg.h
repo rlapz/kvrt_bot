@@ -231,6 +231,7 @@ typedef enum tg_mesage_type {
 	TG_MESSAGE_TYPE_STICKER,
 	TG_MESSAGE_TYPE_COMMAND,
 	TG_MESSAGE_TYPE_NEW_MEMBER,
+	TG_MESSAGE_TYPE_LEFT_CHAT_MEMBER,
 	TG_MESSAGE_TYPE_UNKNOWN,
 } TgMessageType;
 
@@ -252,6 +253,7 @@ typedef struct tg_message {
 		TgVideo      video;
 		TgSticker    sticker;
 		TgUser       new_member;
+		TgUser       left_chat_member;
 	};
 } TgMessage;
 

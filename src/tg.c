@@ -300,6 +300,7 @@ tg_message_type_str(TgMessageType type)
 	case TG_MESSAGE_TYPE_PHOTO: return "photo";
 	case TG_MESSAGE_TYPE_STICKER: return "sticker";
 	case TG_MESSAGE_TYPE_COMMAND: return "bot command";
+	case TG_MESSAGE_TYPE_LEFT_CHAT_MEMBER: return "left chat member";
 	case TG_MESSAGE_TYPE_NEW_MEMBER: return "new chat member";
 	default: break;
 	}
@@ -506,6 +507,14 @@ _parse_message_type(TgMessage *m, json_object *message_obj)
 			return -1;
 
 		m->type = TG_MESSAGE_TYPE_NEW_MEMBER;
+		return 0;
+	}
+
+	if (json_object_object_get_ex(message_obj, "left_chat_member", &obj)) {
+		if (tg_user_parse(&m->left_chat_member, obj) < 0)
+			return -1;
+
+		m->type = TG_MESSAGE_TYPE_LEFT_CHAT_MEMBER;
 		return 0;
 	}
 
