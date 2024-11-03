@@ -6,47 +6,42 @@
 #
 # See LICENSE file for license details
 
-TARGET  := kvrt_bot
-VERSION := 0.0.1
 
-IS_DEBUG ?= 0
-PREFIX   := /usr
-CC       := cc
-INC      := ./include
-CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -I$(INC) -D_POSIX_C_SOURCE=200112L
-LFLAGS   := -lcurl -ljson-c -lsqlite3
-SRC      := main.c kvrt_bot.c util.c config.c thrd_pool.c tg.c tg_api.c \
-			picohttpparser.c db.c update.c common.c \
-			module/builtin.c module/extern.c
-OBJ      := $(SRC:.c=.o)
+TARGET    := kvrt_bot
+BUILD_DIR := ./build
+SRC_DIRS  := ./src
 
+SRCS      := $(shell find $(SRC_DIRS) -name '*.c')
+OBJS      := $(SRCS:%=$(BUILD_DIR)/%.o)
+INC_DIRS  := $(shell find $(SRC_DIRS) -type d)
+INC_FLAGS := $(addprefix -I,$(INC_DIRS))
+CCFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L
+LDFLAGS   := -lcurl -ljson-c -lsqlite3
+RELEASE   ?= 0
 
-ifeq ($(IS_DEBUG), 1)
-	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
-	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined
+ifeq ($(RELEASE), 1)
+	CCFLAGS := $(CCFLAGS) -O2
 else
-	CFLAGS := $(CFLAGS) -O2
+	CCFLAGS := $(CCFLAGS) -g -DDEBUG -O0
+	LDFLAGS := $(LDFLAGS) -fsanitize=address -fsanitize=undefined
 endif
 
 
-build: options $(TARGET) run.sh
+build: options $(BUILD_DIR)/$(TARGET) run.sh
 
 options:
 	@echo \'$(TARGET)\' build options:
-	@echo "CFLAGS =" $(CFLAGS)
+	@echo "CFLAGS =" $(CCFLAGS)
 	@echo "CC     =" $(CC)
 
-$(TARGET).o: $(TARGET).c
-	@printf "\n%s\n--------------------\n" "Compiling..."
-	$(CC) $(CFLAGS) -c -o $(@) $(<)
-
-$(TARGET): $(OBJ)
+$(BUILD_DIR)/$(TARGET): $(OBJS)
 	@printf "\n%s\n--------------------\n" "Linking..."
-	$(CC) -o $(@) $(^) $(LFLAGS)
+	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
-clean:
-	@echo cleaning...
-	rm -f $(OBJ) $(TARGET)
+$(BUILD_DIR)/%.c.o: %.c
+	@printf "\n%s\n--------------------\n" "Compiling..."
+	@mkdir -p $(dir $@)
+	$(CC) $(INC_FLAGS) $(CCFLAGS) -c $< -o $@
 
 run: build run.sh
 	@printf "\n%s\n--------------------\n" "Running..."
@@ -56,4 +51,6 @@ run.sh:
 	@cp run_example.sh run.sh
 	@chmod +x run.sh
 
-.PHONY: build run clean
+.PHONY: clean run
+clean:
+	rm -r $(BUILD_DIR)

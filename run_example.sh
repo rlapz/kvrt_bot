@@ -48,7 +48,7 @@ if [ -z "$*" ]; then
 	webhook_set
 	echo
 
-	./kvrt_bot
+	./build/kvrt_bot
 
 	webhook_del
 elif [ "$*" = "webhook-set" ]; then
