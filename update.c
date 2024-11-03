@@ -1,11 +1,9 @@
 #include <errno.h>
 
-#include "update.h"
-
-#include "common.h"
-#include "cmd/builtin.h"
-#include "cmd/external.h"
-#include "cmd/message.h"
+#include <update.h>
+#include <entity.h>
+#include <common.h>
+#include <module.h>
 
 
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
@@ -129,16 +127,10 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 	if (bot_cmd_parse(&cmd, '/', msg->text.text) < 0)
 		return 0;
 
-	if (cmd_builtin_exec(u, msg, &cmd, json))
+	if (module_builtin_exec(u, msg, &cmd, json))
 		return 1;
 
-	if (cmd_external_exec(u, msg, &cmd, json))
-		return 1;
-
-	if (cmd_message_send(u, msg, &cmd))
-		return 1;
-
-	return 0;
+	return module_extern_exec(u, msg, &cmd, json);
 }
 
 
@@ -160,22 +152,29 @@ _admin_load(Update *u, const TgMessage *msg)
 	if (tg_api_get_admin_list(&u->api, chat_id, &admin_list, &json_obj) < 0)
 		return;
 
-	DbAdmin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
+	EAdmin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
 	const int db_admins_len = (int)admin_list.len;
 	for (int i = 0; (i < db_admins_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
 		const TgChatAdmin *const adm = &admin_list.list[i];
-		db_admins[i] = (DbAdmin) {
-			.chat_id = chat_id,
-			.user_id = adm->user->id,
-			.is_creator = adm->is_creator,
-			.privileges = adm->privileges,
+		db_admins[i] = (EAdmin) {
+			.chat_id = &chat_id,
+			.user_id = &adm->user->id,
+			.privileges = (TgChatAdminPrivilege *)&adm->privileges,
 		};
 	}
 
-	/* TODO: use transaction */
-	db_admin_clear(&u->db, chat_id);
-	db_admin_set(&u->db, db_admins, db_admins_len);
+	int is_ok = 0;
+	db_transaction_begin(&u->db);
+	if (db_admin_clear(&u->db, chat_id) < 0)
+		goto out0;
 
+	if (db_admin_add(&u->db, db_admins, db_admins_len) < 0)
+		goto out0;
+
+	is_ok = 1;
+
+out0:
+	db_transaction_end(&u->db, is_ok);
 	json_object_put(json_obj);
 	tg_chat_admin_list_free(&admin_list);
 }

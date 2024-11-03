@@ -6,9 +6,9 @@
 
 #include <sys/epoll.h>
 
-#include "config.h"
-#include "thrd_pool.h"
-#include "util.h"
+#include <config.h>
+#include <thrd_pool.h>
+#include <util.h>
 
 
 typedef struct epoll_event Event;

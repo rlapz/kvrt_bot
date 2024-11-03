@@ -12,11 +12,12 @@ VERSION := 0.0.1
 IS_DEBUG ?= 0
 PREFIX   := /usr
 CC       := cc
-CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L
+INC      := ./include
+CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -I$(INC) -D_POSIX_C_SOURCE=200112L
 LFLAGS   := -lcurl -ljson-c -lsqlite3
 SRC      := main.c kvrt_bot.c util.c config.c thrd_pool.c tg.c tg_api.c \
 			picohttpparser.c db.c update.c common.c \
-			cmd/builtin.c cmd/external.c cmd/message.c
+			module/builtin.c module/extern.c
 OBJ      := $(SRC:.c=.o)
 
 

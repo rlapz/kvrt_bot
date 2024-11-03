@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <threads.h>
 
-#include "config.h"
+#include <config.h>
 
 
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
@@ -49,6 +49,7 @@ typedef struct bot_cmd {
 } BotCmd;
 
 int bot_cmd_parse(BotCmd *b, char prefix, const char src[]);
+int bot_cmd_compare(const BotCmd *b, const char cmd[]);
 
 
 /*

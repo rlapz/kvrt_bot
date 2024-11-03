@@ -8,7 +8,7 @@
 
 #include <curl/curl.h>
 
-#include "util.h"
+#include <util.h>
 
 
 /* User */
@@ -50,25 +50,25 @@ TgChatType  tg_chat_type_get(const char type_str[]);
 
 /* ChatAdmin */
 typedef enum tg_chat_admin_privilege {
-	TG_CHAT_ADMIN_PRI_CAN_BE_EDITED          = (1 << 0),
-	TG_CHAT_ADMIN_PRI_CAN_MANAGE_CHAT        = (1 << 1),
-	TG_CHAT_ADMIN_PRI_CAN_DELETE_MESSAGES    = (1 << 2),
-	TG_CHAT_ADMIN_PRI_CAN_MANAGE_VIDEO_CHATS = (1 << 3),
-	TG_CHAT_ADMIN_PRI_CAN_RESTRICT_MEMBERS   = (1 << 4),
-	TG_CHAT_ADMIN_PRI_CAN_PROMOTE_MEMBERS    = (1 << 5),
-	TG_CHAT_ADMIN_PRI_CAN_CHANGE_INFO        = (1 << 6),
-	TG_CHAT_ADMIN_PRI_CAN_INVITE_USERS       = (1 << 7),
-	TG_CHAT_ADMIN_PRI_CAN_POST_STORIES       = (1 << 8),
-	TG_CHAT_ADMIN_PRI_CAN_EDIT_STORIS        = (1 << 9),
-	TG_CHAT_ADMIN_PRI_CAN_DELETE_STORIES     = (1 << 10),
-	TG_CHAT_ADMIN_PRI_CAN_POST_MESSAGES      = (1 << 11), /* optional */
-	TG_CHAT_ADMIN_PRI_CAN_EDIT_MESSAGES      = (1 << 12), /* optional */
-	TG_CHAT_ADMIN_PRI_CAN_PIN_MESSAGES       = (1 << 13), /* optional */
-	TG_CHAT_ADMIN_PRI_CAN_MANAGE_TOPICS      = (1 << 14), /* optional */
+	TG_CHAT_ADMIN_PRI_CREATOR                = (1 << 0),
+	TG_CHAT_ADMIN_PRI_CAN_BE_EDITED          = (1 << 1),
+	TG_CHAT_ADMIN_PRI_CAN_MANAGE_CHAT        = (1 << 2),
+	TG_CHAT_ADMIN_PRI_CAN_DELETE_MESSAGES    = (1 << 3),
+	TG_CHAT_ADMIN_PRI_CAN_MANAGE_VIDEO_CHATS = (1 << 4),
+	TG_CHAT_ADMIN_PRI_CAN_RESTRICT_MEMBERS   = (1 << 5),
+	TG_CHAT_ADMIN_PRI_CAN_PROMOTE_MEMBERS    = (1 << 6),
+	TG_CHAT_ADMIN_PRI_CAN_CHANGE_INFO        = (1 << 7),
+	TG_CHAT_ADMIN_PRI_CAN_INVITE_USERS       = (1 << 8),
+	TG_CHAT_ADMIN_PRI_CAN_POST_STORIES       = (1 << 9),
+	TG_CHAT_ADMIN_PRI_CAN_EDIT_STORIS        = (1 << 10),
+	TG_CHAT_ADMIN_PRI_CAN_DELETE_STORIES     = (1 << 11),
+	TG_CHAT_ADMIN_PRI_CAN_POST_MESSAGES      = (1 << 12), /* optional */
+	TG_CHAT_ADMIN_PRI_CAN_EDIT_MESSAGES      = (1 << 13), /* optional */
+	TG_CHAT_ADMIN_PRI_CAN_PIN_MESSAGES       = (1 << 14), /* optional */
+	TG_CHAT_ADMIN_PRI_CAN_MANAGE_TOPICS      = (1 << 15), /* optional */
 } TgChatAdminPrivilege;
 
 typedef struct tg_chat_admin {
-	int                   is_creator;
 	int                   is_anonymous;
 	TgUser               *user;
 	const char           *custom_title; 	/* optional*/

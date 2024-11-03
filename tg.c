@@ -2,10 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tg.h"
-
-#include "config.h"
-#include "util.h"
+#include <tg.h>
+#include <config.h>
+#include <util.h>
 
 
 static int  _parse_message(TgMessage *m, json_object *message_obj);
@@ -111,7 +110,6 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 	TgChatAdminPrivilege privs = 0;
 	memset(a, 0, sizeof(*a));
 
-
 	json_object *status_obj;
 	if (json_object_object_get_ex(json, "status", &status_obj) == 0)
 		return -1;
@@ -123,7 +121,7 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 	/* creator */
 	const char *const status = json_object_get_string(status_obj);
 	if (strcmp(status, "creator") == 0) {
-		a->is_creator = 1;
+		privs |= TG_CHAT_ADMIN_PRI_CREATOR;
 		goto out0;
 	}
 
@@ -190,8 +188,6 @@ tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 		a->custom_title = json_object_get_string(obj);
 	if (json_object_get_boolean(can_be_edited_obj))
 		privs |= TG_CHAT_ADMIN_PRI_CAN_BE_EDITED;
-
-
 	if (json_object_get_boolean(can_manage_chat_obj))
 		privs |= TG_CHAT_ADMIN_PRI_CAN_MANAGE_CHAT;
 	if (json_object_get_boolean(can_delete_messages_obj))

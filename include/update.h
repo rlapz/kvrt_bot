@@ -5,9 +5,9 @@
 #include <json.h>
 #include <stdint.h>
 
-#include "db.h"
-#include "util.h"
-#include "tg_api.h"
+#include <util.h>
+#include <db.h>
+#include <tg_api.h>
 
 
 typedef struct update {

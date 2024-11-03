@@ -2,7 +2,7 @@
 #include <signal.h>
 #include <unistd.h>
 
-#include "kvrt_bot.h"
+#include <kvrt_bot.h>
 
 
 static KvrtBot *_bot;

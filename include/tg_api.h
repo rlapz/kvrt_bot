@@ -7,8 +7,8 @@
 
 #include <curl/curl.h>
 
-#include "tg.h"
-#include "util.h"
+#include <tg.h>
+#include <util.h>
 
 
 typedef enum tg_api_text_type {

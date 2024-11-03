@@ -4,11 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "tg_api.h"
-
-#include "config.h"
-#include "tg.h"
-#include "util.h"
+#include <tg_api.h>
+#include <config.h>
+#include <tg.h>
+#include <util.h>
 
 
 static int          _curl_init(TgApi *t);

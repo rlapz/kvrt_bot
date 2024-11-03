@@ -18,7 +18,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-#include "util.h"
+#include <util.h>
 
 
 #define ASCII_SPACE_CHARS " \r\n\f\t\v"
@@ -195,6 +195,16 @@ bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 	b->name_len = name_len;
 	b->args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end);
 	return 0;
+}
+
+
+int
+bot_cmd_compare(const BotCmd *b, const char cmd[])
+{
+	if (b == NULL)
+		return 0;
+
+	return cstr_casecmp_n(cmd, b->name, (size_t)b->name_len);
 }
 
 

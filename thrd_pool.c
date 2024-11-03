@@ -4,9 +4,8 @@
 #include <stdio.h>
 #include <threads.h>
 
-#include "thrd_pool.h"
-
-#include "util.h"
+#include <thrd_pool.h>
+#include <util.h>
 
 
 typedef struct thrd_pool_job {
