@@ -204,6 +204,11 @@ static void
 _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
 	const char *resp;
+	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
+		resp = "Failed!";
+		goto out0;
+	}
+
 	if (common_privileges_check(u, msg) < 0)
 		return;
 
@@ -215,7 +220,22 @@ _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_obj
 	}
 
 	char buffer[MODULE_BUILTIN_CMD_MSG_NAME_SIZE];
-	if (args[0].len >= LEN(buffer)) {
+	const char *name = args[0].name;
+	unsigned name_len = args[0].len;
+	while (*name != '\0') {
+		if (*name != '/')
+			break;
+
+		name++;
+		name_len--;
+	}
+
+	if (name_len == 0) {
+		resp = "Invalid command name";
+		goto out0;
+	}
+
+	if (name_len >= LEN(buffer)) {
 		resp = "Command_name too long";
 		goto out0;
 	}
@@ -235,7 +255,7 @@ _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_obj
 	}
 
 	buffer[0] = '/';
-	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, args[0].name, args[0].len);
+	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, name, name_len);
 	const int ret = db_cmd_message_set(&u->db, msg->chat.id, msg->from->id, buffer, msg_text);
 	if (ret < 0) {
 		resp = "Failed to set command message";
