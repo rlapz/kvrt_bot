@@ -11,13 +11,14 @@ TARGET    := kvrt_bot
 BUILD_DIR := ./build
 SRC_DIRS  := ./src
 
-SRCS      := $(shell find $(SRC_DIRS) -name '*.c')
-OBJS      := $(SRCS:%=$(BUILD_DIR)/%.o)
-INC_DIRS  := $(shell find $(SRC_DIRS) -type d)
-INC_FLAGS := $(addprefix -I,$(INC_DIRS))
-CCFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L
-LDFLAGS   := -lcurl -ljson-c -lsqlite3
-RELEASE   ?= 0
+SRCS       := $(shell find $(SRC_DIRS) -name '*.c')
+OBJS       := $(SRCS:%=$(BUILD_DIR)/%.o)
+INC_DIRS   := $(shell find $(SRC_DIRS) -type d)
+INC_FLAGS  := $(addprefix -I,$(INC_DIRS))
+CCFLAGS    := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_POSIX_C_SOURCE=200112L
+LDFLAGS    := -lcurl -ljson-c -lsqlite3
+TARGET_BIN := $(BUILD_DIR)/$(TARGET)
+RELEASE    ?= 0
 
 ifeq ($(RELEASE), 1)
 	CCFLAGS := $(CCFLAGS) -O2
@@ -27,19 +28,18 @@ else
 endif
 
 
-build: options $(BUILD_DIR)/$(TARGET) run.sh
+build: options $(TARGET_BIN) run.sh
 
 options:
 	@echo \'$(TARGET)\' build options:
 	@echo "CFLAGS =" $(CCFLAGS)
 	@echo "CC     =" $(CC)
 
-$(BUILD_DIR)/$(TARGET): $(OBJS)
+$(TARGET_BIN): $(OBJS)
 	@printf "\n%s\n--------------------\n" "Linking..."
 	$(CC) $(OBJS) -o $@ $(LDFLAGS)
 
 $(BUILD_DIR)/%.c.o: %.c
-	@printf "\n%s\n--------------------\n" "Compiling..."
 	@mkdir -p $(dir $@)
 	$(CC) $(INC_FLAGS) $(CCFLAGS) -c $< -o $@
 
