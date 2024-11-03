@@ -8,7 +8,6 @@
 
 
 static int  _spawn_child_process(ModuleExtern *m, Update *update, const TgMessage *msg, json_object *json);
-static void _fill_argv(char *argv[], int args, const TgMessage *msg, json_object *json);
 
 
 /*
@@ -63,12 +62,31 @@ _spawn_child_process(ModuleExtern *m, Update *update, const TgMessage *msg, json
 		[0] = m->file_name,
 	};
 
-	if (m->args_len > MODULE_EXTERN_ARGS_SIZE) {
+	const int args = m->args;
+	const int args_len = m->args_len;
+	if (args_len > MODULE_EXTERN_ARGS_SIZE) {
 		log_err(0, "module_extern: invalid args len");
 		return -1;
 	}
 
-	_fill_argv(argv, m->args, msg, json);
+	int i = 1;
+	if ((i <= args_len) && (args & MODULE_EXTERN_ARG_RAW))
+		argv[i++] = (char *)json_object_to_json_string_ext(json, JSON_C_TO_STRING_PLAIN);
+
+	char chat_id[24];
+	if ((i <= args_len) && (args & MODULE_EXTERN_ARG_CHAT_ID)) {
+		snprintf(chat_id, LEN(chat_id), "%"PRIi64, msg->chat.id);
+		argv[i++] = chat_id;
+	}
+
+	char user_id[24];
+	if ((i <= args_len) && (args & MODULE_EXTERN_ARG_USER_ID)) {
+		snprintf(user_id, LEN(user_id), "%"PRIi64, msg->from->id);
+		argv[i++] = user_id;
+	}
+
+	if ((i <= args_len) && (args & MODULE_EXTERN_ARG_TEXT))
+		argv[i] = (char *)msg->text.text;
 
 	if (chld_spawn(update->chld, m->file_name, argv) < 0) {
 		log_err(errno, "module_extern: _spawn_child_process: chld_spawn: %s", m->file_name);
@@ -76,28 +94,4 @@ _spawn_child_process(ModuleExtern *m, Update *update, const TgMessage *msg, json
 	}
 
 	return 0;
-}
-
-
-static void
-_fill_argv(char *argv[], int args, const TgMessage *msg, json_object *json)
-{
-	int i = 0;
-	if (args & MODULE_EXTERN_ARG_RAW)
-		argv[i++] = (char *)json_object_to_json_string_ext(json, JSON_C_TO_STRING_PLAIN);
-
-	char chat_id[24];
-	if (args & MODULE_EXTERN_ARG_CHAT_ID) {
-		snprintf(chat_id, LEN(chat_id), "%"PRIi64, msg->chat.id);
-		argv[i++] = chat_id;
-	}
-
-	char user_id[24];
-	if (args & MODULE_EXTERN_ARG_USER_ID) {
-		snprintf(user_id, LEN(user_id), "%"PRIi64, msg->from->id);
-		argv[i++] = user_id;
-	}
-
-	if (args & MODULE_EXTERN_ARG_TEXT)
-		argv[i] = (char *)msg->text.text;
 }
