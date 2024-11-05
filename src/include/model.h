@@ -44,10 +44,10 @@ typedef struct cmd_message {
 /*
  * Module
  */
-#define MODULE_FLAG_TYPE_CMD      (1 << 0)
-#define MODULE_FLAG_TYPE_CALLBACK (1 << 1)
-#define MODULE_FLAG_ADMIN_ONLY    (1 << 2)
-#define MODULE_FLAG_NSFW          (1 << 3)
+#define MODULE_FLAG_CMD        (1 << 0)
+#define MODULE_FLAG_CALLBACK   (1 << 1)
+#define MODULE_FLAG_ADMIN_ONLY (1 << 2)
+#define MODULE_FLAG_NSFW       (1 << 3)
 
 #define MODULE_EXTERN_ARG_RAW     (1 << 0)
 #define MODULE_EXTERN_ARG_CHAT_ID (1 << 1)
@@ -57,13 +57,12 @@ typedef struct cmd_message {
 #define MODULE_EXTERN_NAME_SIZE      (34)
 #define MODULE_EXTERN_FILE_NAME_SIZE (1024)
 #define MODULE_EXTERN_DESC_SIZE      (256)
-#define MODULE_EXTERN_ARGS_SIZE      (4)
+#define MODULE_EXTERN_ARGS_SIZE      (16)
 
 
 typedef struct module_extern {
 	int     flags;
 	int     args;
-	int     args_len;
 	int64_t chat_id;
 
 	union {

@@ -128,7 +128,7 @@ static int
 _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 {
 	BotCmd cmd;
-	if (bot_cmd_parse(&cmd, '/', msg->text.text) < 0)
+	if (bot_cmd_parse(&cmd, '/', msg->text.cstr) < 0)
 		return 0;
 
 	if (module_builtin_exec(u, msg, &cmd, json))

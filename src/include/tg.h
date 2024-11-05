@@ -95,7 +95,7 @@ void tg_chat_admin_list_free(TgChatAdminList *a);
  * Text
  */
 typedef struct tg_text {
-	const char *text;
+	const char *cstr;
 } TgText;
 
 

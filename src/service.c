@@ -348,7 +348,6 @@ service_module_extern_get(Service *s, ModuleExtern *mod)
 		.items = (DbOutItem[]) {
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args_len },
 			{
 				.type = DB_DATA_TYPE_TEXT,
 				.text = { .cstr = mod->name, .size = MODULE_EXTERN_NAME_SIZE },
@@ -374,7 +373,7 @@ service_module_extern_get(Service *s, ModuleExtern *mod)
 	if (ret > 0)
 		return 0;
 
-	sql = "select flags, args, args_len, name, file_name, description "
+	sql = "select flags, args, name, file_name, description "
 	      "from Module_Extern "
 	      "where (name = ?) "
 	      "order by id desc "

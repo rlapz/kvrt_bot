@@ -633,7 +633,7 @@ _parse_video(TgVideo *v, json_object *video_obj)
 static void
 _parse_text(TgText *t, json_object *text_obj)
 {
-	t->text = json_object_get_string(text_obj);
+	t->cstr = json_object_get_string(text_obj);
 }
 
 

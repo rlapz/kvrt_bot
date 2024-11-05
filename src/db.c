@@ -144,7 +144,6 @@ _create_tables(sqlite3 *s)
 		"file_name   varchar(1023) not null,"
 		"description varchar(255) not null,"
 		"args        integer not null,"
-		"args_len    integer not null,"
 		"created_at  datetime default(datetime('now', 'localtime')) not null);";
 
 	const char *const module_extern_disabled =
