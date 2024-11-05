@@ -11,6 +11,8 @@
 
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
 #define FIELD_PARENT_PTR(T, FIELD, PTR) ((T *)(((char *)(PTR)) - offsetof(T, FIELD)))
+#define STR_HELPER(X)                   #X
+#define STR(X)                          STR_HELPER(X)
 
 
 /*

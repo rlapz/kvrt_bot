@@ -2,18 +2,23 @@
 #include <string.h>
 
 #include <db.h>
+#include <model.h>
 #include <util.h>
 
 
-typedef enum db_data_type {
-	DB_DATA_TYPE_NULL,
+#define _MODULE_FLAG_NSFW       STR(MODULE_FLAG_NSFW)
+#define _MODULE_FLAG_ADMIN_ONLY STR(MODULE_FLAG_ADMIN_ONLY)
+
+
+enum {
+	DB_DATA_TYPE_NULL = 0,
 	DB_DATA_TYPE_INT,
 	DB_DATA_TYPE_INT64,
 	DB_DATA_TYPE_TEXT,
-} DbDataType;
+};
 
 typedef struct db_arg {
-	DbDataType type;
+	int type;
 	union {
 		int         int_;
 		int64_t     int64;
@@ -28,7 +33,7 @@ typedef struct db_out_item_text {
 } DbOutItemText;
 
 typedef struct db_out_item {
-	DbDataType type;
+	int type;
 	union {
 		int           *int_;
 		int64_t       *int64;
@@ -114,19 +119,21 @@ db_transaction_end(Db *d, int is_ok)
 
 
 int
-db_admin_add(Db *d, const EAdmin admin_list[], int admin_list_len)
+db_admin_add(Db *d, const Admin admin_list[], int admin_list_len)
 {
 	const char *const sql = "insert into Admin(chat_id, user_id, privileges) values (?, ?, ?);";
 	for (int i = 0; i < admin_list_len; i++) {
-		const EAdmin *admin = &admin_list[i];
+		const Admin *admin = &admin_list[i];
 		const DbArg args[] = {
-			{ .type = DB_DATA_TYPE_INT64, .int64 = *admin->chat_id },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = *admin->user_id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = *admin->privileges },
+			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->chat_id },
+			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->user_id },
+			{ .type = DB_DATA_TYPE_INT, .int_ = admin->privileges },
 		};
 
 		if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
 			return -1;
+
+		return sqlite3_changes(d->sql);
 	}
 
 	return 0;
@@ -162,7 +169,37 @@ db_admin_clear(Db *d, int64_t chat_id)
 {
 	const char *const sql = "delete from Admin where (chat_id = ?);";
 	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-	return _exec(d->sql, sql, &arg, 1, NULL, 0);
+	if (_exec(d->sql, sql, &arg, 1, NULL, 0) < 0)
+		return -1;
+
+	return sqlite3_changes(d->sql);
+}
+
+
+int
+db_module_extern_init(Db *d, int64_t chat_id)
+{
+	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
+	const char *sql = "select 1 from Module_Extern_Disabled where (chat_id = ?);";
+	const int ret = _exec(d->sql, sql, &args, 1, NULL, 0);
+	if (ret < 0)
+		return -1;
+
+	if (ret > 0)
+		return 0;
+
+	/* disable all NSFW modules */
+	sql = "insert into Module_Extern_Disabled(module_name, chat_id) "
+	      "select name, ? "
+	      "from Module_Extern "
+	      "where ((flags & " _MODULE_FLAG_NSFW ") != 0);";
+
+	puts(sql);
+
+	if (_exec(d->sql, sql, &args, 1, NULL, 0) < 0)
+		return -1;
+
+	return sqlite3_changes(d->sql);
 }
 
 
@@ -174,22 +211,67 @@ db_module_extern_toggle(Db *d, int64_t chat_id, const char name[], int is_enable
 		{ .type = DB_DATA_TYPE_TEXT, .text = name },
 	};
 
-	const char *sql = "select exists(select 1 from Module_Extern where (name = ?) limit 1);";
+	const char *sql = "select 1 from Module_Extern where (name = ?) limit 1;";
 	const int ret = _exec(d->sql, sql, &args[1], 1, NULL, 0);
-	if (ret <= 0)
-		return ret;
+	if (ret < 0)
+		return -1;
+
+	if (ret == 0)
+		return 0;
 
 	if (is_enable)
-		sql = "delete from Module_Extern_Disable where (chat_id = ?) and  (module_name = ?);";
+		sql = "delete from Module_Extern_Disabled where (chat_id = ?) and (module_name = ?);";
 	else
-		sql = "insert into Module_Extern_Disable(module_name, chat_id) values(?, ?);";
+		sql = "insert into Module_Extern_Disabled(module_name, chat_id) values(?, ?);";
 
-	return _exec(d->sql, sql, args, LEN(args), NULL, 0);
+	if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
+		return -1;
+
+	return sqlite3_changes(d->sql);
 }
 
 
 int
-db_module_extern_get(Db *d, const EModuleExtern *mod, int64_t chat_id, const char name[])
+db_module_extern_toggle_nsfw(Db *d, int64_t chat_id, int is_enable)
+{
+	int is_ok = 0;
+	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
+
+	if (db_transaction_begin(d) < 0)
+		return -1;
+
+	const char *sql = "delete a "
+			  "from Module_Extern_Disabled as a "
+			  "join Module_Extern as b on (a.module_name = b.name) "
+			  "where (a.chat_id = ?) and "
+			  "((b.flags & " _MODULE_FLAG_NSFW ") != 0);";
+	int ret = _exec(d->sql, sql, &args, 1, NULL, 0);
+	if (ret < 0)
+		goto out0;
+
+	if (is_enable == 0) {
+		sql = "insert into Module_Extern_Disabled(chat_id, module_name) "
+		      "select ?, name "
+		      "from Module_Extern "
+		      "where ((flags & " _MODULE_FLAG_NSFW ") != 0);";
+		ret = _exec(d->sql, sql, &args, 1, NULL, 0);
+		if (ret < 0)
+			goto out0;
+	}
+
+	is_ok = 1;
+
+out0:
+	db_transaction_end(d, is_ok);
+	if (is_ok == 0)
+		return ret;
+
+	return sqlite3_changes(d->sql);
+}
+
+
+int
+db_module_extern_get(Db *d, ModuleExtern *mod, int64_t chat_id, const char name[])
 {
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
@@ -197,41 +279,28 @@ db_module_extern_get(Db *d, const EModuleExtern *mod, int64_t chat_id, const cha
 	};
 
 	DbOut out = {
-		.len = 7,
+		.len = 6,
 		.items = (DbOutItem[]) {
+			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
+			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
+			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args_len },
 			{
-				.type = DB_DATA_TYPE_INT,
-				.int_ = mod->type,
-			},
-			{
-				.type = DB_DATA_TYPE_INT,
-				.int_ = mod->flags,
-			},
-			{
-				.type = DB_DATA_TYPE_INT,
-				.int_ = mod->args,
-			},
-			{
-				.type = DB_DATA_TYPE_INT,
-				.int_ = mod->args_len,
+				.type = DB_DATA_TYPE_TEXT,
+				.text = { .cstr = mod->name, .size = MODULE_EXTERN_NAME_SIZE },
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->name, .size = mod->name_size },
+				.text = { .cstr = mod->file_name, .size = MODULE_EXTERN_FILE_NAME_SIZE },
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->file_name, .size = mod->file_name_size },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->description, .size = mod->description_size },
+				.text = { .cstr = mod->description, .size = MODULE_EXTERN_DESC_SIZE },
 			},
 		},
 	};
 
-	const char *sql = "select exists(select 1 from Module_Extern_Disable "
-			  "where (chat_id = ?) and (module_name = ?));";
+	const char *sql = "select 1 from Module_Extern_Disabled "
+			  "where (chat_id = ?) and (module_name = ?);";
 
 	const int ret = _exec(d->sql, sql, args, LEN(args), NULL, 0);
 	if (ret < 0)
@@ -240,7 +309,7 @@ db_module_extern_get(Db *d, const EModuleExtern *mod, int64_t chat_id, const cha
 	if (ret > 0)
 		return 0;
 
-	sql = "select type, flags, args, args_len, name, file_name, description "
+	sql = "select flags, args, args_len, name, file_name, description "
 	      "from Module_Extern "
 	      "where (name = ?) "
 	      "order by id desc "
@@ -262,44 +331,30 @@ db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], c
 
 	const char *sql;
 	if ((message == NULL) || (message[0] == '\0')) {
-		int is_exists = 0;
-		DbOut out = {
-			.len = 1,
-			.items = &(DbOutItem) {
-				.type = DB_DATA_TYPE_INT,
-				.int_ = &is_exists,
-			},
-		};
-
-		sql = "select iif((message = ''), 0, 1) "
+		sql = "select 1 "
 		      "from Cmd_Message "
-		      "where (chat_id = ?) and (name = ?) "
+		      "where (chat_id = ?) and (name = ?) and (message != '') "
 		      "order by id desc "
 		      "limit 1;";
 
-		const int ret = _exec(d->sql, sql, args, 2, &out, 1);
+		const int ret = _exec(d->sql, sql, args, 2, NULL, 0);
 		if (ret <= 0)
 			return ret;
-
-		if (is_exists == 0)
-			return 0;
 
 		/* invalidate cmd message */
 		args[2].text = "";
 	}
 
-	/* avoid 'delete' query */
-
 	sql = "insert into Cmd_Message(chat_id, name, message, created_by) values (?, ?, ?, ?)";
 	if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
 		return -1;
 
-	return 1;
+	return sqlite3_changes(d->sql);
 }
 
 
 int
-db_cmd_message_get(Db *d, const ECmdMessage *msg, int64_t chat_id, const char name[])
+db_cmd_message_get(Db *d, CmdMessage *msg, int64_t chat_id, const char name[])
 {
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
@@ -311,23 +366,23 @@ db_cmd_message_get(Db *d, const ECmdMessage *msg, int64_t chat_id, const char na
 		.items = (DbOutItem[]) {
 			{
 				.type = DB_DATA_TYPE_INT64,
-				.int64 = msg->chat_id,
+				.int64 = &msg->chat_id,
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->name, .size = msg->name_size },
+				.text = { .cstr = msg->name, .size = CMD_MSG_NAME_SIZE },
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->message, .size = msg->message_size },
+				.text = { .cstr = msg->message, .size = CMD_MSG_VALUE_SIZE },
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->created_at, .size = msg->created_at_size },
+				.text = { .cstr = msg->created_at, .size = CMD_MSG_CREATED_AT_SIZE },
 			},
 			{
 				.type = DB_DATA_TYPE_INT64,
-				.int64 = msg->created_by,
+				.int64 = &msg->created_by,
 			},
 		},
 	};
@@ -338,7 +393,10 @@ db_cmd_message_get(Db *d, const ECmdMessage *msg, int64_t chat_id, const char na
 				"order by id desc "
 				"limit 1;";
 	int ret = _exec(d->sql, sql, args, LEN(args), &out, 1);
-	if (out.items[0].text.len == 0)
+	if (ret < 0)
+		return -1;
+
+	if (out.items[2].text.len == 0)
 		ret = 0;
 
 	return ret;
@@ -361,12 +419,16 @@ db_cmd_message_get_message(Db *d, char buffer[], size_t size, int64_t chat_id, c
 		},
 	};
 
-	const char *const sql = "select message "
+	const char *const sql = "select trim(message) as message "
 				"from Cmd_Message "
 				"where (chat_id = ?) and (name = ?) "
 				"order by id desc "
 				"limit 1;";
+
 	int ret = _exec(d->sql, sql, args, LEN(args), &out, 1);
+	if (ret < 0)
+		return -1;
+
 	if (out.items[0].text.len == 0)
 		ret = 0;
 
@@ -391,7 +453,6 @@ _create_tables(sqlite3 *s)
 	const char *const module_extern =
 		"create table if not exists Module_Extern("
 		"id          integer primary key autoincrement,"
-		"type        integer not null,"
 		"flags       integer not null,"
 		"name        varchar(33) not null,"
 		"file_name   varchar(1023) not null,"
@@ -400,8 +461,8 @@ _create_tables(sqlite3 *s)
 		"args_len    integer not null,"
 		"created_at  datetime default(datetime('now', 'localtime')) not null);";
 
-	const char *const module_extern_disable =
-		"create table if not exists Module_Extern_Disable("
+	const char *const module_extern_disabled =
+		"create table if not exists Module_Extern_Disabled("
 		"id          integer primary key autoincrement,"
 		"module_name varchar(33) not null,"
 		"chat_id     bigint not null,"			/* telegram chat id */
@@ -428,8 +489,8 @@ _create_tables(sqlite3 *s)
 		goto err0;
 	}
 
-	if (sqlite3_exec(s, module_extern_disable, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: Module_Extern_Disable: %s", err_msg);
+	if (sqlite3_exec(s, module_extern_disabled, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: Module_Extern_Disabled: %s", err_msg);
 		goto err0;
 	}
 
@@ -483,8 +544,8 @@ _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len)
 static int
 _exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len)
 {
-	int i = 0;
-	for (; i < out_len; i++) {
+	int count = 0;
+	for (; count < out_len; count++) {
 		const int ret = sqlite3_step(s);
 		if (ret == SQLITE_DONE)
 			break;
@@ -494,11 +555,11 @@ _exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len)
 			return -1;
 		}
 
-		if (_exec_get_output_values(s, out[i].items, out[i].len) < 0)
+		if (_exec_get_output_values(s, out[count].items, out[count].len) < 0)
 			return -1;
 	}
 
-	return i;
+	return count;
 }
 
 
@@ -568,10 +629,13 @@ _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut ou
 		goto out0;
 	}
 
-	switch (sqlite3_step(stmt)) {
-	case SQLITE_ROW:
+	ret = sqlite3_step(stmt);
+	switch (ret) {
 	case SQLITE_DONE:
 		ret = 0;
+		break;
+	case SQLITE_ROW:
+		ret = 1;
 		break;
 	default:
 		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));

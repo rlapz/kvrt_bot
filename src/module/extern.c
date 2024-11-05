@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #include <module.h>
-#include <entity.h>
+#include <model.h>
 #include <common.h>
 
 
@@ -17,22 +17,10 @@ int
 module_extern_exec(Update *update, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
 	ModuleExtern module;
-	const EModuleExtern e_module = {
-		.type = &module.type,
-		.args = &module.args,
-		.flags = &module.flags,
-		.args_len = &module.args_len,
-		.name = module.name,
-		.name_size = MODULE_EXTERN_NAME_SIZE,
-		.file_name = module.file_name,
-		.file_name_size = MODULE_EXTERN_FILE_NAME_SIZE,
-		.description = module.description,
-		.description_size = MODULE_EXTERN_DESC_SIZE,
-	};
 	char buffer[MODULE_EXTERN_NAME_SIZE];
 	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
 
-	const int ret = db_module_extern_get(&update->db, &e_module, msg->chat.id, buffer);
+	const int ret = db_module_extern_get(&update->db, &module, msg->chat.id, buffer);
 	if (ret == 0)
 		return 0;
 

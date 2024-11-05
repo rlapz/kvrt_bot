@@ -3,7 +3,7 @@
 #include <stdio.h>
 
 #include <module.h>
-#include <entity.h>
+#include <model.h>
 #include <common.h>
 
 
@@ -72,18 +72,23 @@ static const ModuleBuiltin _module_cmd_list[] = {
  * Public
  */
 int
-module_builtin_exec(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
+module_builtin_exec(Update *update, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
 	for (unsigned i = 0; i < LEN(_module_cmd_list); i++) {
 		const ModuleBuiltin *b = &_module_cmd_list[i];
 		if (bot_cmd_compare(cmd, b->name)) {
 			assert(b->handler != NULL);
-			b->handler(u, msg, cmd, json);
+			b->handler(update, msg, cmd, json);
 			return 1;
 		}
 	}
 
-	return _module_cmd_msg_exec(u, msg, cmd);
+	/* TODO */
+	const TgUpdate *const tg_update = FIELD_PARENT_PTR(TgUpdate, message, msg);
+	if (tg_update->type == TG_UPDATE_TYPE_CALLBACK_QUERY)
+		return 0;
+
+	return _module_cmd_msg_exec(update, msg, cmd);
 }
 
 
@@ -123,7 +128,7 @@ _module_cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, jso
 
 	int is_ok = 0;
 	int is_priviledged = 0;
-	EAdmin admin_list_e[TG_CHAT_ADMIN_LIST_SIZE];
+	Admin admin_list_e[TG_CHAT_ADMIN_LIST_SIZE];
 	const int admin_list_len = (int)admin_list.len;
 	for (int i = 0; (i < admin_list_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
 		const TgChatAdmin *const a = &admin_list.list[i];
@@ -134,10 +139,10 @@ _module_cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, jso
 			is_priviledged = 1;
 		}
 
-		admin_list_e[i] = (EAdmin) {
-			.chat_id = (int64_t *)&chat_id,
-			.user_id = &a->user->id,
-			.privileges = (TgChatAdminPrivilege *)&a->privileges,
+		admin_list_e[i] = (Admin) {
+			.chat_id = chat_id,
+			.user_id = a->user->id,
+			.privileges = a->privileges,
 		};
 	}
 
@@ -219,7 +224,7 @@ _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_obj
 		goto out0;
 	}
 
-	char buffer[MODULE_BUILTIN_CMD_MSG_NAME_SIZE];
+	char buffer[CMD_MSG_NAME_SIZE];
 	const char *name = args[0].name;
 	unsigned name_len = args[0].len;
 	while (*name != '\0') {
@@ -246,7 +251,7 @@ _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_obj
 		for (unsigned i = 1; i < (args_len - 1); i++)
 			msg_len += args[i].len;
 
-		if (msg_len >= MODULE_BUILTIN_CMD_MSG_VALUE_SIZE) {
+		if (msg_len >= CMD_MSG_VALUE_SIZE) {
 			resp = "Message too long";
 			goto out0;
 		}
@@ -313,7 +318,7 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE)
 		return 0;
 
-	char buffer[MODULE_BUILTIN_CMD_MSG_VALUE_SIZE];
+	char buffer[CMD_MSG_NAME_SIZE];
 	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
 
 	const int ret = db_cmd_message_get_message(&u->db, buffer, LEN(buffer), msg->chat.id, buffer);

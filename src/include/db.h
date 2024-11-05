@@ -7,7 +7,7 @@
 #include <sqlite3.h>
 
 #include <tg.h>
-#include <entity.h>
+#include <model.h>
 #include <util.h>
 
 
@@ -29,15 +29,17 @@ int  db_transaction_end(Db *d, int is_ok);
  * >0: success, >= 1 row(s)
  *
  */
-int db_admin_add(Db *d, const EAdmin admin_list[], int admin_list_len);
+int db_admin_add(Db *d, const Admin admin_list[], int admin_list_len);
 int db_admin_get_privileges(Db *d, TgChatAdminPrivilege *privs, int64_t chat_id, int64_t user_id);
 int db_admin_clear(Db *d, int64_t chat_id);
 
+int db_module_extern_init(Db *d, int64_t chat_id);
 int db_module_extern_toggle(Db *d, int64_t chat_id, const char name[], int is_enable);
-int db_module_extern_get(Db *d, const EModuleExtern *mod, int64_t chat_id, const char name[]);
+int db_module_extern_toggle_nsfw(Db *d, int64_t chat_id, int is_enable);
+int db_module_extern_get(Db *d, ModuleExtern *mod, int64_t chat_id, const char name[]);
 
 int db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], const char message[]);
-int db_cmd_message_get(Db *d, const ECmdMessage *msg, int64_t chat_id, const char name[]);
+int db_cmd_message_get(Db *d, CmdMessage *msg, int64_t chat_id, const char name[]);
 int db_cmd_message_get_message(Db *d, char buffer[], size_t size, int64_t chat_id, const char name[]);
 
 

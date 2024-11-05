@@ -1,14 +1,15 @@
 #include <errno.h>
 
 #include <update.h>
-#include <entity.h>
-#include <common.h>
+#include <model.h>
 #include <module.h>
+#include <common.h>
 
 
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
 static int  _handle_commands(Update *u, const TgMessage *msg, json_object *json);
+static void _handle_callback(Update *u, const TgCallbackQuery *cb);
 static void _handler_new_member(Update *u, const TgMessage *msg);
 static void _admin_load(Update *u, const TgMessage *msg);
 static void _send_invalid_cmd(Update *u, const TgMessage *msg);
@@ -60,8 +61,8 @@ update_handle(Update *u, json_object *json)
 {
 	TgUpdate update;
 	if (tg_update_parse(&update, json) < 0) {
-		json_object_put(json);
-		return;
+		log_err(0, "update: update_handle: failed to parse Update");
+		goto out0;
 	}
 
 	log_debug("update: update_handle: %s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
@@ -70,13 +71,15 @@ update_handle(Update *u, json_object *json)
 		_handle_message(u, &update.message, json);
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
-		/* TODO */
+		_handle_callback(u, &update.callback_query);
 		break;
 	default:
 		break;
 	}
 
 	tg_update_free(&update);
+
+out0:
 	json_object_put(json);
 }
 
@@ -135,11 +138,23 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 
 
 static void
+_handle_callback(Update *u, const TgCallbackQuery *cb)
+{
+	if (cb->data == NULL)
+		return;
+
+	(void)u;
+}
+
+
+static void
 _handler_new_member(Update *u, const TgMessage *msg)
 {
 	const TgUser *const user = &msg->new_member;
-	if (user->id == u->bot_id)
+	if (user->id == u->bot_id) {
 		_admin_load(u, msg);
+		db_module_extern_init(&u->db, msg->chat.id);
+	}
 }
 
 
@@ -152,14 +167,14 @@ _admin_load(Update *u, const TgMessage *msg)
 	if (tg_api_get_admin_list(&u->api, chat_id, &admin_list, &json_obj) < 0)
 		return;
 
-	EAdmin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
+	Admin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
 	const int db_admins_len = (int)admin_list.len;
 	for (int i = 0; (i < db_admins_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
 		const TgChatAdmin *const adm = &admin_list.list[i];
-		db_admins[i] = (EAdmin) {
-			.chat_id = &chat_id,
-			.user_id = &adm->user->id,
-			.privileges = (TgChatAdminPrivilege *)&adm->privileges,
+		db_admins[i] = (Admin) {
+			.chat_id = chat_id,
+			.user_id = adm->user->id,
+			.privileges = adm->privileges,
 		};
 	}
 
