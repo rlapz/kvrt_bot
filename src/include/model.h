@@ -27,9 +27,17 @@ typedef struct admin {
 typedef struct cmd_message {
 	int64_t chat_id;
 	int64_t created_by;
-	char    name[CMD_MSG_NAME_SIZE];
-	char    message[CMD_MSG_VALUE_SIZE];
 	char    created_at[CMD_MSG_CREATED_AT_SIZE];
+
+	union {
+		const char *name_ptr;
+		char        name[CMD_MSG_NAME_SIZE];
+	};
+
+	union {
+		const char *message_ptr;
+		char        message[CMD_MSG_VALUE_SIZE];
+	};
 } CmdMessage;
 
 
@@ -57,9 +65,21 @@ typedef struct module_extern {
 	int     args;
 	int     args_len;
 	int64_t chat_id;
-	char    name[MODULE_EXTERN_NAME_SIZE];
-	char    file_name[MODULE_EXTERN_FILE_NAME_SIZE];
-	char    description[MODULE_EXTERN_DESC_SIZE];
+
+	union {
+		const char *name_ptr;
+		char        name[MODULE_EXTERN_NAME_SIZE];
+	};
+
+	union {
+		const char *file_name_ptr;
+		char        file_name[MODULE_EXTERN_FILE_NAME_SIZE];
+	};
+
+	union {
+		const char *description_ptr;
+		char        description[MODULE_EXTERN_DESC_SIZE];
+	};
 } ModuleExtern;
 
 

@@ -6,52 +6,10 @@
 #include <util.h>
 
 
-#define _MODULE_FLAG_NSFW       STR(MODULE_FLAG_NSFW)
-#define _MODULE_FLAG_ADMIN_ONLY STR(MODULE_FLAG_ADMIN_ONLY)
-
-
-enum {
-	DB_DATA_TYPE_NULL = 0,
-	DB_DATA_TYPE_INT,
-	DB_DATA_TYPE_INT64,
-	DB_DATA_TYPE_TEXT,
-};
-
-typedef struct db_arg {
-	int type;
-	union {
-		int         int_;
-		int64_t     int64;
-		const char *text;
-	};
-} DbArg;
-
-typedef struct db_out_item_text {
-	char   *cstr;
-	size_t  len;
-	size_t  size;
-} DbOutItemText;
-
-typedef struct db_out_item {
-	int type;
-	union {
-		int           *int_;
-		int64_t       *int64;
-		DbOutItemText  text;
-	};
-} DbOutItem;
-
-typedef struct db_out {
-	int        len;
-	DbOutItem *items;
-} DbOut;
-
-
 static int _create_tables(sqlite3 *s);
 static int _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
 static int _exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len);
 static int _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len);
-static int _exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len);
 
 
 /*
@@ -119,320 +77,48 @@ db_transaction_end(Db *d, int is_ok)
 
 
 int
-db_admin_add(Db *d, const Admin admin_list[], int admin_list_len)
+db_exec(Db *d, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len)
 {
-	const char *const sql = "insert into Admin(chat_id, user_id, privileges) values (?, ?, ?);";
-	for (int i = 0; i < admin_list_len; i++) {
-		const Admin *admin = &admin_list[i];
-		const DbArg args[] = {
-			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->chat_id },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->user_id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = admin->privileges },
-		};
-
-		if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
-			return -1;
-
-		return sqlite3_changes(d->sql);
+	sqlite3_stmt *stmt;
+	int ret = sqlite3_prepare_v2(d->sql, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: _exec: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return -1;
 	}
 
-	return 0;
-}
-
-
-int
-db_admin_get_privileges(Db *d, TgChatAdminPrivilege *privs, int64_t chat_id, int64_t user_id)
-{
-	const char *const sql = "select privileges "
-				"from Admin "
-				"where (chat_id = ?) and (user_id = ?)"
-				"order by id desc limit 1;";
-
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
-	};
-
-	DbOut out = {
-		.len = 1,
-		.items = (DbOutItem[]) {
-			{ .type = DB_DATA_TYPE_INT, .int_ = (int *)privs },
-		},
-	};
-
-	return _exec(d->sql, sql, args, LEN(args), &out, 1);
-}
-
-
-int
-db_admin_clear(Db *d, int64_t chat_id)
-{
-	const char *const sql = "delete from Admin where (chat_id = ?);";
-	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-	if (_exec(d->sql, sql, &arg, 1, NULL, 0) < 0)
-		return -1;
-
-	return sqlite3_changes(d->sql);
-}
-
-
-int
-db_module_extern_init(Db *d, int64_t chat_id)
-{
-	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-	const char *sql = "select 1 from Module_Extern_Disabled where (chat_id = ?);";
-	const int ret = _exec(d->sql, sql, &args, 1, NULL, 0);
-	if (ret < 0)
-		return -1;
-
-	if (ret > 0)
-		return 0;
-
-	/* disable all NSFW modules */
-	sql = "insert into Module_Extern_Disabled(module_name, chat_id) "
-	      "select name, ? "
-	      "from Module_Extern "
-	      "where ((flags & " _MODULE_FLAG_NSFW ") != 0);";
-
-	puts(sql);
-
-	if (_exec(d->sql, sql, &args, 1, NULL, 0) < 0)
-		return -1;
-
-	return sqlite3_changes(d->sql);
-}
-
-
-int
-db_module_extern_toggle(Db *d, int64_t chat_id, const char name[], int is_enable)
-{
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-	};
-
-	const char *sql = "select 1 from Module_Extern where (name = ?) limit 1;";
-	const int ret = _exec(d->sql, sql, &args[1], 1, NULL, 0);
-	if (ret < 0)
-		return -1;
-
-	if (ret == 0)
-		return 0;
-
-	if (is_enable)
-		sql = "delete from Module_Extern_Disabled where (chat_id = ?) and (module_name = ?);";
-	else
-		sql = "insert into Module_Extern_Disabled(module_name, chat_id) values(?, ?);";
-
-	if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
-		return -1;
-
-	return sqlite3_changes(d->sql);
-}
-
-
-int
-db_module_extern_toggle_nsfw(Db *d, int64_t chat_id, int is_enable)
-{
-	int is_ok = 0;
-	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-
-	if (db_transaction_begin(d) < 0)
-		return -1;
-
-	const char *sql = "delete a "
-			  "from Module_Extern_Disabled as a "
-			  "join Module_Extern as b on (a.module_name = b.name) "
-			  "where (a.chat_id = ?) and "
-			  "((b.flags & " _MODULE_FLAG_NSFW ") != 0);";
-	int ret = _exec(d->sql, sql, &args, 1, NULL, 0);
+	ret = _exec_set_args(stmt, args, args_len);
 	if (ret < 0)
 		goto out0;
 
-	if (is_enable == 0) {
-		sql = "insert into Module_Extern_Disabled(chat_id, module_name) "
-		      "select ?, name "
-		      "from Module_Extern "
-		      "where ((flags & " _MODULE_FLAG_NSFW ") != 0);";
-		ret = _exec(d->sql, sql, &args, 1, NULL, 0);
-		if (ret < 0)
-			goto out0;
+	if (out != NULL) {
+		ret = _exec_get_output(stmt, out, out_len);
+		goto out0;
 	}
 
-	is_ok = 1;
+	ret = sqlite3_step(stmt);
+	switch (ret) {
+	case SQLITE_DONE:
+		ret = 0;
+		break;
+	case SQLITE_ROW:
+		ret = 1;
+		break;
+	default:
+		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
+		ret = -1;
+		break;
+	}
 
 out0:
-	db_transaction_end(d, is_ok);
-	if (is_ok == 0)
-		return ret;
-
-	return sqlite3_changes(d->sql);
-}
-
-
-int
-db_module_extern_get(Db *d, ModuleExtern *mod, int64_t chat_id, const char name[])
-{
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-	};
-
-	DbOut out = {
-		.len = 6,
-		.items = (DbOutItem[]) {
-			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args_len },
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->name, .size = MODULE_EXTERN_NAME_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->file_name, .size = MODULE_EXTERN_FILE_NAME_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->description, .size = MODULE_EXTERN_DESC_SIZE },
-			},
-		},
-	};
-
-	const char *sql = "select 1 from Module_Extern_Disabled "
-			  "where (chat_id = ?) and (module_name = ?);";
-
-	const int ret = _exec(d->sql, sql, args, LEN(args), NULL, 0);
-	if (ret < 0)
-		return -1;
-
-	if (ret > 0)
-		return 0;
-
-	sql = "select flags, args, args_len, name, file_name, description "
-	      "from Module_Extern "
-	      "where (name = ?) "
-	      "order by id desc "
-	      "limit 1;";
-
-	return _exec(d->sql, sql, &args[1], 1, &out, 1);
-}
-
-
-int
-db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], const char message[])
-{
-	DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-		{ .type = DB_DATA_TYPE_TEXT, .text = message },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
-	};
-
-	const char *sql;
-	if ((message == NULL) || (message[0] == '\0')) {
-		sql = "select 1 "
-		      "from Cmd_Message "
-		      "where (chat_id = ?) and (name = ?) and (message != '') "
-		      "order by id desc "
-		      "limit 1;";
-
-		const int ret = _exec(d->sql, sql, args, 2, NULL, 0);
-		if (ret <= 0)
-			return ret;
-
-		/* invalidate cmd message */
-		args[2].text = "";
-	}
-
-	sql = "insert into Cmd_Message(chat_id, name, message, created_by) values (?, ?, ?, ?)";
-	if (_exec(d->sql, sql, args, LEN(args), NULL, 0) < 0)
-		return -1;
-
-	return sqlite3_changes(d->sql);
-}
-
-
-int
-db_cmd_message_get(Db *d, CmdMessage *msg, int64_t chat_id, const char name[])
-{
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-	};
-
-	DbOut out = {
-		.len = 5,
-		.items = (DbOutItem[]) {
-			{
-				.type = DB_DATA_TYPE_INT64,
-				.int64 = &msg->chat_id,
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->name, .size = CMD_MSG_NAME_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->message, .size = CMD_MSG_VALUE_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->created_at, .size = CMD_MSG_CREATED_AT_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_INT64,
-				.int64 = &msg->created_by,
-			},
-		},
-	};
-
-	const char *const sql = "select chat_id, name, message, created_at, created_by "
-				"from Cmd_Message "
-				"where (chat_id = ?) and (name = ?) "
-				"order by id desc "
-				"limit 1;";
-	int ret = _exec(d->sql, sql, args, LEN(args), &out, 1);
-	if (ret < 0)
-		return -1;
-
-	if (out.items[2].text.len == 0)
-		ret = 0;
-
+	sqlite3_finalize(stmt);
 	return ret;
 }
 
 
 int
-db_cmd_message_get_message(Db *d, char buffer[], size_t size, int64_t chat_id, const char name[])
+db_changes(Db *s)
 {
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-	};
-
-	DbOut out = {
-		.len = 1,
-		.items = &(DbOutItem) {
-			.type = DB_DATA_TYPE_TEXT,
-			.text = { .cstr = buffer, .size = size },
-		},
-	};
-
-	const char *const sql = "select trim(message) as message "
-				"from Cmd_Message "
-				"where (chat_id = ?) and (name = ?) "
-				"order by id desc "
-				"limit 1;";
-
-	int ret = _exec(d->sql, sql, args, LEN(args), &out, 1);
-	if (ret < 0)
-		return -1;
-
-	if (out.items[0].text.len == 0)
-		ret = 0;
-
-	return ret;
+	return sqlite3_changes(s->sql);
 }
 
 
@@ -607,43 +293,4 @@ _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len)
 err0:
 	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type doesn't match", i, items[i].type);
 	return -1;
-}
-
-
-static int
-_exec(sqlite3 *s, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len)
-{
-	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(s, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "db: _exec: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return -1;
-	}
-
-	ret = _exec_set_args(stmt, args, args_len);
-	if (ret < 0)
-		goto out0;
-
-	if (out != NULL) {
-		ret = _exec_get_output(stmt, out, out_len);
-		goto out0;
-	}
-
-	ret = sqlite3_step(stmt);
-	switch (ret) {
-	case SQLITE_DONE:
-		ret = 0;
-		break;
-	case SQLITE_ROW:
-		ret = 1;
-		break;
-	default:
-		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
-		ret = -1;
-		break;
-	}
-
-out0:
-	sqlite3_finalize(stmt);
-	return ret;
 }

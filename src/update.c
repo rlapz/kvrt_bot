@@ -3,6 +3,7 @@
 #include <update.h>
 #include <model.h>
 #include <module.h>
+#include <service.h>
 #include <common.h>
 
 
@@ -22,7 +23,7 @@ int
 update_init(Update *u, int64_t bot_id, int64_t owner_id, const char base_api[], const char db_path[],
 	    Chld *chld)
 {
-	if (db_init(&u->db, db_path) < 0)
+	if (service_init(&u->service, db_path) < 0)
 		return -1;
 
 	if (tg_api_init(&u->api, base_api) < 0)
@@ -42,7 +43,7 @@ update_init(Update *u, int64_t bot_id, int64_t owner_id, const char base_api[], 
 err1:
 	tg_api_deinit(&u->api);
 err0:
-	db_deinit(&u->db);
+	service_deinit(&u->service);
 	return -1;
 }
 
@@ -52,7 +53,7 @@ update_deinit(Update *u)
 {
 	str_deinit(&u->str);
 	tg_api_deinit(&u->api);
-	db_deinit(&u->db);
+	service_deinit(&u->service);
 }
 
 
@@ -153,7 +154,7 @@ _handler_new_member(Update *u, const TgMessage *msg)
 	const TgUser *const user = &msg->new_member;
 	if (user->id == u->bot_id) {
 		_admin_load(u, msg);
-		db_module_extern_init(&u->db, msg->chat.id);
+		service_module_extern_setup(&u->service, msg->chat.id);
 	}
 }
 
@@ -178,18 +179,8 @@ _admin_load(Update *u, const TgMessage *msg)
 		};
 	}
 
-	int is_ok = 0;
-	db_transaction_begin(&u->db);
-	if (db_admin_clear(&u->db, chat_id) < 0)
-		goto out0;
+	service_admin_reload(&u->service, db_admins, db_admins_len);
 
-	if (db_admin_add(&u->db, db_admins, db_admins_len) < 0)
-		goto out0;
-
-	is_ok = 1;
-
-out0:
-	db_transaction_end(&u->db, is_ok);
 	json_object_put(json_obj);
 	tg_chat_admin_list_free(&admin_list);
 }

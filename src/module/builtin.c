@@ -5,6 +5,7 @@
 #include <module.h>
 #include <model.h>
 #include <common.h>
+#include <service.h>
 
 
 typedef void (*ModuleBuiltinFn)(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
@@ -126,7 +127,6 @@ _module_cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, jso
 		goto out0;
 	}
 
-	int is_ok = 0;
 	int is_priviledged = 0;
 	Admin admin_list_e[TG_CHAT_ADMIN_LIST_SIZE];
 	const int admin_list_len = (int)admin_list.len;
@@ -151,20 +151,11 @@ _module_cmd_admin_reload(Update *u, const TgMessage *msg, const BotCmd *cmd, jso
 		goto out1;
 	}
 
-	if (db_transaction_begin(&u->db) < 0)
+	if (service_admin_reload(&u->service, admin_list_e, admin_list_len) < 0)
 		goto out1;
 
-	if (db_admin_clear(&u->db, chat_id) < 0)
-		goto out2;
-
-	if (db_admin_add(&u->db, admin_list_e, admin_list_len) < 0)
-		goto out2;
-
 	resp = "Done!";
-	is_ok = 1;
 
-out2:
-	db_transaction_end(&u->db, is_ok);
 out1:
 	json_object_put(json_obj);
 	tg_chat_admin_list_free(&admin_list);
@@ -261,7 +252,15 @@ _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_obj
 
 	buffer[0] = '/';
 	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, name, name_len);
-	const int ret = db_cmd_message_set(&u->db, msg->chat.id, msg->from->id, buffer, msg_text);
+
+	const CmdMessage cmd_msg = {
+		.chat_id = msg->chat.id,
+		.created_by = msg->from->id,
+		.name_ptr = buffer,
+		.message_ptr = msg_text,
+	};
+
+	const int ret = service_cmd_message_set(&u->service, &cmd_msg);
 	if (ret < 0) {
 		resp = "Failed to set command message";
 		goto out0;
@@ -321,7 +320,8 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	char buffer[CMD_MSG_NAME_SIZE];
 	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
 
-	const int ret = db_cmd_message_get_message(&u->db, buffer, LEN(buffer), msg->chat.id, buffer);
+	CmdMessage cmd_msg = { .chat_id = msg->chat.id, .name_ptr = buffer };
+	const int ret = service_cmd_message_get_message(&u->service, &cmd_msg);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get command message");
 		return 1;
@@ -330,6 +330,6 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	if (ret == 0)
 		return 0;
 
-	common_send_text_plain(u, msg, buffer);
+	common_send_text_plain(u, msg, cmd_msg.message);
 	return 1;
 }

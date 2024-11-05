@@ -5,6 +5,7 @@
 #include <module.h>
 #include <model.h>
 #include <common.h>
+#include <service.h>
 
 
 static int  _spawn_child_process(ModuleExtern *m, Update *update, const TgMessage *msg, json_object *json);
@@ -16,11 +17,15 @@ static int  _spawn_child_process(ModuleExtern *m, Update *update, const TgMessag
 int
 module_extern_exec(Update *update, const TgMessage *msg, const BotCmd *cmd, json_object *json)
 {
-	ModuleExtern module;
 	char buffer[MODULE_EXTERN_NAME_SIZE];
 	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
 
-	const int ret = db_module_extern_get(&update->db, &module, msg->chat.id, buffer);
+	ModuleExtern module = {
+		.chat_id = msg->chat.id,
+		.name_ptr = buffer,
+	};
+
+	const int ret = service_module_extern_get(&update->service, &module);
 	if (ret == 0)
 		return 0;
 

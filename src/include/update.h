@@ -8,6 +8,7 @@
 #include <util.h>
 #include <db.h>
 #include <tg_api.h>
+#include <service.h>
 
 
 typedef struct update {
@@ -17,7 +18,7 @@ typedef struct update {
 	const char *cmd_path;
 	Chld       *chld;
 	Str         str;
-	Db          db;
+	Service     service;
 	TgApi       api;
 } Update;
 

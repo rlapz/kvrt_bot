@@ -1,5 +1,6 @@
 #include <common.h>
 #include <update.h>
+#include <service.h>
 
 
 int
@@ -9,14 +10,13 @@ common_privileges_check(Update *u, const TgMessage *msg)
 	if (msg->from->id == u->owner_id)
 		return 0;
 
-	TgChatAdminPrivilege privs = 0;
-	const int ret = db_admin_get_privileges(&u->db, &privs, msg->chat.id, msg->from->id);
-	if (ret < 0) {
+	const int privs = service_admin_get_privileges(&u->service, msg->chat.id, msg->from->id);
+	if (privs < 0) {
 		resp = "Failed to get admin list";
 		goto out0;
 	}
 
-	if ((ret == 0) || (privs == 0)) {
+	if (privs == 0) {
 		resp = "Permission denied!";
 		goto out0;
 	}

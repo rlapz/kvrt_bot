@@ -11,6 +11,43 @@
 #include <util.h>
 
 
+enum {
+	DB_DATA_TYPE_NULL = 0,
+	DB_DATA_TYPE_INT,
+	DB_DATA_TYPE_INT64,
+	DB_DATA_TYPE_TEXT,
+};
+
+typedef struct db_arg {
+	int type;
+	union {
+		int         int_;
+		int64_t     int64;
+		const char *text;
+	};
+} DbArg;
+
+typedef struct db_out_item_text {
+	char   *cstr;
+	size_t  len;
+	size_t  size;
+} DbOutItemText;
+
+typedef struct db_out_item {
+	int type;
+	union {
+		int           *int_;
+		int64_t       *int64;
+		DbOutItemText  text;
+	};
+} DbOutItem;
+
+typedef struct db_out {
+	int        len;
+	DbOutItem *items;
+} DbOut;
+
+
 typedef struct db {
 	const char *path;
 	sqlite3    *sql;
@@ -20,27 +57,8 @@ int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 int  db_transaction_begin(Db *d);
 int  db_transaction_end(Db *d, int is_ok);
-
-
-/*
- * return:
- * <0: error
- *  0: success, 0 row
- * >0: success, >= 1 row(s)
- *
- */
-int db_admin_add(Db *d, const Admin admin_list[], int admin_list_len);
-int db_admin_get_privileges(Db *d, TgChatAdminPrivilege *privs, int64_t chat_id, int64_t user_id);
-int db_admin_clear(Db *d, int64_t chat_id);
-
-int db_module_extern_init(Db *d, int64_t chat_id);
-int db_module_extern_toggle(Db *d, int64_t chat_id, const char name[], int is_enable);
-int db_module_extern_toggle_nsfw(Db *d, int64_t chat_id, int is_enable);
-int db_module_extern_get(Db *d, ModuleExtern *mod, int64_t chat_id, const char name[]);
-
-int db_cmd_message_set(Db *d, int64_t chat_id, int64_t user_id, const char name[], const char message[]);
-int db_cmd_message_get(Db *d, CmdMessage *msg, int64_t chat_id, const char name[]);
-int db_cmd_message_get_message(Db *d, char buffer[], size_t size, int64_t chat_id, const char name[]);
+int  db_exec(Db *d, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len);
+int  db_changes(Db *s);
 
 
 #endif
