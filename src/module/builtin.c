@@ -220,7 +220,7 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 	const char *resp;
 	const TgMessage *const msg = param->message;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		resp = "Failed!";
+		resp = "Not supported!";
 		goto out0;
 	}
 
@@ -299,11 +299,15 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 {
 	int offt = 0;
 	const TgMessage *const msg = param->message;
+	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
+		common_send_text_plain(u, msg, "Not supported!");
+		return;
+	}
 
 	CmdMessage msgs[10];
 	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), offt);
 	if (ret < 0) {
-		common_send_text_plain(u, msg, "Failed");
+		common_send_text_plain(u, msg, "Failed to get Command Message list");
 		return;
 	}
 
