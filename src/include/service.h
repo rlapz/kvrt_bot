@@ -29,7 +29,6 @@ int service_admin_reload(Service *s, const Admin admin_list[], int len);
  * CmdMessage
  */
 int service_cmd_message_set(Service *s, const CmdMessage *msg);
-int service_cmd_message_get(Service *s, CmdMessage *msg);
 int service_cmd_message_get_message(Service *s, CmdMessage *msg);
 int service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int len, int offt);
 

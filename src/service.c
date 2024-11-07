@@ -161,56 +161,6 @@ service_cmd_message_set(Service *s, const CmdMessage *msg)
 
 
 int
-service_cmd_message_get(Service *s, CmdMessage *msg)
-{
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = msg->chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = msg->name_ptr },
-	};
-
-	DbOut out = {
-		.len = 5,
-		.items = (DbOutItem[]) {
-			{
-				.type = DB_DATA_TYPE_INT64,
-				.int64 = &msg->chat_id,
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->name, .size = CMD_MSG_NAME_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->message, .size = CMD_MSG_VALUE_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = msg->created_at, .size = CMD_MSG_CREATED_AT_SIZE },
-			},
-			{
-				.type = DB_DATA_TYPE_INT64,
-				.int64 = &msg->created_by,
-			},
-		},
-	};
-
-	const char *const sql = "select chat_id, name, message, created_at, created_by "
-				"from Cmd_Message "
-				"where (chat_id = ?) and (name = ?) "
-				"order by id desc "
-				"limit 1;";
-	int ret = db_exec(&s->db, sql, args, LEN(args), &out, 1);
-	if (ret < 0)
-		return -1;
-
-	if (out.items[2].text.len == 0)
-		ret = 0;
-
-	return ret;
-}
-
-
-int
 service_cmd_message_get_message(Service *s, CmdMessage *msg)
 {
 	const DbArg args[] = {
@@ -226,7 +176,7 @@ service_cmd_message_get_message(Service *s, CmdMessage *msg)
 		},
 	};
 
-	const char *const sql = "select trim(message) as message "
+	const char *const sql = "select message as message "
 				"from Cmd_Message "
 				"where (chat_id = ?) and (name = ?) "
 				"order by id desc "
@@ -246,8 +196,10 @@ service_cmd_message_get_message(Service *s, CmdMessage *msg)
 int
 service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int len, int offt)
 {
-	const char *const sql = "select chat_id, name, message, created_at, created_by "
+	const char *const sql = "select chat_id, name, message, max(created_at), created_by "
 				"from Cmd_Message where (chat_id = ?) "
+				"group by name "
+				"having (message != '') "
 				"limit ? offset ?;";
 
 	int ret = -1;
