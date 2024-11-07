@@ -23,6 +23,7 @@ static void _module_cmd_admin_reload(Update *u, const TgMessage *msg, const BotC
 static void _module_cmd_admin_dump(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _module_cmd_dump(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _module_cmd_msg_set(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
+static void _module_cmd_msg_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _module_cmd_help(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static void _module_cmd_extern_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
@@ -55,6 +56,11 @@ static const ModuleBuiltin _module_cmd_list[] = {
 		.description = "Set/unset command message",
 		.flags = MODULE_FLAG_ADMIN_ONLY,
 		.handler = _module_cmd_msg_set,
+	},
+	{
+		.name = "/msg_list",
+		.description = "Get command message(s)",
+		.handler = _module_cmd_msg_list,
 	},
 	{
 		.name = "/help",
@@ -277,6 +283,34 @@ out0:
 	common_send_text_plain(u, msg, resp);
 
 	(void)json;
+}
+
+
+static void
+_module_cmd_msg_list(Update *u, const TgMessage *msg, const BotCmd *cmd, json_object *json)
+{
+	int offt = 0;
+	CmdMessage msgs[10];
+	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), offt);
+	if (ret < 0) {
+		common_send_text_plain(u, msg, "Failed");
+		return;
+	}
+
+	str_set_fmt(&u->str, "Command Message List:\n");
+
+	char time_buffer[CMD_MSG_CREATED_AT_SIZE * 2];
+	for (int i = 0; i < ret; i++) {
+		CmdMessage *const m = &msgs[i];
+		str_append_fmt(&u->str, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
+			       i + 1, m->name, m->created_by, m->created_by,
+			       cstr_tg_escape(time_buffer, m->created_at));
+	}
+
+	common_send_text_format(u, msg, u->str.cstr);
+
+	(void)json;
+	(void)cmd;
 }
 
 

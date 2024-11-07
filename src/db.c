@@ -290,6 +290,6 @@ _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len)
 	return 0;
 
 err0:
-	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type doesn't match", i, items[i].type);
+	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type didn't match", i, items[i].type);
 	return -1;
 }

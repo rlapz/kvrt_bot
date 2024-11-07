@@ -244,6 +244,80 @@ service_cmd_message_get_message(Service *s, CmdMessage *msg)
 
 
 int
+service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int len, int offt)
+{
+	const char *const sql = "select chat_id, name, message, created_at, created_by "
+				"from Cmd_Message where (chat_id = ?) "
+				"limit ? offset ?;";
+
+	int ret = -1;
+	const int _fields_len = 5;
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT, .int_ = len },
+		{ .type = DB_DATA_TYPE_INT, .int_ = offt },
+	};
+
+	DbOut *const out_list = malloc(sizeof(DbOut) * len);
+	if (out_list == NULL)
+		return -1;
+
+	DbOutItem *const items = malloc(sizeof(DbOutItem) * _fields_len * len);
+	if (items == NULL)
+		goto out0;
+
+	for (int i = 0, j = 0; i < len; i++) {
+		int k = i + j;
+		out_list[i].items = &items[k];
+		out_list[i].len = _fields_len;
+
+		items[k++] = (DbOutItem) {
+			.type = DB_DATA_TYPE_INT64,
+			.int64 = &msgs[i].chat_id,
+		};
+
+		items[k++] = (DbOutItem) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutItemText) {
+				.cstr = msgs[i].name,
+				.size = sizeof(msgs[i].name),
+			},
+		};
+
+		items[k++] = (DbOutItem) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutItemText) {
+				.cstr = msgs[i].message,
+				.size = sizeof(msgs[i].message),
+			},
+		};
+
+		items[k++] = (DbOutItem) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutItemText) {
+				.cstr = msgs[i].created_at,
+				.size = sizeof(msgs[i].created_at),
+			},
+		};
+
+		items[k] = (DbOutItem) {
+			.type = DB_DATA_TYPE_INT64,
+			.int64 = &msgs[i].created_by,
+		};
+
+		j = k;
+	}
+
+	ret = db_exec(&s->db, sql, args, LEN(args), out_list, len);
+	free(items);
+
+out0:
+	free(out_list);
+	return ret;
+}
+
+
+int
 service_module_extern_setup(Service *s, int64_t chat_id)
 {
 	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };

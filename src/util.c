@@ -135,6 +135,30 @@ cstr_trim_r(char dest[])
 
 
 /*
+ * WARN: Unsafe
+ */
+char *
+cstr_tg_escape(char dest[], const char *src)
+{
+	size_t i = 0;
+	const char *const special_chars = "_*[]()~`>#+-=|{}.!";
+	for (const char *p = src; *p != '\0'; p++) {
+		for (const char *s = special_chars; *s != '\0'; s++) {
+			if (*p != *s)
+				continue;
+
+			dest[i++] = '\\';
+		}
+
+		dest[i++] = *p;
+	}
+
+	dest[i] = '\0';
+	return dest;
+}
+
+
+/*
  * cmd
  */
 unsigned
