@@ -44,16 +44,6 @@ typedef struct cmd_message {
 /*
  * Module
  */
-#define MODULE_FLAG_CMD        (1 << 0)
-#define MODULE_FLAG_CALLBACK   (1 << 1)
-#define MODULE_FLAG_ADMIN_ONLY (1 << 2)
-#define MODULE_FLAG_NSFW       (1 << 3)
-
-#define MODULE_EXTERN_ARG_RAW     (1 << 0)
-#define MODULE_EXTERN_ARG_CHAT_ID (1 << 1)
-#define MODULE_EXTERN_ARG_USER_ID (1 << 2)
-#define MODULE_EXTERN_ARG_TEXT    (1 << 3)
-
 #define MODULE_EXTERN_NAME_SIZE      (34)
 #define MODULE_EXTERN_FILE_NAME_SIZE (1024)
 #define MODULE_EXTERN_DESC_SIZE      (256)
@@ -61,8 +51,22 @@ typedef struct cmd_message {
 
 
 enum {
+	MODULE_FLAG_CMD        = (1 << 0),
+	MODULE_FLAG_CALLBACK   = (1 << 1),
+	MODULE_FLAG_ADMIN_ONLY = (1 << 2),
+	MODULE_FLAG_NSFW       = (1 << 3),
+};
+
+enum {
 	MODULE_PARAM_TYPE_CMD      = MODULE_FLAG_CMD,
 	MODULE_PARAM_TYPE_CALLBACK = MODULE_FLAG_CALLBACK,
+};
+
+enum {
+	MODULE_EXTERN_ARG_RAW     = (1 << 0),
+	MODULE_EXTERN_ARG_CHAT_ID = (1 << 1),
+	MODULE_EXTERN_ARG_USER_ID = (1 << 2),
+	MODULE_EXTERN_ARG_TEXT    = (1 << 3),
 };
 
 

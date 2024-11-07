@@ -4,10 +4,6 @@
 #include <model.h>
 
 
-#define _MODULE_FLAG_NSFW       STR(MODULE_FLAG_NSFW)
-#define _MODULE_FLAG_ADMIN_ONLY STR(MODULE_FLAG_ADMIN_ONLY)
-
-
 /*
  * Public
  */
@@ -282,10 +278,11 @@ service_module_extern_setup(Service *s, int64_t chat_id)
 		return 0;
 
 	/* disable all NSFW modules */
-	sql = "insert into Module_Extern_Disabled(module_name, chat_id) "
-	      "select name, ? "
-	      "from Module_Extern "
-	      "where ((flags & " _MODULE_FLAG_NSFW ") != 0);";
+	sql = str_set_fmt(&s->str,
+			  "insert into Module_Extern_Disabled(module_name, chat_id) "
+			  "select name, ? "
+			  "from Module_Extern "
+			  "where ((flags & %d) != 0);", MODULE_FLAG_NSFW);
 
 	if (db_exec(&s->db, sql, &args, 1, NULL, 0) < 0)
 		return -1;
@@ -331,20 +328,22 @@ service_module_extern_toggle_nsfw(Service *s, int64_t chat_id, int is_enable)
 	if (db_transaction_begin(&s->db) < 0)
 		return -1;
 
-	const char *sql = "delete a "
-			  "from Module_Extern_Disabled as a "
-			  "join Module_Extern as b on (a.module_name = b.name) "
-			  "where (a.chat_id = ?) and "
-			  "((b.flags & " _MODULE_FLAG_NSFW ") != 0);";
+	const char *sql = str_set_fmt(&s->str,
+				      "delete a "
+				      "from Module_Extern_Disabled as a "
+				      "join Module_Extern as b on (a.module_name = b.name) "
+				      "where (a.chat_id = ?) and "
+				      "((b.flags & %d) != 0);", MODULE_FLAG_NSFW);
 	int ret = db_exec(&s->db, sql, &args, 1, NULL, 0);
 	if (ret < 0)
 		goto out0;
 
 	if (is_enable == 0) {
-		sql = "insert into Module_Extern_Disabled(chat_id, module_name) "
-		      "select ?, name "
-		      "from Module_Extern "
-		      "where ((flags & " _MODULE_FLAG_NSFW ") != 0);";
+		sql = str_set_fmt(&s->str,
+				  "insert into Module_Extern_Disabled(chat_id, module_name) "
+				  "select ?, name "
+				  "from Module_Extern "
+				  "where ((flags & %d) != 0);", MODULE_FLAG_NSFW);
 		ret = db_exec(&s->db, sql, &args, 1, NULL, 0);
 		if (ret < 0)
 			goto out0;
