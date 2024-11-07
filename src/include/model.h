@@ -60,6 +60,26 @@ typedef struct cmd_message {
 #define MODULE_EXTERN_ARGS_SIZE      (16)
 
 
+enum {
+	MODULE_PARAM_TYPE_CMD      = MODULE_FLAG_CMD,
+	MODULE_PARAM_TYPE_CALLBACK = MODULE_FLAG_CALLBACK,
+};
+
+
+typedef struct module_param {
+	int type;
+	union {
+		struct {
+			BotCmd           bot_cmd;
+			const TgMessage *message;
+			json_object     *json;
+		};
+
+		const TgCallbackQuery *callback;
+	};
+} ModuleParam;
+
+
 typedef struct module_extern {
 	int     flags;
 	int     args;

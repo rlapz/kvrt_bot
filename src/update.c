@@ -127,14 +127,19 @@ _handle_text(Update *u, const TgMessage *msg, json_object *json)
 static int
 _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 {
-	BotCmd cmd;
-	if (bot_cmd_parse(&cmd, '/', msg->text.cstr) < 0)
+	ModuleParam param = {
+		.type = MODULE_PARAM_TYPE_CMD,
+		.json = json,
+		.message = msg,
+	};
+
+	if (bot_cmd_parse(&param.bot_cmd, '/', msg->text.cstr) < 0)
 		return 0;
 
-	if (module_builtin_exec(u, msg, &cmd, json))
+	if (module_builtin_exec(u, &param))
 		return 1;
 
-	return module_extern_exec(u, msg, &cmd, json);
+	return module_extern_exec(u, &param);
 }
 
 
@@ -144,7 +149,15 @@ _handle_callback(Update *u, const TgCallbackQuery *cb)
 	if (cb->data == NULL)
 		return;
 
-	(void)u;
+	ModuleParam param = {
+		.type = MODULE_PARAM_TYPE_CALLBACK,
+		.callback = cb,
+	};
+
+	if (module_builtin_exec(u, &param))
+		return;
+
+	module_extern_exec(u, &param);
 }
 
 

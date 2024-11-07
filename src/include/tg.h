@@ -36,7 +36,7 @@ typedef enum tg_chat_type {
 
 typedef struct tg_chat {
 	int64_t     id;
-	int         type;
+	TgChatType  type;
 	int         is_forum;
 	const char *title;
 	const char *username;

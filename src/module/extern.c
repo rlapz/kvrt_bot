@@ -9,17 +9,18 @@
 
 
 static int _validate_args_len(int args, int max_len);
-static int _spawn_child_process(ModuleExtern *m, Update *update, const TgMessage *msg, json_object *json);
+static int _spawn_child_process(ModuleExtern *m, Update *update, const ModuleParam *param);
 
 
 /*
  * Public
  */
 int
-module_extern_exec(Update *update, const TgMessage *msg, const BotCmd *cmd, json_object *json)
+module_extern_exec(Update *update, const ModuleParam *param)
 {
+	const TgMessage *const msg = param->message;
 	char buffer[MODULE_EXTERN_NAME_SIZE];
-	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
+	cstr_copy_n2(buffer, LEN(buffer), param->bot_cmd.name, param->bot_cmd.name_len);
 
 	ModuleExtern module = {
 		.chat_id = msg->chat.id,
@@ -31,6 +32,9 @@ module_extern_exec(Update *update, const TgMessage *msg, const BotCmd *cmd, json
 		return 0;
 
 	const int flags = module.flags;
+	if ((param->type & flags) == 0)
+		return 0;
+
 	if ((flags & MODULE_FLAG_ADMIN_ONLY) && (common_privileges_check(update, msg) < 0))
 		return 1;
 
@@ -39,7 +43,7 @@ module_extern_exec(Update *update, const TgMessage *msg, const BotCmd *cmd, json
 		return -1;
 	}
 
-	if (_spawn_child_process(&module, update, msg, json) < 0)
+	if (_spawn_child_process(&module, update, param) < 0)
 		goto err0;
 
 	return 1;
@@ -72,17 +76,20 @@ _validate_args_len(int args, int max_len)
 
 
 static int
-_spawn_child_process(ModuleExtern *m, Update *update, const TgMessage *msg, json_object *json)
+_spawn_child_process(ModuleExtern *m, Update *update, const ModuleParam *param)
 {
-	/* +2 = (executable file + NULL) */
-	char *argv[MODULE_EXTERN_ARGS_SIZE + 2] = {
+	const TgMessage *const msg = param->message;
+
+	/* +3 = (executable file + flag(CMD/CALLBACK) + NULL) */
+	char *argv[MODULE_EXTERN_ARGS_SIZE + 3] = {
 		[0] = m->file_name,
+		[1] = (param->type == MODULE_PARAM_TYPE_CMD)? "cmd" : "callback",
 	};
 
-	int i = 1;
+	int i = 2;
 	const int args = m->args;
 	if (args & MODULE_EXTERN_ARG_RAW)
-		argv[i++] = (char *)json_object_to_json_string_ext(json, JSON_C_TO_STRING_PLAIN);
+		argv[i++] = (char *)json_object_to_json_string_ext(param->json, JSON_C_TO_STRING_PLAIN);
 
 	char chat_id[24];
 	if (args & MODULE_EXTERN_ARG_CHAT_ID) {
