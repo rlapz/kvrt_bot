@@ -263,10 +263,11 @@ _str_resize(Str *s, size_t slen)
 int
 str_init(Str *s, char buffer[], size_t size)
 {
-	if (size == 0)
-		return -EINVAL;
+	if (size > 0)
+		buffer[0] = '\0';
+	else
+		buffer = NULL;
 
-	buffer[0] = '\0';
 	s->is_alloc = 0;
 	s->size = size;
 	s->len = 0;
@@ -278,12 +279,12 @@ str_init(Str *s, char buffer[], size_t size)
 int
 str_init_alloc(Str *s, size_t size)
 {
-	if (size == 0)
-		size = 1;
-
-	void *const cstr = malloc(size);
-	if (cstr == NULL)
-		return -ENOMEM;
+	void *cstr = NULL;
+	if (size > 0) {
+		cstr = malloc(size);
+		if (cstr == NULL)
+			return -ENOMEM;
+	}
 
 	str_init(s, cstr, size);
 	s->is_alloc = 1;
@@ -324,8 +325,10 @@ char *
 str_set_n(Str *s, const char cstr[], size_t len)
 {
 	if (len == 0) {
+		if (s->cstr != NULL)
+			s->cstr[0] = '\0';
+
 		s->len = 0;
-		s->cstr[0] = '\0';
 		return s->cstr;
 	}
 
@@ -358,8 +361,10 @@ str_set_fmt(Str *s, const char fmt[], ...)
 
 	const size_t cstr_len = (size_t)ret;
 	if (cstr_len == 0) {
+		if (s->cstr != NULL)
+			s->cstr[0] = '\0';
+
 		s->len = 0;
-		s->cstr[0] = '\0';
 		return s->cstr;
 	}
 

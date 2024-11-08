@@ -13,7 +13,7 @@ service_init(Service *s, const char db_path[])
 	if (db_init(&s->db, db_path) < 0)
 		return -1;
 
-	if (str_init_alloc(&s->str, 1024) < 0) {
+	if (str_init_alloc(&s->str, 0) < 0) {
 		log_err(ENOMEM, "service: service_init: str_init_alloc");
 		db_deinit(&s->db);
 		return -1;
@@ -268,9 +268,13 @@ out0:
 int
 service_module_extern_setup(Service *s, int64_t chat_id)
 {
-	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT, .int_ = MODULE_FLAG_NSFW },
+	};
+
 	const char *sql = "select 1 from Module_Extern_Disabled where (chat_id = ?);";
-	const int ret = db_exec(&s->db, sql, &args, 1, NULL, 0);
+	const int ret = db_exec(&s->db, sql, args, 1, NULL, 0);
 	if (ret < 0)
 		return -1;
 
@@ -278,13 +282,12 @@ service_module_extern_setup(Service *s, int64_t chat_id)
 		return 0;
 
 	/* disable all NSFW modules */
-	sql = str_set_fmt(&s->str,
-			  "insert into Module_Extern_Disabled(module_name, chat_id) "
-			  "select name, ? "
-			  "from Module_Extern "
-			  "where ((flags & %d) != 0);", MODULE_FLAG_NSFW);
+	sql = "insert into Module_Extern_Disabled(module_name, chat_id) "
+	      "select name, ? "
+	      "from Module_Extern "
+	      "where ((flags & ?) != 0);";
 
-	if (db_exec(&s->db, sql, &args, 1, NULL, 0) < 0)
+	if (db_exec(&s->db, sql, args, LEN(args), NULL, 0) < 0)
 		return -1;
 
 	return db_changes(&s->db);
@@ -323,28 +326,31 @@ int
 service_module_extern_toggle_nsfw(Service *s, int64_t chat_id, int is_enable)
 {
 	int is_ok = 0;
-	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT, .int_ = MODULE_FLAG_NSFW },
+	};
 
 	if (db_transaction_begin(&s->db) < 0)
 		return -1;
 
-	const char *sql = str_set_fmt(&s->str,
-				      "delete a "
-				      "from Module_Extern_Disabled as a "
-				      "join Module_Extern as b on (a.module_name = b.name) "
-				      "where (a.chat_id = ?) and "
-				      "((b.flags & %d) != 0);", MODULE_FLAG_NSFW);
-	int ret = db_exec(&s->db, sql, &args, 1, NULL, 0);
+	const char *sql = "delete a "
+			  "from Module_Extern_Disabled as a "
+			  "join Module_Extern as b on (a.module_name = b.name) "
+			  "where (a.chat_id = ?) and "
+			  "((b.flags & ?) != 0);";
+
+	int ret = db_exec(&s->db, sql, args, LEN(args), NULL, 0);
 	if (ret < 0)
 		goto out0;
 
 	if (is_enable == 0) {
-		sql = str_set_fmt(&s->str,
-				  "insert into Module_Extern_Disabled(chat_id, module_name) "
-				  "select ?, name "
-				  "from Module_Extern "
-				  "where ((flags & %d) != 0);", MODULE_FLAG_NSFW);
-		ret = db_exec(&s->db, sql, &args, 1, NULL, 0);
+		sql = "insert into Module_Extern_Disabled(chat_id, module_name) "
+		      "select ?, name "
+		      "from Module_Extern "
+		      "where ((flags & ?) != 0);";
+
+		ret = db_exec(&s->db, sql, args, LEN(args), NULL, 0);
 		if (ret < 0)
 			goto out0;
 	}
