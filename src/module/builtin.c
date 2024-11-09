@@ -122,7 +122,33 @@ _module_cmd_start(Update *u, const ModuleParam *param)
 		return;
 
 	/* TODO */
-	common_send_text_plain(u, param->message, "Hello");
+	//common_send_text_plain(u, param->message, "Hello");
+
+	const TgApiInlineKeyboard kbds[] = {
+		{
+			.len = 1,
+			.items = &(TgApiInlineKeyboardItem) {
+				.text = "button 0,0",
+				.callback_data = "b0",
+			},
+		},
+		{
+			.len = 2,
+			.items = (TgApiInlineKeyboardItem[]) {
+				{
+					.text = "button 1, 0",
+					.callback_data = "b10",
+				},
+				{
+					.text = "button 1, 1",
+					.callback_data = "b11",
+				},
+			},
+		},
+	};
+
+	tg_api_send_inline_keyboard(&u->api, param->message->chat.id, &param->message->id, "test",
+				    kbds, LEN(kbds));
 }
 
 

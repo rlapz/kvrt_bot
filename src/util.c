@@ -138,7 +138,7 @@ cstr_trim_r(char dest[])
  * WARN: Unsafe
  */
 char *
-cstr_tg_escape(char dest[], const char *src)
+cstr_tg_escape(char dest[], const char src[])
 {
 	size_t i = 0;
 	const char *const special_chars = "_*[]()~`>#+-=|{}.!";

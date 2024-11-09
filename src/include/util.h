@@ -29,7 +29,7 @@ int    cstr_casecmp_n(const char a[], const char b[], size_t b_len);
 char  *cstr_trim_l(char dest[]);
 char  *cstr_trim_r(char dest[]);
 
-char  *cstr_tg_escape(char dest[], const char *src);
+char  *cstr_tg_escape(char dest[], const char src[]);
 
 
 /*

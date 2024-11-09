@@ -15,6 +15,8 @@ static void         _curl_deinit(TgApi *t);
 static size_t       _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
 static const char  *_curl_request_get(TgApi *t, const char url[]);
 static json_object *_parse_response(json_object *json_obj);
+static char        *_build_inline_keyboard_item(Str *s, const TgApiInlineKeyboardItem *item);
+static char        *_build_inline_keyboards(TgApi *t, const TgApiInlineKeyboard kbds[], int len);
 
 
 /*
@@ -206,6 +208,57 @@ out0:
 
 
 int
+tg_api_send_inline_keyboard(TgApi *t, int64_t chat_id, const int64_t *reply_to, const char text[],
+			    const TgApiInlineKeyboard kbds[], int len)
+{
+	int ret = -1;
+	char *const _kbds = _build_inline_keyboards(t, kbds, len);
+	if (_kbds == NULL)
+		return -1;
+
+	char *const txt = curl_easy_escape(t->curl, text, 0);
+	if (txt == NULL)
+		goto out0;
+
+	if (str_set_fmt(&t->str, "%s/sendMessage?chat_id=%" PRIi64, t->api, chat_id) == NULL)
+		goto out1;
+
+	if (reply_to != NULL) {
+		if (str_append_fmt(&t->str, "&reply_to_message_id=%" PRIi64, *reply_to) == NULL)
+			goto out1;
+	}
+
+	const char *const req = str_append_fmt(&t->str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s",
+					       txt, _kbds);
+	if (req == NULL)
+		goto out1;
+
+	log_debug("tg_api: tg_api_send_inline_keyboard: request: %s", req);
+	if (_curl_request_get(t, req) != NULL)
+		ret = 0;
+
+out1:
+	free(txt);
+out0:
+	free(_kbds);
+	return ret;
+}
+
+
+int
+tg_api_answer_callback_query(TgApi *t, const int64_t id, const char text[], int show_alert,
+			     const char url[])
+{
+	(void)t;
+	(void)id;
+	(void)text;
+	(void)show_alert;
+	(void)url;
+	return 0;
+}
+
+
+int
 tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res)
 {
 	const char *const req = str_set_fmt(&t->str, "%s/getChatAdministrators?chat_id=%" PRIi64, t->api,
@@ -336,4 +389,53 @@ _parse_response(json_object *json_obj)
 	}
 
 	return result_obj;
+}
+
+
+static char *
+_build_inline_keyboard_item(Str *s, const TgApiInlineKeyboardItem *item)
+{
+	if (item->text == NULL)
+		return NULL;
+
+	str_append_fmt(s, "{\"text\": \"%s\"", item->text);
+
+	if (item->callback_data)
+		str_append_fmt(s, ", \"callback_data\": \"%s\"", item->callback_data);
+	else if (item->url)
+		str_append_fmt(s, ", \"url\": \"%s\"", item->url);
+	else
+		return NULL;
+
+	return str_append_n(s, "}", 1);
+}
+
+
+static char *
+_build_inline_keyboards(TgApi *t, const TgApiInlineKeyboard kbds[], int len)
+{
+	str_set_fmt(&t->str, "{\"inline_keyboard\": [");
+	for (int i = 0; i < len; i++) {
+		const TgApiInlineKeyboard *const k = &kbds[i];
+		str_append_n(&t->str, "[", 1);
+
+		for (int j = 0; j < k->len; j++) {
+			if (_build_inline_keyboard_item(&t->str, &k->items[i]) == NULL)
+				goto out0;
+
+			if (j < (k->len - 1))
+				str_append_n(&t->str, ",", 1);
+		}
+
+	out0:
+		str_append_n(&t->str, "]", 1);
+		if (i < (len - 1))
+			str_append_n(&t->str, ",", 1);
+	}
+
+	const char *const raw = str_append_n(&t->str, "]}", 2);
+	if (raw == NULL)
+		return NULL;
+
+	return curl_easy_escape(t->curl, raw, (int)t->str.len);
 }
