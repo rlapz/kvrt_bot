@@ -159,65 +159,59 @@ cstr_tg_escape(char dest[], const char src[])
 
 
 /*
- * cmd
+ * SpaceTokenizer
  */
-unsigned
-bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[])
+const char *
+space_tokenizer_next(SpaceTokenizer *s, const char raw[])
 {
-	if (src == NULL)
-		return 0;
+	const char *value = cstr_trim_l((char *)raw);
+	if (*value == '\0')
+		return NULL;
 
-	unsigned args_len = 0;
-	while ((*src != '\0') && (args_len < size)) {
-		const char *const p = strpbrk(src, ASCII_SPACE_CHARS);
-		if (p == NULL) {
-			a[args_len++] = (BotCmdArg){ .name = src, .len = (unsigned)strlen(src) };
-			break;
-		}
+	unsigned len = 0;
+	while ((value[len] != '\0') && (isspace(value[len]) == 0))
+		len++;
 
-		if (isspace(*src)) {
-			src = p + 1;
-			continue;
-		}
-
-		a[args_len++] = (BotCmdArg){ .name = src, .len = (unsigned)(p - src) };
-		src = p + 1;
-	}
-
-	return args_len;
+	s->len = len;
+	s->value = value;
+	return &value[len];
 }
 
 
+/*
+ * cmd
+ */
 int
 bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 {
-	const char *const name = cstr_trim_l((char *)src);
-	if (*name != prefix)
+	SpaceTokenizer st;
+	const char *next = space_tokenizer_next(&st, src);
+	if ((st.len <= 1) || (st.value[0] != prefix))
 		return -1;
 
-	unsigned name_len = 0;
-	const char *name_end = strpbrk(name, ASCII_SPACE_CHARS);
-	const char *const username = strchr(name, '@');
-	if (name_end == NULL) {
-		/* ignore @username */
-		if (username != NULL)
-			name_len = (unsigned)(username - name);
-		else
-			name_len = (unsigned)strlen(name);
-	} else {
-		/* ignore @username */
-		if ((username != NULL) && (username < name_end))
-			name_len = (unsigned)(username - name);
-		else
-			name_len = (unsigned)(name_end - name);
+	/* ignore @username */
+	const char *username = strchr(st.value, '@');
+	if ((username != NULL) && (username < &st.value[st.len]))
+		b->name_len = (unsigned)(username - st.value);
+	else
+		b->name_len = st.len;
+
+	b->name = st.value;
+
+	unsigned count = 0;
+	while ((next = space_tokenizer_next(&st, next)) != NULL) {
+		if (count == BOT_CMD_ARGS_SIZE)
+			break;
+
+		b->args[count] = (BotCmdArg) {
+			.name = st.value,
+			.len = st.len,
+		};
+
+		count++;
 	}
 
-	if (name_len == 1)
-		return -1;
-
-	b->name = name;
-	b->name_len = name_len;
-	b->args_len = bot_cmd_args_parse(b->args, BOT_CMD_ARGS_SIZE, name_end);
+	b->args_len = count;
 	return 0;
 }
 

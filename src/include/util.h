@@ -33,6 +33,17 @@ char  *cstr_tg_escape(char dest[], const char src[]);
 
 
 /*
+ * SpaceTokenizer
+ */
+typedef struct space_tokenizer {
+	const char *value;
+	unsigned    len;
+} SpaceTokenizer;
+
+const char *space_tokenizer_next(SpaceTokenizer *s, const char raw[]);
+
+
+/*
  * BotCmd
  */
 #define BOT_CMD_ARGS_SIZE CFG_UTIL_BOT_CMD_ARGS_SIZE
@@ -41,9 +52,6 @@ typedef struct bot_cmd_arg {
 	const char *name;
 	unsigned    len;
 } BotCmdArg;
-
-unsigned bot_cmd_args_parse(BotCmdArg a[], unsigned size, const char src[]);
-
 
 typedef struct bot_cmd {
 	const char *name;
