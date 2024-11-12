@@ -298,8 +298,6 @@ str_init(Str *s, char buffer[], size_t size)
 {
 	if (size > 0)
 		buffer[0] = '\0';
-	else
-		buffer = NULL;
 
 	s->is_alloc = 0;
 	s->size = size;
@@ -461,8 +459,10 @@ str_append_fmt(Str *s, const char fmt[], ...)
 int
 str_reset(Str *s, size_t offt)
 {
-	if (offt >= s->len)
-		return -EINVAL;
+	if (offt >= s->len) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	s->cstr[offt] = '\0';
 	s->len = offt;

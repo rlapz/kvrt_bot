@@ -190,13 +190,14 @@ service_cmd_message_get_message(Service *s, CmdMessage *msg)
 
 
 int
-service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int len, int offt)
+service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int len, int offt,
+			     int *max_len)
 {
-	const char *const sql = "select chat_id, name, message, max(created_at), created_by "
-				"from Cmd_Message where (chat_id = ?) "
-				"group by name "
-				"having (message != '') "
-				"limit ? offset ?;";
+	const char *sql = "select chat_id, name, message, max(created_at), created_by "
+			  "from Cmd_Message where (chat_id = ?) "
+			  "group by name "
+			  "having (message != '') "
+			  "limit ? offset ?;";
 
 	int ret = -1;
 	const int _fields_len = 5;
@@ -256,9 +257,29 @@ service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int
 		j = k;
 	}
 
-	ret = db_exec(&s->db, sql, args, LEN(args), out_list, len);
-	free(items);
+	const int rcount = db_exec(&s->db, sql, args, LEN(args), out_list, len);
+	if (rcount < 0)
+		goto out1;
 
+	sql = "select count(1) "
+	      "from ("
+	        "select max(created_at) "
+		"from Cmd_Message where (chat_id = ?) "
+		"group by name "
+		"having (message != '')"
+	      ");";
+
+	DbOut out_count = {
+		.len = 1,
+		.items = &(DbOutItem) { .type = DB_DATA_TYPE_INT, .int_ = max_len },
+	};
+
+	ret = db_exec(&s->db, sql, &args[0], 1, &out_count, 1);
+	if (ret > 0)
+		ret = rcount;
+
+out1:
+	free(items);
 out0:
 	free(out_list);
 	return ret;
@@ -375,7 +396,7 @@ service_module_extern_get(Service *s, ModuleExtern *mod)
 	};
 
 	DbOut out = {
-		.len = 6,
+		.len = 5,
 		.items = (DbOutItem[]) {
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },

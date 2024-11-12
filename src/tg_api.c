@@ -246,15 +246,86 @@ out0:
 
 
 int
-tg_api_answer_callback_query(TgApi *t, const int64_t id, const char text[], int show_alert,
+tg_api_edit_inline_keyboard(TgApi *t, int64_t chat_id, int64_t msg_id, const TgApiInlineKeyboard kbds[],
+			    int len, const char text[])
+{
+	int ret = -1;
+	char *const _kbds = _build_inline_keyboards(t, kbds, len);
+	if (_kbds == NULL)
+		return -1;
+
+	if (str_set_fmt(&t->str, "%s/editMessageText?chat_id=%" PRIi64, t->api, chat_id) == NULL)
+		goto out0;
+
+	if (str_append_fmt(&t->str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2", msg_id) == NULL)
+		goto out0;
+
+	char *e_text = NULL;
+	if (text != NULL) {
+		e_text = curl_easy_escape(t->curl, text, 0);
+		if (e_text == NULL)
+			goto out0;
+
+		if (str_append_fmt(&t->str, "&text=%s", e_text) == NULL)
+			goto out1;
+	}
+
+	const char *const req = str_append_fmt(&t->str, "&reply_markup=%s", _kbds);
+	if (req == NULL)
+		goto out1;
+
+	log_debug("tg_api: tg_api_edit_inline_keyboard: request: %s", req);
+	if (_curl_request_get(t, req) != NULL)
+		ret = 0;
+
+out1:
+	free(e_text);
+out0:
+	free(_kbds);
+	return ret;
+}
+
+
+int
+tg_api_answer_callback_query(TgApi *t, const char id[], const char text[], int show_alert,
 			     const char url[])
 {
-	(void)t;
-	(void)id;
-	(void)text;
-	(void)show_alert;
-	(void)url;
-	return 0;
+	int ret = -1;
+	if (str_set_fmt(&t->str, "%s/answerCallbackQuery?callback_query_id=%s", t->api, id) == NULL)
+		return -1;
+
+	char *e_text = NULL;
+	if (text != NULL) {
+		e_text = curl_easy_escape(t->curl, text, 0);
+		if (e_text == NULL)
+			return -1;
+
+		if (str_append_fmt(&t->str, "&text=%s", e_text) == NULL)
+			goto out0;
+	}
+
+	char *e_url = NULL;
+	if (url != NULL) {
+		e_url = curl_easy_escape(t->curl, url, 0);
+		if (e_url == NULL)
+			goto out0;
+
+		if (str_append_fmt(&t->str, "&url=%s", e_url) == NULL)
+			goto out1;
+	}
+
+	const char *const req = str_append_fmt(&t->str, "&show_alert=%s", ((show_alert)? "true" : "false"));
+	if (req == NULL)
+		goto out1;
+
+	if (_curl_request_get(t, req) != NULL)
+		ret = 0;
+
+out1:
+	free(e_url);
+out0:
+	free(e_text);
+	return ret;
 }
 
 
@@ -420,7 +491,7 @@ _build_inline_keyboards(TgApi *t, const TgApiInlineKeyboard kbds[], int len)
 		str_append_n(&t->str, "[", 1);
 
 		for (int j = 0; j < k->len; j++) {
-			if (_build_inline_keyboard_item(&t->str, &k->items[i]) == NULL)
+			if (_build_inline_keyboard_item(&t->str, &k->items[j]) == NULL)
 				goto out0;
 
 			if (j < (k->len - 1))

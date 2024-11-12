@@ -33,6 +33,7 @@ typedef struct db_out_item_text {
 	size_t  size;
 } DbOutItemText;
 
+/* the callee maybe change result type -> DB_DATA_TYPE_NULL */
 typedef struct db_out_item {
 	int type;
 	union {

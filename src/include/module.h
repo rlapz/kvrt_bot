@@ -11,8 +11,10 @@
 #include <util.h>
 
 
-int module_builtin_exec(Update *update, const ModuleParam *param);
-int module_extern_exec(Update *update, const ModuleParam *param);
+int module_builtin_exec_cmd(Update *update, const ModuleParam *param);
+int module_builtin_exec_callback(Update *update, const ModuleParam *param);
+int module_extern_exec_cmd(Update *update, const ModuleParam *param);
+int module_extern_exec_callback(Update *update, const ModuleParam *param);
 
 
 #endif

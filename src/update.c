@@ -136,17 +136,17 @@ _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 	if (bot_cmd_parse(&param.bot_cmd, '/', msg->text.cstr) < 0)
 		return 0;
 
-	if (module_builtin_exec(u, &param))
+	if (module_builtin_exec_cmd(u, &param))
 		return 1;
 
-	return module_extern_exec(u, &param);
+	return module_extern_exec_cmd(u, &param);
 }
 
 
 static void
 _handle_callback(Update *u, const TgCallbackQuery *cb)
 {
-	if (cb->data == NULL)
+	if ((cb->message == NULL) || (cb->data == NULL))
 		return;
 
 	ModuleParam param = {
@@ -154,10 +154,13 @@ _handle_callback(Update *u, const TgCallbackQuery *cb)
 		.callback = cb,
 	};
 
-	if (module_builtin_exec(u, &param))
+	if (callback_query_parse(&param.query, cb->data) < 0)
 		return;
 
-	module_extern_exec(u, &param);
+	if (module_builtin_exec_callback(u, &param))
+		return;
+
+	module_extern_exec_callback(u, &param);
 }
 
 

@@ -12,18 +12,23 @@
 #define CFG_DEFAULT_DB_FILE            "db.sql"
 #define CFG_DEFAULT_CMD_PATH           "./extern/"
 
-#define CFG_API_TOKEN_SIZE             (64)
-#define CFG_API_SECRET_SIZE            (256)
-#define CFG_LOG_BUFFER_SIZE            (1024 * 1024)
-#define CFG_CLIENTS_SIZE               (32)
-#define CFG_CLIENT_BUFFER_SIZE         (1024 * 1024)
-#define CFG_EVENTS_SIZE                (32)
-#define CFG_EVENT_RESPONSE_OK          "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
-#define CFG_EVENT_RESPONSE_ERR         "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
-#define CFG_TELEGRAM_API               "https://api.telegram.org/bot"
+#define CFG_API_TOKEN_SIZE     (64)
+#define CFG_API_SECRET_SIZE    (256)
+#define CFG_LOG_BUFFER_SIZE    (1024 * 1024)
+#define CFG_CLIENTS_SIZE       (32)
+#define CFG_CLIENT_BUFFER_SIZE (1024 * 1024)
+#define CFG_EVENTS_SIZE        (32)
+#define CFG_EVENT_RESPONSE_OK  "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
+#define CFG_EVENT_RESPONSE_ERR "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
+#define CFG_TELEGRAM_API       "https://api.telegram.org/bot"
 
-#define CFG_UTIL_BOT_CMD_ARGS_SIZE     (16)
-#define CFG_UTIL_CHLD_ITEMS_SIZE       (256)
+#define CFG_UTIL_BOT_CMD_ARGS_SIZE         (16)
+#define CFG_UTIL_CALLBACK_QUERY_ITEMS_SIZE (8)
+#define CFG_UTIL_CHLD_ITEMS_SIZE           (256)
+
+#define CFG_ITEM_LIST_SIZE (2)
+
+#define CFG_MODULE_CMD_MSG_SIZE (2)
 
 
 typedef struct config {

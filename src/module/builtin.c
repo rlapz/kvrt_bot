@@ -19,6 +19,9 @@ typedef struct module_builti {
 } ModuleBuiltin;
 
 
+/*
+ * Cmds
+ */
 static void _module_cmd_start(Update *u, const ModuleParam *param);
 static void _module_cmd_admin_reload(Update *u, const ModuleParam *param);
 static void _module_cmd_admin_dump(Update *u, const ModuleParam *param);
@@ -30,50 +33,73 @@ static void _module_cmd_extern_list(Update *u, const ModuleParam *param);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
 
 
-static const ModuleBuiltin _module_cmd_list[] = {
-	{
+/*
+ * Callbacks
+ */
+static void _module_cb_msg_list(Update *u, const ModuleParam *param);
+
+
+/*
+ * Helpers
+ */
+static const char *_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int len);
+
+
+enum {
+	_MODULE_START = 0,
+	_MODULE_ADMIN_RELOAD,
+	_MODULE_ADMIN_DUMP,
+	_MODULE_DUMP,
+	_MODULE_MSG_SET,
+	_MODULE_MSG_LIST,
+	_MODULE_HELP,
+	_MODULE_EXTERN_LIST,
+};
+
+static const ModuleBuiltin _module_list[] = {
+	[_MODULE_START] = {
 		.name = "/start",
 		.description = "Start",
 		.flags = MODULE_FLAG_CMD,
 		.handler = _module_cmd_start,
 	},
-	{
+	[_MODULE_ADMIN_RELOAD] = {
 		.name = "/admin_reload",
 		.description = "Reload admin list",
 		.flags = MODULE_FLAG_CMD | MODULE_FLAG_ADMIN_ONLY,
 		.handler = _module_cmd_admin_reload,
 	},
-	{
+	[_MODULE_ADMIN_DUMP] = {
 		.name = "/admin_dump",
 		.description = "Show admin list",
 		.flags = MODULE_FLAG_CMD,
 		.handler = _module_cmd_admin_dump,
 	},
-	{
+	[_MODULE_DUMP] = {
 		.name = "/dump",
 		.description = "Dump raw JSON message",
 		.flags = MODULE_FLAG_CMD,
 		.handler = _module_cmd_dump,
 	},
-	{
+	[_MODULE_MSG_SET] = {
 		.name = "/msg_set",
 		.description = "Set/unset command message",
 		.flags = MODULE_FLAG_CMD | MODULE_FLAG_ADMIN_ONLY,
 		.handler = _module_cmd_msg_set,
 	},
-	{
+	[_MODULE_MSG_LIST] = {
 		.name = "/msg_list",
 		.description = "Get command message(s)",
 		.flags = MODULE_FLAG_CMD | MODULE_FLAG_CALLBACK,
 		.handler = _module_cmd_msg_list,
 	},
-	{
+	[_MODULE_HELP] = {
 		.name = "/help",
 		.description = "Show builtin commands",
 		.flags = MODULE_FLAG_CMD,
 		.handler = _module_cmd_help,
 	},
-	{
+	[_MODULE_EXTERN_LIST] = {
 		.name = "/extern_list",
 		.description = "Show external commands",
 		.flags = MODULE_FLAG_CMD | MODULE_FLAG_CALLBACK,
@@ -86,15 +112,16 @@ static const ModuleBuiltin _module_cmd_list[] = {
  * Public
  */
 int
-module_builtin_exec(Update *update, const ModuleParam *param)
+module_builtin_exec_cmd(Update *update, const ModuleParam *param)
 {
 	const TgMessage *const msg = param->message;
-	for (unsigned i = 0; i < LEN(_module_cmd_list); i++) {
-		const ModuleBuiltin *b = &_module_cmd_list[i];
+	for (unsigned i = 0; i < LEN(_module_list); i++) {
+		const ModuleBuiltin *const b = &_module_list[i];
+		assert(b->handler != NULL);
+
 		if (bot_cmd_compare(&param->bot_cmd, b->name) == 0)
 			continue;
 
-		assert(b->handler != NULL);
 		if ((param->type & b->flags) == 0)
 			return 1;
 
@@ -105,15 +132,37 @@ module_builtin_exec(Update *update, const ModuleParam *param)
 		return 1;
 	}
 
-	if (param->type == MODULE_PARAM_TYPE_CALLBACK)
-		return 0;
-
 	return _module_cmd_msg_exec(update, param->message, &param->bot_cmd);
+}
+
+
+int
+module_builtin_exec_callback(Update *update, const ModuleParam *param)
+{
+	for (unsigned i = 0; i < LEN(_module_list); i++) {
+		const ModuleBuiltin *const b = &_module_list[i];
+		assert(b->handler != NULL);
+
+		if (callback_query_compare(&param->query, b->name) == 0)
+			continue;
+
+		if ((param->type & b->flags) == 0)
+			return 1;
+
+		b->handler(update, param);
+		return 1;
+	}
+
+	return 0;
 }
 
 
 /*
  * Private
+ */
+
+/*
+ * Cmds
  */
 static void
 _module_cmd_start(Update *u, const ModuleParam *param)
@@ -122,33 +171,7 @@ _module_cmd_start(Update *u, const ModuleParam *param)
 		return;
 
 	/* TODO */
-	//common_send_text_plain(u, param->message, "Hello");
-
-	const TgApiInlineKeyboard kbds[] = {
-		{
-			.len = 1,
-			.items = &(TgApiInlineKeyboardItem) {
-				.text = "button 0,0",
-				.callback_data = "b0",
-			},
-		},
-		{
-			.len = 2,
-			.items = (TgApiInlineKeyboardItem[]) {
-				{
-					.text = "button 1, 0",
-					.callback_data = "b10",
-				},
-				{
-					.text = "button 1, 1",
-					.callback_data = "b11",
-				},
-			},
-		},
-	};
-
-	tg_api_send_inline_keyboard(&u->api, param->message->chat.id, &param->message->id, "test",
-				    kbds, LEN(kbds));
+	common_send_text_plain(u, param->message, "Hello");
 }
 
 
@@ -258,7 +281,7 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 	}
 
 	char buffer[CMD_MSG_NAME_SIZE];
-	const char *name = args[0].name;
+	const char *name = args[0].value;
 	unsigned name_len = args[0].len;
 	while (*name != '\0') {
 		if (*name != '/')
@@ -289,7 +312,7 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 			goto out0;
 		}
 
-		msg_text = args[1].name;
+		msg_text = args[1].value;
 	}
 
 	buffer[0] = '/';
@@ -323,31 +346,49 @@ out0:
 static void
 _module_cmd_msg_list(Update *u, const ModuleParam *param)
 {
-	int offt = 0;
+	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
+		_module_cb_msg_list(u, param);
+		return;
+	}
+
 	const TgMessage *const msg = param->message;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
 		common_send_text_plain(u, msg, "Not supported!");
 		return;
 	}
 
-	CmdMessage msgs[10];
-	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), offt);
+	int max_len = 0;
+	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
+	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), 0, &max_len);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get Command Message list");
 		return;
 	}
 
-	str_set_fmt(&u->str, "Command Message List:\n");
-
-	char time_buffer[CMD_MSG_CREATED_AT_SIZE * 2];
-	for (int i = 0; i < ret; i++) {
-		CmdMessage *const m = &msgs[i];
-		str_append_fmt(&u->str, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
-			       i + 1, m->name, m->created_by, m->created_by,
-			       cstr_tg_escape(time_buffer, m->created_at));
+	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, ret);
+	if (max_len < CFG_MODULE_CMD_MSG_SIZE) {
+		common_send_text_format(u, msg, text);
+		return;
 	}
 
-	common_send_text_format(u, msg, u->str.cstr);
+	Str cb_str;
+	char buffer[1024];
+	str_init(&cb_str, buffer, LEN(buffer));
+	const char *const cb_data = str_set_fmt(&cb_str, "%s %d", _module_list[_MODULE_MSG_LIST].name, ret);
+	if (cb_data == NULL) {
+		common_send_text_plain(u, msg, "Failed!");
+		return;
+	}
+
+	const TgApiInlineKeyboard kbd = {
+		.len = 1,
+		.items = &(TgApiInlineKeyboardItem) {
+			.callback_data = cb_data,
+			.text = "Next",
+		},
+	};
+
+	tg_api_send_inline_keyboard(&u->api, msg->chat.id, &msg->id, text, &kbd, 1);
 }
 
 
@@ -355,8 +396,8 @@ static void
 _module_cmd_help(Update *u, const ModuleParam *param)
 {
 	str_set_fmt(&u->str, "Builtin commands:\n");
-	for (unsigned i = 0, j = 0; i < LEN(_module_cmd_list); i++) {
-		const ModuleBuiltin *const b = &_module_cmd_list[i];
+	for (unsigned i = 0, j = 0; i < LEN(_module_list); i++) {
+		const ModuleBuiltin *const b = &_module_list[i];
 		if ((b->name == NULL) || (b->description == NULL) || (b->handler == NULL))
 			continue;
 
@@ -400,4 +441,71 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 
 	common_send_text_plain(u, msg, cmd_msg.message);
 	return 1;
+}
+
+
+/*
+ * Callbacks
+ */
+static void
+_module_cb_msg_list(Update *u, const ModuleParam *param)
+{
+	char buffer[1024];
+	const TgMessage *const msg = param->callback->message;
+	const CallbackQuery *const query = &param->query;
+	if (query->args_len != 1)
+		return;
+
+	const char *const name = _module_list[_MODULE_MSG_LIST].name;
+	if (cstr_cmp_n(name, query->context, query->context_len) == 0)
+		return;
+
+	cstr_copy_n2(buffer, LEN(buffer), query->args[0].value, query->args[0].len);
+	const int offt = atoi(buffer);
+
+	int max_len = 0;
+	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
+	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), offt, &max_len);
+	if (ret < 0)
+		return;
+
+	Str cb_str;
+	str_init(&cb_str, buffer, LEN(buffer));
+	const char *const cb_data = str_set_fmt(&cb_str, "%s %d", name, ret);
+	if (cb_data == NULL)
+		return;
+
+	TgApiInlineKeyboard kbds = {
+		.len = 2,
+		.items = (TgApiInlineKeyboardItem[]) {
+			{ .callback_data = cb_data, .text = "Prev" },
+			{ .callback_data = cb_data, .text = "Next" },
+		},
+	};
+
+	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, ret);
+	if (ret < CFG_MODULE_CMD_MSG_SIZE)
+		kbds.len = 1;
+
+	tg_api_edit_inline_keyboard(&u->api, msg->chat.id, msg->id, &kbds, 1, text);
+}
+
+
+/*
+ * Helpers
+ */
+static const char *
+_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int len)
+{
+	char time_buffer[CMD_MSG_CREATED_AT_SIZE * 2];
+	str_set_fmt(s, "Command Message List:\n");
+
+	for (int i = 0; i < len; i++) {
+		const CmdMessage *const m = &msgs[i];
+		str_append_fmt(s, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
+			       i + 1, m->name, m->created_by, m->created_by,
+			       cstr_tg_escape(time_buffer, m->created_at));
+	}
+
+	return s->cstr;
 }

@@ -16,7 +16,7 @@ static int _spawn_child_process(ModuleExtern *m, Update *update, const ModulePar
  * Public
  */
 int
-module_extern_exec(Update *update, const ModuleParam *param)
+module_extern_exec_cmd(Update *update, const ModuleParam *param)
 {
 	const TgMessage *const msg = param->message;
 	char buffer[MODULE_EXTERN_NAME_SIZE];
@@ -52,6 +52,15 @@ module_extern_exec(Update *update, const ModuleParam *param)
 err0:
 	common_send_text_plain(update, msg, "Failed to execute external command");
 	return 1;
+}
+
+
+int
+module_extern_exec_callback(Update *update, const ModuleParam *param)
+{
+	(void)update;
+	(void)param;
+	return 0;
 }
 
 

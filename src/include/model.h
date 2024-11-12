@@ -79,7 +79,10 @@ typedef struct module_param {
 			json_object     *json;
 		};
 
-		const TgCallbackQuery *callback;
+		struct {
+			CallbackQuery          query;
+			const TgCallbackQuery *callback;
+		};
 	};
 } ModuleParam;
 

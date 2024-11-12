@@ -379,6 +379,8 @@ tg_update_free(TgUpdate *u)
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
 		free(u->callback_query.from);
+		if (u->callback_query.message != NULL)
+			_free_message(u->callback_query.message);
 		break;
 	default:
 		break;
@@ -886,6 +888,15 @@ _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj)
 	if (json_object_object_get_ex(callback_query_obj, "from", &from_obj) == 0)
 		return -1;
 
+	json_object *message_obj;
+	if (json_object_object_get_ex(callback_query_obj, "message", &message_obj) != 0) {
+		TgMessage *const message = calloc(1, sizeof(TgMessage));
+		if (message != NULL)
+			_parse_message(message, message_obj);
+
+		c->message = message;
+	}
+
 	json_object *chat_instance_obj;
 	if (json_object_object_get_ex(callback_query_obj, "chat_instance", &chat_instance_obj) == 0)
 		return -1;
@@ -898,7 +909,7 @@ _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj)
 	if (json_object_object_get_ex(callback_query_obj, "data", &data_obj) != 0)
 		c->data = json_object_get_string(data_obj);
 
-	c->id = json_object_get_int64(id_obj);
+	c->id = json_object_get_string(id_obj);
 	c->chat_instance = json_object_get_string(chat_instance_obj);
 	return _parse_user_alloc(&c->from, from_obj);
 }
