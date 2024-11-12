@@ -49,7 +49,7 @@ const char *space_tokenizer_next(SpaceTokenizer *s, const char raw[]);
 #define BOT_CMD_ARGS_SIZE CFG_UTIL_BOT_CMD_ARGS_SIZE
 
 typedef struct bot_cmd_arg {
-	const char *name;
+	const char *value;
 	unsigned    len;
 } BotCmdArg;
 
@@ -62,6 +62,27 @@ typedef struct bot_cmd {
 
 int bot_cmd_parse(BotCmd *b, char prefix, const char src[]);
 int bot_cmd_compare(const BotCmd *b, const char cmd[]);
+
+
+/*
+ * CallbackQuery
+ */
+#define CALLBACK_QUERY_ARGS_SIZE CFG_UTIL_CALLBACK_QUERY_ITEMS_SIZE
+
+typedef struct callback_query_arg {
+	const char *value;
+	unsigned    len;
+} CallbackQueryArg;
+
+typedef struct callback_query {
+	const char       *context;
+	unsigned          context_len;
+	unsigned          args_len;
+	CallbackQueryArg  args[CALLBACK_QUERY_ARGS_SIZE];
+} CallbackQuery;
+
+int callback_query_parse(CallbackQuery *c, const char src[]);
+int callback_query_compare(const CallbackQuery *c, const char callback[]);
 
 
 /*

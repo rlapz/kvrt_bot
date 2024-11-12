@@ -21,9 +21,6 @@
 #include <util.h>
 
 
-#define ASCII_SPACE_CHARS " \r\n\f\t\v"
-
-
 /*
  * cstr
  */
@@ -179,7 +176,7 @@ space_tokenizer_next(SpaceTokenizer *s, const char raw[])
 
 
 /*
- * cmd
+ * BotCmd
  */
 int
 bot_cmd_parse(BotCmd *b, char prefix, const char src[])
@@ -204,7 +201,7 @@ bot_cmd_parse(BotCmd *b, char prefix, const char src[])
 			break;
 
 		b->args[count] = (BotCmdArg) {
-			.name = st.value,
+			.value = st.value,
 			.len = st.len,
 		};
 
@@ -223,6 +220,48 @@ bot_cmd_compare(const BotCmd *b, const char cmd[])
 		return 0;
 
 	return cstr_casecmp_n(cmd, b->name, (size_t)b->name_len);
+}
+
+
+/*
+ * CallbackQuery
+ */
+int
+callback_query_parse(CallbackQuery *c, const char src[])
+{
+	SpaceTokenizer st;
+	const char *next = space_tokenizer_next(&st, src);
+	if (st.len == 0)
+		return -1;
+
+	c->context = st.value;
+	c->context_len = st.len;
+
+	unsigned count = 0;
+	while ((next = space_tokenizer_next(&st, next)) != NULL) {
+		if (count == CALLBACK_QUERY_ARGS_SIZE)
+			break;
+
+		c->args[count] = (CallbackQueryArg) {
+			.value = st.value,
+			.len = st.len,
+		};
+
+		count++;
+	}
+
+	c->args_len = count;
+	return 0;
+}
+
+
+int
+callback_query_compare(const CallbackQuery *c, const char callback[])
+{
+	if (c == NULL)
+		return 0;
+
+	return cstr_casecmp_n(callback, c->context, (size_t)c->context_len);
 }
 
 
