@@ -1,12 +1,13 @@
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 
 #include <module.h>
 #include <model.h>
 #include <common.h>
-#include <service.h>
+#include <repo.h>
 
 
 typedef void (*ModuleBuiltinFn)(Update *u, const ModuleParam *param);
@@ -217,7 +218,7 @@ _module_cmd_admin_reload(Update *u, const ModuleParam *param)
 		goto out1;
 	}
 
-	if (service_admin_reload(&u->service, admin_list_e, admin_list_len) < 0)
+	if (repo_admin_reload(&u->repo, admin_list_e, admin_list_len) < 0)
 		goto out1;
 
 	resp = str_set_fmt(&u->str, "Done! %d admin(s) loaded", admin_list_len);
@@ -325,7 +326,7 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 		.message_ptr = msg_text,
 	};
 
-	const int ret = service_cmd_message_set(&u->service, &cmd_msg);
+	const int ret = repo_cmd_message_set(&u->repo, &cmd_msg);
 	if (ret < 0) {
 		resp = "Failed to set command message";
 		goto out0;
@@ -359,32 +360,35 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 
 	int max_len = 0;
 	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
-	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), 0, &max_len);
+	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), 0, &max_len);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get Command Message list");
 		return;
 	}
 
 	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, ret);
+
+	/* no pagination */
 	if (max_len < CFG_MODULE_CMD_MSG_SIZE) {
 		common_send_text_format(u, msg, text);
-		return;
-	}
-
-	Str cb_str;
-	char buffer[1024];
-	str_init(&cb_str, buffer, LEN(buffer));
-	const char *const cb_data = str_set_fmt(&cb_str, "%s %d", _module_list[_MODULE_MSG_LIST].name, ret);
-	if (cb_data == NULL) {
-		common_send_text_plain(u, msg, "Failed!");
 		return;
 	}
 
 	const TgApiInlineKeyboard kbd = {
 		.len = 1,
 		.items = &(TgApiInlineKeyboardItem) {
-			.callback_data = cb_data,
 			.text = "Next",
+			.callbacks_len = 2,
+			.callbacks = (TgApiCallbackData[]) {
+				{
+					.type = TG_API_CALLBACK_DATA_TYPE_TEXT,
+					.text = _module_list[_MODULE_MSG_LIST].name,
+				},
+				{
+					.type = TG_API_CALLBACK_DATA_TYPE_INT,
+					.int_ = 2,
+				},
+			},
 		},
 	};
 
@@ -430,7 +434,7 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
 
 	CmdMessage cmd_msg = { .chat_id = msg->chat.id, .name_ptr = buffer };
-	const int ret = service_cmd_message_get_message(&u->service, &cmd_msg);
+	const int ret = repo_cmd_message_get_message(&u->repo, &cmd_msg);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get command message");
 		return 1;
@@ -450,7 +454,6 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 static void
 _module_cb_msg_list(Update *u, const ModuleParam *param)
 {
-	char buffer[1024];
 	const TgMessage *const msg = param->callback->message;
 	const CallbackQuery *const query = &param->query;
 	if (query->args_len != 1)
@@ -460,34 +463,20 @@ _module_cb_msg_list(Update *u, const ModuleParam *param)
 	if (cstr_cmp_n(name, query->context, query->context_len) == 0)
 		return;
 
-	cstr_copy_n2(buffer, LEN(buffer), query->args[0].value, query->args[0].len);
-	const int offt = atoi(buffer);
+	const int page_num = (int)cstr_to_llong_n(query->args[0].value, query->args[0].len);
+	const int req_index = (page_num - 1) * CFG_MODULE_CMD_MSG_SIZE;
 
 	int max_len = 0;
 	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
-	const int ret = service_cmd_message_get_list(&u->service, msg->chat.id, msgs, LEN(msgs), offt, &max_len);
+	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs),
+						     req_index, &max_len);
 	if (ret < 0)
 		return;
 
-	Str cb_str;
-	str_init(&cb_str, buffer, LEN(buffer));
-	const char *const cb_data = str_set_fmt(&cb_str, "%s %d", name, ret);
-	if (cb_data == NULL)
-		return;
+	// TODO
+	// next
 
-	TgApiInlineKeyboard kbds = {
-		.len = 2,
-		.items = (TgApiInlineKeyboardItem[]) {
-			{ .callback_data = cb_data, .text = "Prev" },
-			{ .callback_data = cb_data, .text = "Next" },
-		},
-	};
-
-	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, ret);
-	if (ret < CFG_MODULE_CMD_MSG_SIZE)
-		kbds.len = 1;
-
-	tg_api_edit_inline_keyboard(&u->api, msg->chat.id, msg->id, &kbds, 1, text);
+	// prev
 }
 
 
@@ -504,7 +493,7 @@ _module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int len)
 		const CmdMessage *const m = &msgs[i];
 		str_append_fmt(s, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
 			       i + 1, m->name, m->created_by, m->created_by,
-			       cstr_tg_escape(time_buffer, m->created_at));
+			       common_tg_escape(time_buffer, m->created_at));
 	}
 
 	return s->cstr;

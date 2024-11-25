@@ -135,16 +135,15 @@ cstr_trim_r(char dest[])
  * WARN: Unsafe
  */
 char *
-cstr_tg_escape(char dest[], const char src[])
+cstr_escape(char dest[], const char esc[], int c, const char src[])
 {
 	size_t i = 0;
-	const char *const special_chars = "_*[]()~`>#+-=|{}.!";
 	for (const char *p = src; *p != '\0'; p++) {
-		for (const char *s = special_chars; *s != '\0'; s++) {
+		for (const char *s = esc; *s != '\0'; s++) {
 			if (*p != *s)
 				continue;
 
-			dest[i++] = '\\';
+			dest[i++] = c;
 		}
 
 		dest[i++] = *p;
@@ -155,13 +154,31 @@ cstr_tg_escape(char dest[], const char src[])
 }
 
 
+long long
+cstr_to_llong_n(const char cstr[], size_t len)
+{
+	char buffer[24];
+	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
+	return strtoll(buffer, NULL, 10);
+}
+
+
+unsigned long long
+cstr_to_ullong_n(const char cstr[], size_t len)
+{
+	char buffer[24];
+	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
+	return strtoull(buffer, NULL, 10);
+}
+
+
 /*
  * SpaceTokenizer
  */
 const char *
 space_tokenizer_next(SpaceTokenizer *s, const char raw[])
 {
-	const char *value = cstr_trim_l((char *)raw);
+	const char *const value = cstr_trim_l((char *)raw);
 	if (*value == '\0')
 		return NULL;
 

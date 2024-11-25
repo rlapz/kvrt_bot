@@ -5,7 +5,7 @@
 #include <module.h>
 #include <model.h>
 #include <common.h>
-#include <service.h>
+#include <repo.h>
 
 
 static int _validate_args_len(int args, int max_len);
@@ -28,7 +28,7 @@ module_extern_exec_cmd(Update *update, const ModuleParam *param)
 		.name_ptr = buffer,
 	};
 
-	const int ret = service_module_extern_get(&update->service, &module);
+	const int ret = repo_module_extern_get(&update->repo, &module);
 	if (ret == 0)
 		return 0;
 

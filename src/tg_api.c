@@ -471,12 +471,38 @@ _build_inline_keyboard_item(Str *s, const TgApiInlineKeyboardItem *item)
 
 	str_append_fmt(s, "{\"text\": \"%s\"", item->text);
 
-	if (item->callback_data)
-		str_append_fmt(s, ", \"callback_data\": \"%s\"", item->callback_data);
-	else if (item->url)
+	const int cb_len = item->callbacks_len;
+	if (cb_len > 0) {
+		str_append_fmt(s, ", \"callback_data\": \"");
+		for (int i = 0; i < cb_len; i++) {
+			const TgApiCallbackData *const d = &item->callbacks[i];
+			switch (d->type) {
+			case TG_API_CALLBACK_DATA_TYPE_INT:
+				str_append_fmt(s, "%d", d->int_);
+				break;
+			case TG_API_CALLBACK_DATA_TYPE_UINT:
+				str_append_fmt(s, "%u", d->uint_);
+				break;
+			case TG_API_CALLBACK_DATA_TYPE_INT64:
+				str_append_fmt(s, "%" PRIi64, d->int64);
+				break;
+			case TG_API_CALLBACK_DATA_TYPE_UINT64:
+				str_append_fmt(s, "%" PRIu64, d->uint64);
+				break;
+			case TG_API_CALLBACK_DATA_TYPE_TEXT:
+				str_append_fmt(s, "%s", d->text);
+				break;
+			}
+
+			if (i < (cb_len - 1))
+				str_append_n(s, " ", 1);
+		}
+		str_append_n(s, "\"", 1);
+	} else if (item->url) {
 		str_append_fmt(s, ", \"url\": \"%s\"", item->url);
-	else
+	} else {
 		return NULL;
+	}
 
 	return str_append_n(s, "}", 1);
 }

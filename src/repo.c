@@ -1,6 +1,6 @@
 #include <errno.h>
 
-#include <service.h>
+#include <repo.h>
 #include <model.h>
 
 
@@ -8,13 +8,13 @@
  * Public
  */
 int
-service_init(Service *s, const char db_path[])
+repo_init(Repo *s, const char db_path[])
 {
 	if (db_init(&s->db, db_path) < 0)
 		return -1;
 
 	if (str_init_alloc(&s->str, 0) < 0) {
-		log_err(ENOMEM, "service: service_init: str_init_alloc");
+		log_err(ENOMEM, "repo: repo_init: str_init_alloc");
 		db_deinit(&s->db);
 		return -1;
 	}
@@ -24,7 +24,7 @@ service_init(Service *s, const char db_path[])
 
 
 void
-service_deinit(Service *s)
+repo_deinit(Repo *s)
 {
 	db_deinit(&s->db);
 	str_deinit(&s->str);
@@ -32,7 +32,7 @@ service_deinit(Service *s)
 
 
 int
-service_admin_add(Service *s, const Admin admin_list[], int len)
+repo_admin_add(Repo *s, const Admin admin_list[], int len)
 {
 	int ret = 0;
 	const char *const sql = "insert into Admin(chat_id, user_id, privileges) values (?, ?, ?);";
@@ -55,7 +55,7 @@ service_admin_add(Service *s, const Admin admin_list[], int len)
 
 
 int
-service_admin_get_privileges(Service *s, int64_t chat_id, int64_t user_id)
+repo_admin_get_privileges(Repo *s, int64_t chat_id, int64_t user_id)
 {
 	int privileges = 0;
 	const char *const sql = "select privileges "
@@ -83,7 +83,7 @@ service_admin_get_privileges(Service *s, int64_t chat_id, int64_t user_id)
 
 
 int
-service_admin_clear(Service *s, int64_t chat_id)
+repo_admin_clear(Repo *s, int64_t chat_id)
 {
 	const char *const sql = "delete from Admin where (chat_id = ?);";
 	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
@@ -95,7 +95,7 @@ service_admin_clear(Service *s, int64_t chat_id)
 
 
 int
-service_admin_reload(Service *s, const Admin admin_list[], int len)
+repo_admin_reload(Repo *s, const Admin admin_list[], int len)
 {
 	int is_ok = 0;
 	if (len <= 0)
@@ -105,11 +105,11 @@ service_admin_reload(Service *s, const Admin admin_list[], int len)
 	if (ret < 0)
 		return -1;
 
-	ret = service_admin_clear(s, admin_list[0].chat_id);
+	ret = repo_admin_clear(s, admin_list[0].chat_id);
 	if (ret < 0)
 		goto out0;
 
-	ret = service_admin_add(s, admin_list, len);
+	ret = repo_admin_add(s, admin_list, len);
 	if (ret < 0)
 		goto out0;
 
@@ -122,7 +122,7 @@ out0:
 
 
 int
-service_cmd_message_set(Service *s, const CmdMessage *msg)
+repo_cmd_message_set(Repo *s, const CmdMessage *msg)
 {
 	DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = msg->chat_id },
@@ -157,7 +157,7 @@ service_cmd_message_set(Service *s, const CmdMessage *msg)
 
 
 int
-service_cmd_message_get_message(Service *s, CmdMessage *msg)
+repo_cmd_message_get_message(Repo *s, CmdMessage *msg)
 {
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = msg->chat_id },
@@ -190,7 +190,7 @@ service_cmd_message_get_message(Service *s, CmdMessage *msg)
 
 
 int
-service_cmd_message_get_list(Service *s, int64_t chat_id, CmdMessage msgs[], int len, int offt,
+repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, int offt,
 			     int *max_len)
 {
 	const char *sql = "select chat_id, name, message, max(created_at), created_by "
@@ -287,7 +287,7 @@ out0:
 
 
 int
-service_module_extern_setup(Service *s, int64_t chat_id)
+repo_module_extern_setup(Repo *s, int64_t chat_id)
 {
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
@@ -316,7 +316,7 @@ service_module_extern_setup(Service *s, int64_t chat_id)
 
 
 int
-service_module_extern_toggle(Service *s, const ModuleExtern *mod, int is_enable)
+repo_module_extern_toggle(Repo *s, const ModuleExtern *mod, int is_enable)
 {
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = mod->chat_id },
@@ -344,7 +344,7 @@ service_module_extern_toggle(Service *s, const ModuleExtern *mod, int is_enable)
 
 
 int
-service_module_extern_toggle_nsfw(Service *s, int64_t chat_id, int is_enable)
+repo_module_extern_toggle_nsfw(Repo *s, int64_t chat_id, int is_enable)
 {
 	int is_ok = 0;
 	const DbArg args[] = {
@@ -388,7 +388,7 @@ out0:
 
 
 int
-service_module_extern_get(Service *s, ModuleExtern *mod)
+repo_module_extern_get(Repo *s, ModuleExtern *mod)
 {
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = mod->chat_id },

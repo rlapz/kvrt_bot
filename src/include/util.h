@@ -23,13 +23,15 @@ size_t cstr_copy_n(char dest[], size_t size, const char src[]);
 size_t cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
 
 /* ret: ~0: equals */
-int    cstr_cmp_n(const char a[], const char b[], size_t b_len);
-int    cstr_casecmp_n(const char a[], const char b[], size_t b_len);
+int cstr_cmp_n(const char a[], const char b[], size_t b_len);
+int cstr_casecmp_n(const char a[], const char b[], size_t b_len);
 
-char  *cstr_trim_l(char dest[]);
-char  *cstr_trim_r(char dest[]);
+char *cstr_trim_l(char dest[]);
+char *cstr_trim_r(char dest[]);
+char *cstr_escape(char dest[], const char esc[], int c, const char src[]);
 
-char  *cstr_tg_escape(char dest[], const char src[]);
+long long          cstr_to_llong_n(const char cstr[], size_t len);
+unsigned long long cstr_to_ullong_n(const char cstr[], size_t len);
 
 
 /*
@@ -81,8 +83,9 @@ typedef struct callback_query {
 	CallbackQueryArg  args[CALLBACK_QUERY_ARGS_SIZE];
 } CallbackQuery;
 
-int callback_query_parse(CallbackQuery *c, const char src[]);
-int callback_query_compare(const CallbackQuery *c, const char callback[]);
+int      callback_query_parse(CallbackQuery *c, const char src[]);
+int      callback_query_compare(const CallbackQuery *c, const char callback[]);
+unsigned callback_query_merge(const CallbackQuery *c, char buffer[], unsigned size);
 
 
 /*

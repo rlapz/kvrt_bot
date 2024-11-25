@@ -22,11 +22,31 @@ typedef enum tg_api_photo_type {
 	TG_API_PHOTO_TYPE_FILE,
 } TgApiPhotoType;
 
-typedef struct tg_api_inline_keybard_item {
-	const char *text;
+typedef enum tg_api_callback_data_type {
+	TG_API_CALLBACK_DATA_TYPE_INT,
+	TG_API_CALLBACK_DATA_TYPE_UINT,
+	TG_API_CALLBACK_DATA_TYPE_INT64,
+	TG_API_CALLBACK_DATA_TYPE_UINT64,
+	TG_API_CALLBACK_DATA_TYPE_TEXT,
+} TgApiCallbackDataType;
+
+typedef struct tg_api_callback_data {
+	TgApiCallbackDataType type;
 	union {
-		const char *url;
-		const char *callback_data;
+		int         int_;
+		unsigned    uint_;
+		int64_t     int64;
+		uint64_t    uint64;
+		const char *text;
+	};
+} TgApiCallbackData;
+
+typedef struct tg_api_inline_keyboard_item {
+	const char *text;
+	const char *url;
+	struct {
+		int                callbacks_len;
+		TgApiCallbackData *callbacks;
 	};
 } TgApiInlineKeyboardItem;
 

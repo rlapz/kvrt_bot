@@ -56,3 +56,5 @@ kvrt_bot
 run.sh
 db.sql
 test.c
+
+.vscode/settings.json
