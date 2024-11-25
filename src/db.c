@@ -55,6 +55,7 @@ db_transaction_begin(Db *d)
 	char *err_msg;
 	if (sqlite3_exec(d->sql, "begin transaction;", NULL, NULL, &err_msg) != SQLITE_OK) {
 		log_err(0, "db: db_transaction_begin: sqlite3_exec: %s", err_msg);
+		sqlite3_free(err_msg);
 		return -1;
 	}
 
@@ -69,6 +70,7 @@ db_transaction_end(Db *d, int is_ok)
 	const char *const sql = (is_ok)? "commit transaction;" : "rollback transaction;";
 	if (sqlite3_exec(d->sql, sql, NULL, NULL, &err_msg) != SQLITE_OK) {
 		log_err(0, "db: db_transaction_end(%d): sqlite3_exec: %s", is_ok, err_msg);
+		sqlite3_free(err_msg);
 		return -1;
 	}
 
