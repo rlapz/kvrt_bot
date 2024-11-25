@@ -10,8 +10,6 @@
 #include <util.h>
 
 
-static int          _curl_init(TgApi *t);
-static void         _curl_deinit(TgApi *t);
 static size_t       _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
 static const char  *_curl_request_get(TgApi *t, const char url[]);
 static json_object *_parse_response(json_object *json_obj);
@@ -31,15 +29,16 @@ tg_api_init(TgApi *t, const char base_api[])
 		return ret;
 	}
 
-	if (_curl_init(t) < 0)
-		goto err0;
+	CURL *const curl = curl_easy_init();
+	if (curl == NULL) {
+		log_err(0, "tg_api: curl_easy_init: failed to init");
+		str_deinit(&t->str);
+		return -1;
+	}
 
+	t->curl = curl;
 	t->api = base_api;
 	return 0;
-
-err0:
-	str_deinit(&t->str);
-	return -1;
 }
 
 
@@ -47,7 +46,7 @@ void
 tg_api_deinit(TgApi *t)
 {
 	str_deinit(&t->str);
-	_curl_deinit(t);
+	curl_easy_cleanup(t->curl);
 }
 
 
@@ -370,27 +369,6 @@ err0:
 /*
  * Private
  */
-static int
-_curl_init(TgApi *t)
-{
-	CURL *const curl = curl_easy_init();
-	if (curl == NULL) {
-		log_err(0, "tg_api: _curl_init: curl_easy_init: failed to init");
-		return -1;
-	}
-
-	t->curl = curl;
-	return 0;
-}
-
-
-static void
-_curl_deinit(TgApi *t)
-{
-	curl_easy_cleanup(t->curl);
-}
-
-
 static size_t
 _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
 {
