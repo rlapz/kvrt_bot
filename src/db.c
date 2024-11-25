@@ -258,7 +258,7 @@ _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len)
 		if (type == SQLITE_NULL) {
 			memset(item, 0, sizeof(*item));
 			item->type = DB_DATA_TYPE_NULL;
-			return 0;
+			continue;
 		}
 
 		switch (item->type) {
