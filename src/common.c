@@ -29,9 +29,60 @@ out0:
 }
 
 
-char *
-common_tg_escape(char dest[], const char src[])
+void
+common_send_pagination(Update *u, const TgMessage *msg, const char context[], const char body[],
+		       int offt, int max)
 {
-	const char *const special_chars = "_*[]()~`>#+-=|{}.!";
-	return cstr_escape(dest, special_chars, '\\', src);
+	TgApiInlineKeyboard kbd = {
+		.len = 0,
+		.items = (TgApiInlineKeyboardItem[]) {
+			{
+				.text = "Next",
+				.callbacks_len = 2,
+				.callbacks = (TgApiCallbackData[]) {
+					{ .type = TG_API_CALLBACK_DATA_TYPE_TEXT, .text = context },
+					{ .type = TG_API_CALLBACK_DATA_TYPE_INT, .int_ = 2 },
+				},
+			},
+			{
+				.text = "Prev",
+				.callbacks_len = 2,
+				.callbacks = (TgApiCallbackData[]) {
+					{ .type = TG_API_CALLBACK_DATA_TYPE_TEXT, .text = context },
+					{ .type = TG_API_CALLBACK_DATA_TYPE_INT },
+				},
+			},
+		},
+	};
+
+	/* start page */
+	if (offt < 0) {
+		if (CFG_ITEM_LIST_SIZE >= max) {
+			common_send_text_format(u, msg, body);
+			return;
+		}
+
+		kbd.len = 1;
+		tg_api_send_inline_keyboard(&u->api, msg->chat.id, &msg->id, body, &kbd, 1);
+		return;
+	}
+
+	TgApiInlineKeyboardItem *items = NULL;
+
+	/* prev */
+	if (offt > 1) {
+		kbd.len++;
+		kbd.items[1].callbacks[1].int_ = offt - 1;
+		items = &kbd.items[1];
+	}
+
+	/* next */
+	if ((offt * CFG_ITEM_LIST_SIZE) < max) {
+		kbd.len++;
+		kbd.items[0].callbacks[1].int_ = offt + 1;
+		items = &kbd.items[0];
+	}
+
+	kbd.items = items;
+	tg_api_edit_inline_keyboard(&u->api, msg->chat.id, msg->id, body, &kbd, 1);
 }

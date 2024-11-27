@@ -43,7 +43,7 @@ static void _module_cb_msg_list(Update *u, const ModuleParam *param);
 /*
  * Helpers
  */
-static const char *_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int len);
+static const char *_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int idx, int len, int max_len);
 
 
 enum {
@@ -360,7 +360,7 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 	}
 
 	int max_len = 0;
-	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
+	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), 0, &max_len);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get Command Message list");
@@ -372,33 +372,8 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 		return;
 	}
 
-	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, ret);
-
-	/* no pagination */
-	if (max_len < CFG_MODULE_CMD_MSG_SIZE) {
-		common_send_text_format(u, msg, text);
-		return;
-	}
-
-	const TgApiInlineKeyboard kbd = {
-		.len = 1,
-		.items = &(TgApiInlineKeyboardItem) {
-			.text = "Next",
-			.callbacks_len = 2,
-			.callbacks = (TgApiCallbackData[]) {
-				{
-					.type = TG_API_CALLBACK_DATA_TYPE_TEXT,
-					.text = _module_list[_MODULE_MSG_LIST].name,
-				},
-				{
-					.type = TG_API_CALLBACK_DATA_TYPE_INT,
-					.int_ = 2,
-				},
-			},
-		},
-	};
-
-	tg_api_send_inline_keyboard(&u->api, msg->chat.id, &msg->id, text, &kbd, 1);
+	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, 1, ret, max_len);
+	common_send_pagination(u, msg, _module_list[_MODULE_MSG_LIST].name, text, -1, max_len);
 }
 
 
@@ -470,19 +445,19 @@ _module_cb_msg_list(Update *u, const ModuleParam *param)
 		return;
 
 	const int page_num = (int)cstr_to_llong_n(query->args[0].value, query->args[0].len);
-	const int req_index = (page_num - 1) * CFG_MODULE_CMD_MSG_SIZE;
+	const int req_index = (page_num - 1) * CFG_ITEM_LIST_SIZE;
 
 	int max_len = 0;
-	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
+	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs),
 						  req_index, &max_len);
 	if (ret < 0)
 		return;
 
-	// TODO
-	// next
+	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, req_index + 1, ret, max_len);
 
-	// prev
+	/* TODO */
+	common_send_pagination(u, msg, name, text, page_num, max_len);
 }
 
 
@@ -490,17 +465,35 @@ _module_cb_msg_list(Update *u, const ModuleParam *param)
  * Helpers
  */
 static const char *
-_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int len)
+_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int idx, int len, int max_len)
 {
 	char time_buffer[DATETIME_SIZE * 2];
-	str_set_fmt(s, "Command Message List:\n");
+	char cmd_name_buffer[CMD_MSG_NAME_SIZE * 2];
+	char msg_buffer[25];
+	char msg_buffer_e[LEN(msg_buffer) * 2];
+	str_set_fmt(s, "Command Message List: \\(%d \\- %d\\)\n", idx, max_len);
 
 	for (int i = 0; i < len; i++) {
 		const CmdMessage *const m = &msgs[i];
 		const char *const date = (m->updated_at[0] == '\0')? m->created_at : m->updated_at;
-		str_append_fmt(s, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
-			       i + 1, m->name, m->created_by, m->created_by,
-			       common_tg_escape(time_buffer, date));
+
+		// TODO: send user_id link without mention
+		//str_append_fmt(s, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
+		//	       i + 1, common_tg_escape(cmd_name_buffer, m->name), m->created_by,
+		//	       m->created_by, common_tg_escape(time_buffer, date));
+
+		const size_t _len = cstr_copy_n(msg_buffer, LEN(msg_buffer), m->message);
+		if (_len < (LEN(msg_buffer) - 4)) {
+			str_append_fmt(s, "%d\\. %s \\- %s \\- _%s_\n", i + 1,
+				       common_tg_escape(cmd_name_buffer, m->name),
+				       common_tg_escape(msg_buffer_e, msg_buffer),
+				       common_tg_escape(time_buffer, date));
+		} else {
+			str_append_fmt(s, "%d\\. %s \\- %s\\.\\.\\. \\- _%s_\n", i + 1,
+				       common_tg_escape(cmd_name_buffer, m->name),
+				       common_tg_escape(msg_buffer_e, msg_buffer),
+				       common_tg_escape(time_buffer, date));
+		}
 	}
 
 	return s->cstr;

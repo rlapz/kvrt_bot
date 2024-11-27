@@ -245,8 +245,8 @@ out0:
 
 
 int
-tg_api_edit_inline_keyboard(TgApi *t, int64_t chat_id, int64_t msg_id, const TgApiInlineKeyboard kbds[],
-			    int len, const char text[])
+tg_api_edit_inline_keyboard(TgApi *t, int64_t chat_id, int64_t msg_id, const char text[],
+			    const TgApiInlineKeyboard kbds[], int len)
 {
 	int ret = -1;
 	char *const _kbds = _build_inline_keyboards(t, kbds, len);

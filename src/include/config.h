@@ -21,14 +21,13 @@
 #define CFG_EVENT_RESPONSE_OK  "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
 #define CFG_EVENT_RESPONSE_ERR "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
 #define CFG_TELEGRAM_API       "https://api.telegram.org/bot"
+#define CFG_MSG_SPECIAL_CHARS  "_*[]()~`>#+-=|{}.!"
 
 #define CFG_UTIL_BOT_CMD_ARGS_SIZE         (16)
 #define CFG_UTIL_CALLBACK_QUERY_ITEMS_SIZE (8)
 #define CFG_UTIL_CHLD_ITEMS_SIZE           (256)
 
-#define CFG_ITEM_LIST_SIZE (2)
-
-#define CFG_MODULE_CMD_MSG_SIZE (5)
+#define CFG_ITEM_LIST_SIZE (10)
 
 
 typedef struct config {

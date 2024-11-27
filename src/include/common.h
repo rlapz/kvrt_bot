@@ -5,8 +5,16 @@
 #include <update.h>
 
 
-int   common_privileges_check(Update *u, const TgMessage *msg);
-char *common_tg_escape(char dest[], const char src[]);
+int  common_privileges_check(Update *u, const TgMessage *msg);
+void common_send_pagination(Update *u, const TgMessage *msg, const char context[], const char body[],
+			    int offt, int max);
+
+
+static inline char *
+common_tg_escape(char dest[], const char src[])
+{
+	return cstr_escape(dest, CFG_MSG_SPECIAL_CHARS, '\\', src);
+}
 
 
 static inline void
