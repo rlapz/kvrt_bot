@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <common.h>
 #include <update.h>
 #include <repo.h>
@@ -30,8 +31,7 @@ out0:
 
 
 void
-common_send_pagination(Update *u, const TgMessage *msg, const char context[], const char body[],
-		       int offt, int max)
+common_send_list(Update *u, const TgMessage *msg, const char context[], const char body[], int offt, int max)
 {
 	TgApiInlineKeyboard kbd = {
 		.len = 0,

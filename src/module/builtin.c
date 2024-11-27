@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -284,7 +285,15 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 	char buffer[CMD_MSG_NAME_SIZE];
 	const char *name = args[0].value;
 	unsigned name_len = args[0].len;
+
+	/* remove all '/' */
 	while (*name != '\0') {
+		if (isalnum(*name) == 0) {
+			/* invalid */
+			name_len = 0;
+			break;
+		}
+
 		if (*name != '/')
 			break;
 
@@ -373,7 +382,7 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 	}
 
 	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, 1, ret, max_len);
-	common_send_pagination(u, msg, _module_list[_MODULE_MSG_LIST].name, text, -1, max_len);
+	common_send_list(u, msg, _module_list[_MODULE_MSG_LIST].name, text, -1, max_len);
 }
 
 
@@ -457,7 +466,7 @@ _module_cb_msg_list(Update *u, const ModuleParam *param)
 	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, req_index + 1, ret, max_len);
 
 	/* TODO */
-	common_send_pagination(u, msg, name, text, page_num, max_len);
+	common_send_list(u, msg, name, text, page_num, max_len);
 }
 
 
