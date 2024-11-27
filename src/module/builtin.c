@@ -282,33 +282,17 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 		goto out0;
 	}
 
-	char buffer[CMD_MSG_NAME_SIZE];
-	const char *name = args[0].value;
-	unsigned name_len = args[0].len;
-
-	/* remove all '/' */
-	while (*name != '\0') {
-		if (isalnum(*name) == 0) {
-			/* invalid */
-			name_len = 0;
-			break;
-		}
-
-		if (*name != '/')
-			break;
-
-		name++;
-		name_len--;
-	}
-
-	if (name_len == 0) {
-		resp = "Invalid command name";
-		goto out0;
-	}
-
-	if (name_len >= LEN(buffer)) {
+	char cmd_name[CMD_MSG_NAME_SIZE];
+	if (args[0].len >= LEN(cmd_name)) {
 		resp = "Command_name too long";
 		goto out0;
+	}
+
+	for (unsigned i = 0; i < args[0].len; i++) {
+		if (isalnum(args[0].value[i]) == 0) {
+			resp = "Invalid command name";
+			goto out0;
+		}
 	}
 
 	const char *msg_text = NULL;
@@ -325,14 +309,14 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 		msg_text = args[1].value;
 	}
 
-	buffer[0] = '/';
-	cstr_copy_n2(buffer + 1, LEN(buffer) - 1, name, name_len);
+	cmd_name[0] = '/';
+	cstr_copy_n2(cmd_name + 1, LEN(cmd_name) - 1, args[0].value, args[0].len);
 
 	const CmdMessage cmd_msg = {
 		.chat_id = msg->chat.id,
 		.created_by = msg->from->id,
 		.updated_by = msg->from->id,
-		.name_ptr = buffer,
+		.name_ptr = cmd_name,
 		.message_ptr = msg_text,
 	};
 
