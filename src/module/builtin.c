@@ -289,7 +289,8 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 	}
 
 	for (unsigned i = 0; i < args[0].len; i++) {
-		if (isalnum(args[0].value[i]) == 0) {
+		const int arg = args[0].value[i];
+		if ((arg != '_') && (isalnum(arg) == 0)) {
 			resp = "Invalid command name";
 			goto out0;
 		}
