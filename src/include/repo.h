@@ -30,8 +30,7 @@ int repo_admin_reload(Repo *s, const Admin admin_list[], int len);
  */
 int repo_cmd_message_set(Repo *s, const CmdMessage *msg);
 int repo_cmd_message_get_message(Repo *s, CmdMessage *msg);
-int repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len,
-			      int offt, int *max_len);
+int repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, int offt, int *max_len);
 
 
 /*

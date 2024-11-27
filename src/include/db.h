@@ -27,25 +27,25 @@ typedef struct db_arg {
 	};
 } DbArg;
 
-typedef struct db_out_item_text {
+typedef struct db_out_field_text {
 	char   *cstr;
 	size_t  len;
 	size_t  size;
-} DbOutItemText;
+} DbOutFieldText;
 
 /* the callee maybe change result type -> DB_DATA_TYPE_NULL */
-typedef struct db_out_item {
+typedef struct db_out_field {
 	int type;
 	union {
-		int           *int_;
-		int64_t       *int64;
-		DbOutItemText  text;
+		int            *int_;
+		int64_t        *int64;
+		DbOutFieldText  text;
 	};
-} DbOutItem;
+} DbOutField;
 
 typedef struct db_out {
-	int        len;
-	DbOutItem *items;
+	int         len;
+	DbOutField *fields;
 } DbOut;
 
 
@@ -58,7 +58,7 @@ int  db_init(Db *d, const char path[]);
 void db_deinit(Db *d);
 int  db_transaction_begin(Db *d);
 int  db_transaction_end(Db *d, int is_ok);
-int  db_exec(Db *d, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len);
+int  db_exec(Db *d, const char query[], const DbArg args[], int args_len, const DbOut out[], int out_len);
 int  db_changes(Db *s);
 
 

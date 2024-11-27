@@ -8,8 +8,8 @@
 
 static int _create_tables(sqlite3 *s);
 static int _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
-static int _exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len);
-static int _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len);
+static int _exec_get_output(sqlite3_stmt *s, const DbOut out[], int out_len);
+static int _exec_get_output_values(sqlite3_stmt *s, DbOutField fields[], int len);
 
 
 /*
@@ -79,7 +79,7 @@ db_transaction_end(Db *d, int is_ok)
 
 
 int
-db_exec(Db *d, const char query[], const DbArg args[], int args_len, DbOut out[], int out_len)
+db_exec(Db *d, const char query[], const DbArg args[], int args_len, const DbOut out[], int out_len)
 {
 	sqlite3_stmt *stmt;
 	int ret = sqlite3_prepare_v2(d->sql, query, -1, &stmt, NULL);
@@ -160,9 +160,11 @@ _create_tables(sqlite3 *s)
 		"id         integer primary key autoincrement,"
 		"chat_id    bigint not null,"			/* telegram chat id */
 		"name       varchar(33) not null,"
-		"message    varchar(8192) not null,"
+		"message    varchar(8192) null,"
 		"created_at datetime default (datetime('now', 'localtime')) not null,"
-		"created_by bigint not null);";			/* telegram user id */
+		"created_by bigint not null,"			/* telegram user id */
+		"updated_at datatime null,"
+		"updated_by bigint null);";			/* telegram user id */
 
 
 	char *err_msg;
@@ -229,10 +231,10 @@ _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len)
 
 
 static int
-_exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len)
+_exec_get_output(sqlite3_stmt *s, const DbOut out[], int out_len)
 {
-	int count = 0;
-	for (; count < out_len; count++) {
+	int i = 0;
+	for (; i < out_len; i++) {
 		const int ret = sqlite3_step(s);
 		if (ret == SQLITE_DONE)
 			break;
@@ -242,49 +244,60 @@ _exec_get_output(sqlite3_stmt *s, DbOut out[], int out_len)
 			return -1;
 		}
 
-		if (_exec_get_output_values(s, out[count].items, out[count].len) < 0)
+		if (_exec_get_output_values(s, out[i].fields, out[i].len) < 0)
 			return -1;
 	}
 
-	return count;
+	return i;
 }
 
 
 static int
-_exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len)
+_exec_get_output_values(sqlite3_stmt *s, DbOutField fields[], int len)
 {
 	int i = 0;
 	for (; i < len; i++) {
-		DbOutItem *const item = &items[i];
+		DbOutField *const field = &fields[i];
 		const int type = sqlite3_column_type(s, i);
 		if (type == SQLITE_NULL) {
-			memset(item, 0, sizeof(*item));
-			item->type = DB_DATA_TYPE_NULL;
+			switch (field->type) {
+			case DB_DATA_TYPE_INT:
+				*field->int_ = 0;
+				break;
+			case DB_DATA_TYPE_INT64:
+				*field->int64 = 0;
+				break;
+			case DB_DATA_TYPE_TEXT:
+				memset(field->text.cstr, 0, field->text.size);
+				break;
+			}
+
+			field->type = DB_DATA_TYPE_NULL;
 			continue;
 		}
 
-		switch (item->type) {
+		switch (field->type) {
 		case DB_DATA_TYPE_INT:
 			if (type != SQLITE_INTEGER)
 				goto err0;
 
-			*item->int_ = sqlite3_column_int(s, i);
+			*field->int_ = sqlite3_column_int(s, i);
 			break;
 		case DB_DATA_TYPE_INT64:
 			if (type != SQLITE_INTEGER)
 				goto err0;
 
-			*item->int64 = sqlite3_column_int64(s, i);
+			*field->int64 = sqlite3_column_int64(s, i);
 			break;
 		case DB_DATA_TYPE_TEXT:
 			if (type != SQLITE_TEXT)
 				goto err0;
 
-			DbOutItemText *const text = &item->text;
+			DbOutFieldText *const text = &field->text;
 			text->len = cstr_copy_n(text->cstr, text->size, (const char *)sqlite3_column_text(s, i));
 			break;
 		default:
-			log_err(0, "db: _exec_get_output_values: invalid out type: [%d:%d]", i, item->type);
+			log_err(0, "db: _exec_get_output_values: invalid out type: [%d:%d]", i, field->type);
 			return -1;
 		}
 	}
@@ -292,6 +305,6 @@ _exec_get_output_values(sqlite3_stmt *s, DbOutItem items[], int len)
 	return 0;
 
 err0:
-	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type didn't match", i, items[i].type);
+	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type didn't match", i, fields[i].type);
 	return -1;
 }

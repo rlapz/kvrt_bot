@@ -322,6 +322,7 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 	const CmdMessage cmd_msg = {
 		.chat_id = msg->chat.id,
 		.created_by = msg->from->id,
+		.updated_by = msg->from->id,
 		.name_ptr = buffer,
 		.message_ptr = msg_text,
 	};
@@ -363,6 +364,11 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), 0, &max_len);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get Command Message list");
+		return;
+	}
+
+	if (ret == 0) {
+		common_send_text_plain(u, msg, "[Empty]");
 		return;
 	}
 
@@ -469,7 +475,7 @@ _module_cb_msg_list(Update *u, const ModuleParam *param)
 	int max_len = 0;
 	CmdMessage msgs[CFG_MODULE_CMD_MSG_SIZE];
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs),
-						     req_index, &max_len);
+						  req_index, &max_len);
 	if (ret < 0)
 		return;
 
@@ -486,14 +492,15 @@ _module_cb_msg_list(Update *u, const ModuleParam *param)
 static const char *
 _module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int len)
 {
-	char time_buffer[CMD_MSG_CREATED_AT_SIZE * 2];
+	char time_buffer[DATETIME_SIZE * 2];
 	str_set_fmt(s, "Command Message List:\n");
 
 	for (int i = 0; i < len; i++) {
 		const CmdMessage *const m = &msgs[i];
+		const char *const date = (m->updated_at[0] == '\0')? m->created_at : m->updated_at;
 		str_append_fmt(s, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
 			       i + 1, m->name, m->created_by, m->created_by,
-			       common_tg_escape(time_buffer, m->created_at));
+			       common_tg_escape(time_buffer, date));
 	}
 
 	return s->cstr;

@@ -68,9 +68,9 @@ repo_admin_get_privileges(Repo *s, int64_t chat_id, int64_t user_id)
 		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
 	};
 
-	DbOut out = {
+	const DbOut out = {
 		.len = 1,
-		.items = (DbOutItem[]) {
+		.fields = (DbOutField[]) {
 			{ .type = DB_DATA_TYPE_INT, .int_ = &privileges },
 		},
 	};
@@ -125,30 +125,30 @@ int
 repo_cmd_message_set(Repo *s, const CmdMessage *msg)
 {
 	DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = msg->chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = msg->name_ptr },
 		{ .type = DB_DATA_TYPE_TEXT, .text = msg->message_ptr },
 		{ .type = DB_DATA_TYPE_INT64, .int64 = msg->created_by },
+		{ .type = DB_DATA_TYPE_INT64, .int64 = msg->chat_id },
+		{ .type = DB_DATA_TYPE_TEXT, .text = msg->name_ptr },
 	};
 
-	const char *sql;
-	const char *const message = msg->message;
-	if ((message == NULL) || (message[0] == '\0')) {
-		sql = "select 1 "
-		      "from Cmd_Message "
-		      "where (chat_id = ?) and (name = ?) and (message != '') "
-		      "order by id desc "
-		      "limit 1;";
+	const char *sql = "select 1 from Cmd_Message where (chat_id = ?) and (name = ?);";
+	const int ret = db_exec(&s->db, sql, &args[2], 2, NULL, 0);
+	if (ret < 0)
+		return -1;
 
-		const int ret = db_exec(&s->db, sql, args, 2, NULL, 0);
-		if (ret <= 0)
-			return ret;
+	if (ret == 0) {
+		if (msg->message_ptr == NULL)
+			return 0;
 
-		/* invalidate cmd message */
-		args[2].text = "";
+		sql = "insert into Cmd_Message(message, created_by, chat_id, name) values(?, ?, ?, ?);";
+	} else {
+		sql = "update Cmd_Message "
+		      "set message = ?, updated_at = datetime('now', 'localtime'), updated_by = ? "
+		      "where (chat_id = ?) and (name = ?);";
+
+		args[1].int64 = msg->updated_by;
 	}
 
-	sql = "insert into Cmd_Message(chat_id, name, message, created_by) values (?, ?, ?, ?)";
 	if (db_exec(&s->db, sql, args, LEN(args), NULL, 0) < 0)
 		return -1;
 
@@ -164,9 +164,9 @@ repo_cmd_message_get_message(Repo *s, CmdMessage *msg)
 		{ .type = DB_DATA_TYPE_TEXT, .text = msg->name_ptr },
 	};
 
-	DbOut out = {
+	const DbOut out = {
 		.len = 1,
-		.items = &(DbOutItem) {
+		.fields = &(DbOutField) {
 			.type = DB_DATA_TYPE_TEXT,
 			.text = { .cstr = msg->message, .size = CMD_MSG_VALUE_SIZE },
 		},
@@ -174,33 +174,27 @@ repo_cmd_message_get_message(Repo *s, CmdMessage *msg)
 
 	const char *const sql = "select message as message "
 				"from Cmd_Message "
-				"where (chat_id = ?) and (name = ?) "
-				"order by id desc "
-				"limit 1;";
+				"where (chat_id = ?) and (name = ?) and (message is not null); ";
 
 	int ret = db_exec(&s->db, sql, args, LEN(args), &out, 1);
 	if (ret < 0)
 		return -1;
-
-	if (out.items[0].text.len == 0)
-		ret = 0;
 
 	return ret;
 }
 
 
 int
-repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, int offt,
-			     int *max_len)
+repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, int offt, int *max_len)
 {
-	const char *sql = "select chat_id, name, message, max(created_at), created_by "
-			  "from Cmd_Message where (chat_id = ?) "
-			  "group by name "
-			  "having (message != '') "
+	const char *sql = "select chat_id, name, message, created_at, created_by, updated_at, updated_by "
+			  "from Cmd_Message "
+			  "where (chat_id = ?) and (message is not null) "
+			  "order by name "
 			  "limit ? offset ?;";
 
 	int ret = -1;
-	const int _fields_len = 5;
+	const int fields_len = 7;
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 		{ .type = DB_DATA_TYPE_INT, .int_ = len },
@@ -211,75 +205,52 @@ repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, 
 	if (out_list == NULL)
 		return -1;
 
-	DbOutItem *const items = malloc(sizeof(DbOutItem) * _fields_len * len);
-	if (items == NULL)
+	DbOutField *const fields = malloc(sizeof(DbOutField) * fields_len * len);
+	if (fields == NULL)
 		goto out0;
 
 	for (int i = 0, j = 0; i < len; i++) {
-		int k = i + j;
-		out_list[i].items = &items[k];
-		out_list[i].len = _fields_len;
+		CmdMessage *const m = &msgs[i];
+		out_list[i].fields = &fields[j];
+		out_list[i].len = fields_len;
 
-		items[k++] = (DbOutItem) {
-			.type = DB_DATA_TYPE_INT64,
-			.int64 = &msgs[i].chat_id,
-		};
-
-		items[k++] = (DbOutItem) {
+		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &m->chat_id };
+		fields[j++] = (DbOutField) {
 			.type = DB_DATA_TYPE_TEXT,
-			.text = (DbOutItemText) {
-				.cstr = msgs[i].name,
-				.size = sizeof(msgs[i].name),
-			},
+			.text = (DbOutFieldText) { .cstr = m->name, .size = sizeof(m->name) },
 		};
-
-		items[k++] = (DbOutItem) {
+		fields[j++] = (DbOutField) {
 			.type = DB_DATA_TYPE_TEXT,
-			.text = (DbOutItemText) {
-				.cstr = msgs[i].message,
-				.size = sizeof(msgs[i].message),
-			},
+			.text = (DbOutFieldText) { .cstr = m->message, .size = sizeof(m->message) },
 		};
-
-		items[k++] = (DbOutItem) {
+		fields[j++] = (DbOutField) {
 			.type = DB_DATA_TYPE_TEXT,
-			.text = (DbOutItemText) {
-				.cstr = msgs[i].created_at,
-				.size = sizeof(msgs[i].created_at),
-			},
+			.text = (DbOutFieldText) { .cstr = m->created_at, .size = sizeof(m->created_at) },
 		};
-
-		items[k] = (DbOutItem) {
-			.type = DB_DATA_TYPE_INT64,
-			.int64 = &msgs[i].created_by,
+		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &m->created_by };
+		fields[j++] = (DbOutField) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutFieldText) { .cstr = m->updated_at, .size = sizeof(m->updated_at) },
 		};
-
-		j = k;
+		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &m->updated_by };
 	}
 
 	const int rcount = db_exec(&s->db, sql, args, LEN(args), out_list, len);
 	if (rcount < 0)
 		goto out1;
 
-	sql = "select count(1) "
-	      "from ("
-	        "select max(created_at) "
-		"from Cmd_Message where (chat_id = ?) "
-		"group by name "
-		"having (message != '')"
-	      ");";
-
-	DbOut out_count = {
+	const DbOut out_count = {
 		.len = 1,
-		.items = &(DbOutItem) { .type = DB_DATA_TYPE_INT, .int_ = max_len },
+		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = max_len },
 	};
 
+	sql = "select count(1) from Cmd_Message where (chat_id = ?) and (message is not null);";
 	ret = db_exec(&s->db, sql, &args[0], 1, &out_count, 1);
 	if (ret > 0)
 		ret = rcount;
 
 out1:
-	free(items);
+	free(fields);
 out0:
 	free(out_list);
 	return ret;
@@ -395,9 +366,9 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 		{ .type = DB_DATA_TYPE_TEXT, .text = mod->name_ptr },
 	};
 
-	DbOut out = {
+	const DbOut out = {
 		.len = 5,
-		.items = (DbOutItem[]) {
+		.fields = (DbOutField[]) {
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
 			{

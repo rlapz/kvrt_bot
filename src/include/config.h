@@ -28,7 +28,7 @@
 
 #define CFG_ITEM_LIST_SIZE (2)
 
-#define CFG_MODULE_CMD_MSG_SIZE (2)
+#define CFG_MODULE_CMD_MSG_SIZE (5)
 
 
 typedef struct config {

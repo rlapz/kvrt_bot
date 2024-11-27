@@ -7,6 +7,9 @@
 #include <tg.h>
 
 
+#define DATETIME_SIZE 20
+
+
 /*
  * Admin
  */
@@ -22,12 +25,13 @@ typedef struct admin {
  */
 #define CMD_MSG_NAME_SIZE       (34)
 #define CMD_MSG_VALUE_SIZE      (8194)
-#define CMD_MSG_CREATED_AT_SIZE (20)
 
 typedef struct cmd_message {
 	int64_t chat_id;
 	int64_t created_by;
-	char    created_at[CMD_MSG_CREATED_AT_SIZE];
+	char    created_at[DATETIME_SIZE];
+	int64_t updated_by;
+	char    updated_at[DATETIME_SIZE];
 
 	union {
 		const char *name_ptr;
