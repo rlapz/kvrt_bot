@@ -24,7 +24,7 @@ typedef struct admin {
  * CmdMessage
  */
 #define CMD_MSG_NAME_SIZE       (34)
-#define CMD_MSG_VALUE_SIZE      (8194)
+#define CMD_MSG_VALUE_SIZE      (8192)
 
 typedef struct cmd_message {
 	int64_t chat_id;

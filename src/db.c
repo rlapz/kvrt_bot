@@ -135,17 +135,17 @@ _create_tables(sqlite3 *s)
 		"id         integer primary key autoincrement,"
 		"chat_id    bigint not null,"			/* telegram chat id */
 		"user_id    bigint not null,"			/* telegram user id */
-		"privileges integer not null,"			/* Bitwise OR TgChatAdminPrivilege */
+		"privileges integer not null,"			/* Bitwise-OR TgChatAdminPrivilege */
 		"created_at datetime default (datetime('now', 'localtime')) not null);";
 
 	const char *const module_extern =
 		"create table if not exists Module_Extern("
 		"id          integer primary key autoincrement,"
-		"flags       integer not null,"
+		"flags       integer not null,"			/* Bitwise-OR MODULE_FLAG_* */
 		"name        varchar(33) not null,"
 		"file_name   varchar(1023) not null,"
 		"description varchar(255) not null,"
-		"args        integer not null,"
+		"args        integer not null,"			/* Bitwise-OR MODULE_EXTERN_* */
 		"created_at  datetime default(datetime('now', 'localtime')) not null);";
 
 	const char *const module_extern_disabled =
@@ -160,10 +160,21 @@ _create_tables(sqlite3 *s)
 		"id         integer primary key autoincrement,"
 		"chat_id    bigint not null,"			/* telegram chat id */
 		"name       varchar(33) not null,"
-		"message    varchar(8192) null,"
+		"message    varchar(8191) null,"
 		"created_at datetime default (datetime('now', 'localtime')) not null,"
 		"created_by bigint not null,"			/* telegram user id */
 		"updated_at datatime null,"
+		"updated_by bigint null);";			/* telegram user id */
+
+	const char *const param =
+		"create table if not exists Param("
+		"id         integer primary key autoincrement,"
+		"key        varchar(15) not null,"
+		"value      varchar(8191) not null,"
+		"chat_id    bigint null,"			/* telegram chat id */
+		"created_at datetime null,"
+		"created_by bigint null,"			/* telegram user id */
+		"updated_at datetime null,"
 		"updated_by bigint null);";			/* telegram user id */
 
 
@@ -185,6 +196,11 @@ _create_tables(sqlite3 *s)
 
 	if (sqlite3_exec(s, cmd_message, NULL, NULL, &err_msg) != 0) {
 		log_err(0, "db: _create_tables: Cmd_Message: %s", err_msg);
+		goto err0;
+	}
+
+	if (sqlite3_exec(s, param, NULL, NULL, &err_msg) != 0) {
+		log_err(0, "db: _create_tables: Param: %s", err_msg);
 		goto err0;
 	}
 

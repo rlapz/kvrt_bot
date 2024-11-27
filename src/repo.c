@@ -172,9 +172,10 @@ repo_cmd_message_get_message(Repo *s, CmdMessage *msg)
 		},
 	};
 
-	const char *const sql = "select message as message "
+	const char *const sql = "select message "
 				"from Cmd_Message "
-				"where (chat_id = ?) and (name = ?) and (message is not null); ";
+				"where (chat_id = ?) and (name = ?) and (message is not null) "
+				"order by id desc limit 1;";
 
 	int ret = db_exec(&s->db, sql, args, LEN(args), &out, 1);
 	if (ret < 0)
