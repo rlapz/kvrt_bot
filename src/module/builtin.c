@@ -33,6 +33,8 @@ static void _module_cmd_msg_list(Update *u, const ModuleParam *param);
 static void _module_cmd_help(Update *u, const ModuleParam *param);
 static void _module_cmd_extern_list(Update *u, const ModuleParam *param);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
+static int  _prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx,
+			   int *offt);
 
 
 enum {
@@ -333,21 +335,8 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 	int idx, offt, max_len;
 	const TgMessage *msg;
 	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
-	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
-		const CallbackQueryArg *const arg0 = &param->query.args[0];
-		offt = (int)cstr_to_llong_n(arg0->value, arg0->len);
-		msg = param->callback->message;
-		idx = offt + 1;
-	} else {
-		msg = param->message;
-		if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-			common_send_text_plain(u, msg, "Not supported!");
-			return;
-		}
-
-		offt = -1;
-		idx = 1;
-	}
+	if (_prep_callback(u, param, &msg, &idx, &offt) < 0)
+		return;
 
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), offt, &max_len);
 	if (ret < 0) {
@@ -437,4 +426,27 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 
 	common_send_text_plain(u, msg, cmd_msg.message);
 	return 1;
+}
+
+
+static int
+_prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx, int *offt)
+{
+	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
+		const CallbackQueryArg *const arg0 = &param->query.args[0];
+		*offt = (int)cstr_to_llong_n(arg0->value, arg0->len);
+		*msg = param->callback->message;
+		*idx = *offt + 1;
+		return 0;
+	}
+
+	*msg = param->message;
+	if ((*msg)->chat.type == TG_CHAT_TYPE_PRIVATE) {
+		common_send_text_plain(u, *msg, "Not supported!");
+		return -1;
+	}
+
+	*offt = -1;
+	*idx = 1;
+	return 0;
 }
