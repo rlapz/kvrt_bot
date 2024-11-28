@@ -34,7 +34,7 @@ static void _module_cmd_help(Update *u, const ModuleParam *param);
 static void _module_cmd_extern_list(Update *u, const ModuleParam *param);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
 static int  _prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx,
-			   int *offt);
+			   int *offt, const char *cmd_id[]);
 
 
 enum {
@@ -334,18 +334,28 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 {
 	int idx, offt, max_len;
 	const TgMessage *msg;
+	const char *cmd_id;
 	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
-	if (_prep_callback(u, param, &msg, &idx, &offt) < 0)
+	if (_prep_callback(u, param, &msg, &idx, &offt, &cmd_id) < 0)
 		return;
 
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), offt, &max_len);
 	if (ret < 0) {
-		common_send_text_plain(u, msg, "Failed to get Command Message list");
+		const char *const err = "Failed to get Command Message list";
+		if (cmd_id)
+			tg_api_answer_callback_query(&u->api, cmd_id, err, 1, NULL);
+		else
+			common_send_text_plain(u, msg, err);
+
 		return;
 	}
 
 	if (ret == 0) {
-		common_send_text_plain(u, msg, "[Empty]");
+		if (cmd_id)
+			tg_api_answer_callback_query(&u->api, cmd_id, "There is no Command Message", 1, NULL);
+		else
+			common_send_text_plain(u, msg, "[Empty]");
+
 		return;
 	}
 
@@ -384,7 +394,8 @@ _module_cmd_help(Update *u, const ModuleParam *param)
 	char cmd_buff[MODULE_NAME_SIZE * 2];
 	char desc_buff[MODULE_DESC_SIZE * 2];
 	const TgMessage *msg;
-	if (_prep_callback(u, param, &msg, &idx, &offt) < 0)
+	const char *cmd_id;
+	if (_prep_callback(u, param, &msg, &idx, &offt, &cmd_id) < 0)
 		return;
 
 	const int max_len = LEN(_module_list);
@@ -437,12 +448,14 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 
 
 static int
-_prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx, int *offt)
+_prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx, int *offt,
+	       const char *cmd_id[])
 {
 	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
 		const CallbackQueryArg *const arg0 = &param->query.args[0];
 		*offt = (int)cstr_to_llong_n(arg0->value, arg0->len);
 		*msg = param->callback->message;
+		*cmd_id = param->callback->id;
 		*idx = *offt + 1;
 		return 0;
 	}
@@ -455,5 +468,6 @@ _prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg,
 
 	*offt = -1;
 	*idx = 1;
+	*cmd_id = NULL;
 	return 0;
 }
