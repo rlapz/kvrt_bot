@@ -35,18 +35,6 @@ static void _module_cmd_extern_list(Update *u, const ModuleParam *param);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
 
 
-/*
- * Callbacks
- */
-static void _module_cb_msg_list(Update *u, const ModuleParam *param);
-
-
-/*
- * Helpers
- */
-static const char *_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int idx, int len, int max_len);
-
-
 enum {
 	_MODULE_START = 0,
 	_MODULE_ADMIN_RELOAD,
@@ -342,20 +330,26 @@ out0:
 static void
 _module_cmd_msg_list(Update *u, const ModuleParam *param)
 {
-	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
-		_module_cb_msg_list(u, param);
-		return;
-	}
-
-	const TgMessage *const msg = param->message;
-	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		common_send_text_plain(u, msg, "Not supported!");
-		return;
-	}
-
-	int max_len = 0;
+	int idx, offt, max_len;
+	const TgMessage *msg;
 	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
-	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), 0, &max_len);
+	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
+		const CallbackQueryArg *const arg0 = &param->query.args[0];
+		offt = (int)cstr_to_llong_n(arg0->value, arg0->len);
+		msg = param->callback->message;
+		idx = offt + 1;
+	} else {
+		msg = param->message;
+		if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
+			common_send_text_plain(u, msg, "Not supported!");
+			return;
+		}
+
+		offt = -1;
+		idx = 1;
+	}
+
+	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), offt, &max_len);
 	if (ret < 0) {
 		common_send_text_plain(u, msg, "Failed to get Command Message list");
 		return;
@@ -366,8 +360,31 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 		return;
 	}
 
-	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, 1, ret, max_len);
-	common_send_list(u, msg, _module_list[_MODULE_MSG_LIST].name, text, -1, max_len);
+
+	/* body */
+	char time_buff[DATETIME_SIZE * 2];
+	char cmd_buff[CMD_MSG_NAME_SIZE * 2];
+	char msg_buff[25];
+	char msg_buff_e[LEN(msg_buff) * 2];
+	const char *body = str_set_fmt(&u->str, "Command Message List: \\(%d \\- %d\\)\n", idx, max_len);
+	for (int i = 0; i < ret; i++) {
+		const CmdMessage *const m = &msgs[i];
+		const char *const date = (m->updated_at[0] == '\0')? m->created_at : m->updated_at;
+		const size_t _len = cstr_copy_n(msg_buff, LEN(msg_buff), m->message);
+		if (_len < (LEN(msg_buff) - 4)) {
+			body = str_append_fmt(&u->str, "%d\\. %s \\- %s \\- _%s_\n", i + idx,
+					      common_tg_escape(cmd_buff, m->name),
+					      common_tg_escape(msg_buff_e, msg_buff),
+					      common_tg_escape(time_buff, date));
+		} else {
+			body = str_append_fmt(&u->str, "%d\\. %s \\- %s\\.\\.\\. \\- _%s_\n", i + idx,
+					      common_tg_escape(cmd_buff, m->name),
+					      common_tg_escape(msg_buff_e, msg_buff),
+					      common_tg_escape(time_buff, date));
+		}
+	}
+
+	common_send_list(u, msg, _module_list[_MODULE_MSG_LIST].name, body, offt, max_len);
 }
 
 
@@ -420,75 +437,4 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 
 	common_send_text_plain(u, msg, cmd_msg.message);
 	return 1;
-}
-
-
-/*
- * Callbacks
- */
-static void
-_module_cb_msg_list(Update *u, const ModuleParam *param)
-{
-	const TgMessage *const msg = param->callback->message;
-	const CallbackQuery *const query = &param->query;
-	if (query->args_len != 1)
-		return;
-
-	const char *const name = _module_list[_MODULE_MSG_LIST].name;
-	if (cstr_cmp_n(name, query->context, query->context_len) == 0)
-		return;
-
-	const int page_num = (int)cstr_to_llong_n(query->args[0].value, query->args[0].len);
-	const int req_index = (page_num - 1) * CFG_ITEM_LIST_SIZE;
-
-	int max_len = 0;
-	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
-	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs),
-						  req_index, &max_len);
-	if (ret < 0)
-		return;
-
-	const char *const text = _module_hlp_msg_list_text(&u->str, msgs, req_index + 1, ret, max_len);
-
-	/* TODO */
-	common_send_list(u, msg, name, text, page_num, max_len);
-}
-
-
-/*
- * Helpers
- */
-static const char *
-_module_hlp_msg_list_text(Str *s, const CmdMessage msgs[], int idx, int len, int max_len)
-{
-	char time_buffer[DATETIME_SIZE * 2];
-	char cmd_name_buffer[CMD_MSG_NAME_SIZE * 2];
-	char msg_buffer[25];
-	char msg_buffer_e[LEN(msg_buffer) * 2];
-	str_set_fmt(s, "Command Message List: \\(%d \\- %d\\)\n", idx, max_len);
-
-	for (int i = 0; i < len; i++) {
-		const CmdMessage *const m = &msgs[i];
-		const char *const date = (m->updated_at[0] == '\0')? m->created_at : m->updated_at;
-
-		// TODO: send user_id link without mention
-		//str_append_fmt(s, "%d\\. %s \\- [%" PRIi64 "](tg://user?id=%" PRIi64 ") \\- %s\n",
-		//	       i + 1, common_tg_escape(cmd_name_buffer, m->name), m->created_by,
-		//	       m->created_by, common_tg_escape(time_buffer, date));
-
-		const size_t _len = cstr_copy_n(msg_buffer, LEN(msg_buffer), m->message);
-		if (_len < (LEN(msg_buffer) - 4)) {
-			str_append_fmt(s, "%d\\. %s \\- %s \\- _%s_\n", i + 1,
-				       common_tg_escape(cmd_name_buffer, m->name),
-				       common_tg_escape(msg_buffer_e, msg_buffer),
-				       common_tg_escape(time_buffer, date));
-		} else {
-			str_append_fmt(s, "%d\\. %s \\- %s\\.\\.\\. \\- _%s_\n", i + 1,
-				       common_tg_escape(cmd_name_buffer, m->name),
-				       common_tg_escape(msg_buffer_e, msg_buffer),
-				       common_tg_escape(time_buffer, date));
-		}
-	}
-
-	return s->cstr;
 }

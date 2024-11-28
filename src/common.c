@@ -41,7 +41,7 @@ common_send_list(Update *u, const TgMessage *msg, const char context[], const ch
 				.callbacks_len = 2,
 				.callbacks = (TgApiCallbackData[]) {
 					{ .type = TG_API_CALLBACK_DATA_TYPE_TEXT, .text = context },
-					{ .type = TG_API_CALLBACK_DATA_TYPE_INT, .int_ = 2 },
+					{ .type = TG_API_CALLBACK_DATA_TYPE_INT },
 				},
 			},
 			{
@@ -57,12 +57,14 @@ common_send_list(Update *u, const TgMessage *msg, const char context[], const ch
 
 	/* start page */
 	if (offt < 0) {
-		if (CFG_ITEM_LIST_SIZE >= max) {
+		/* no pagination */
+		if (max <= CFG_ITEM_LIST_SIZE) {
 			common_send_text_format(u, msg, body);
 			return;
 		}
 
 		kbd.len = 1;
+		kbd.items[0].callbacks[1].int_ = CFG_ITEM_LIST_SIZE; /* next page */
 		tg_api_send_inline_keyboard(&u->api, msg->chat.id, &msg->id, body, &kbd, 1);
 		return;
 	}
@@ -70,16 +72,16 @@ common_send_list(Update *u, const TgMessage *msg, const char context[], const ch
 	TgApiInlineKeyboardItem *items = NULL;
 
 	/* prev */
-	if (offt > 1) {
+	if ((offt - CFG_ITEM_LIST_SIZE) >= 0) {
 		kbd.len++;
-		kbd.items[1].callbacks[1].int_ = offt - 1;
+		kbd.items[1].callbacks[1].int_ = offt - CFG_ITEM_LIST_SIZE;
 		items = &kbd.items[1];
 	}
 
 	/* next */
-	if ((offt * CFG_ITEM_LIST_SIZE) < max) {
+	if ((offt + CFG_ITEM_LIST_SIZE) < max) {
 		kbd.len++;
-		kbd.items[0].callbacks[1].int_ = offt + 1;
+		kbd.items[0].callbacks[1].int_ = offt + CFG_ITEM_LIST_SIZE;
 		items = &kbd.items[0];
 	}
 

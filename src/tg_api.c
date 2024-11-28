@@ -210,6 +210,11 @@ int
 tg_api_send_inline_keyboard(TgApi *t, int64_t chat_id, const int64_t *reply_to, const char text[],
 			    const TgApiInlineKeyboard kbds[], int len)
 {
+	if (text == NULL) {
+		log_err(EINVAL, "tg_api: tg_api_send_inline_keyboard: text null");
+		return -1;
+	}
+
 	int ret = -1;
 	char *const _kbds = _build_inline_keyboards(t, kbds, len);
 	if (_kbds == NULL)
@@ -248,6 +253,11 @@ int
 tg_api_edit_inline_keyboard(TgApi *t, int64_t chat_id, int64_t msg_id, const char text[],
 			    const TgApiInlineKeyboard kbds[], int len)
 {
+	if (text == NULL) {
+		log_err(EINVAL, "tg_api: tg_api_edit_inline_keyboard: text null");
+		return -1;
+	}
+
 	int ret = -1;
 	char *const _kbds = _build_inline_keyboards(t, kbds, len);
 	if (_kbds == NULL)
