@@ -88,7 +88,7 @@ static const ModuleBuiltin _module_list[] = {
 	[_MODULE_HELP] = {
 		.name = "/help",
 		.description = "Show builtin commands",
-		.flags = MODULE_FLAG_CMD,
+		.flags = MODULE_FLAG_CMD | MODULE_FLAG_CALLBACK,
 		.handler = _module_cmd_help,
 	},
 	[_MODULE_EXTERN_LIST] = {
@@ -272,7 +272,7 @@ _module_cmd_msg_set(Update *u, const ModuleParam *param)
 		goto out0;
 	}
 
-	char cmd_name[CMD_MSG_NAME_SIZE];
+	char cmd_name[MODULE_NAME_SIZE];
 	if (args[0].len >= LEN(cmd_name)) {
 		resp = "Command_name too long";
 		goto out0;
@@ -352,7 +352,7 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 
 	/* body */
 	char time_buff[DATETIME_SIZE * 2];
-	char cmd_buff[CMD_MSG_NAME_SIZE * 2];
+	char cmd_buff[MODULE_NAME_SIZE * 2];
 	char msg_buff[25];
 	char msg_buff_e[LEN(msg_buff) * 2];
 	const char *body = str_set_fmt(&u->str, "Command Message List: \\(%d \\- %d\\)\n", idx, max_len);
@@ -380,21 +380,28 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 static void
 _module_cmd_help(Update *u, const ModuleParam *param)
 {
-	str_set_fmt(&u->str, "Builtin commands:\n");
-	for (unsigned i = 0, j = 0; i < LEN(_module_list); i++) {
+	int idx, offt;
+	char cmd_buff[MODULE_NAME_SIZE * 2];
+	char desc_buff[MODULE_DESC_SIZE * 2];
+	const TgMessage *msg;
+	if (_prep_callback(u, param, &msg, &idx, &offt) < 0)
+		return;
+
+	const int max_len = LEN(_module_list);
+	const int len = (CFG_ITEM_LIST_SIZE > max_len)? max_len : CFG_ITEM_LIST_SIZE;
+	const char *body = str_set_fmt(&u->str, "Builtin commands: \\(%d \\- %d\\)\n", idx, max_len);
+
+	int i = (offt < 0)? 0 : offt;
+	for (int j = 0; (j < len) && (i < max_len); i++, j++) {
 		const ModuleBuiltin *const b = &_module_list[i];
-		if ((b->name == NULL) || (b->description == NULL) || (b->handler == NULL))
-			continue;
-
-		if ((b->flags & MODULE_FLAG_CMD) == 0)
-			continue;
-
-		str_append_fmt(&u->str, "%u. %s - %s %s%s\n", ++j , b->name, b->description,
+		str_append_fmt(&u->str, "%u\\. %s \\- %s %s%s\n", j + idx,
+			       common_tg_escape(cmd_buff, b->name),
+			       common_tg_escape(desc_buff, b->description),
 			       ((b->flags & MODULE_FLAG_ADMIN_ONLY)? "🅰️" : ""));
 	}
 
-	str_append_fmt(&u->str, "\n---\n🅰️: Admin only");
-	common_send_text_plain(u, param->message, u->str.cstr);
+	body = str_append_fmt(&u->str, "\n\\-\\-\\-\n🅰️: Admin only");
+	common_send_list(u, msg, _module_list[_MODULE_HELP].name, body, offt, max_len);
 }
 
 
@@ -411,7 +418,7 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE)
 		return 0;
 
-	char buffer[CMD_MSG_NAME_SIZE];
+	char buffer[MODULE_NAME_SIZE];
 	cstr_copy_n2(buffer, LEN(buffer), cmd->name, cmd->name_len);
 
 	CmdMessage cmd_msg = { .chat_id = msg->chat.id, .name_ptr = buffer };

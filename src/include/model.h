@@ -7,7 +7,9 @@
 #include <tg.h>
 
 
-#define DATETIME_SIZE 20
+#define DATETIME_SIZE    (20)
+#define MODULE_NAME_SIZE (34)
+#define MODULE_DESC_SIZE (256)
 
 
 /*
@@ -23,8 +25,7 @@ typedef struct admin {
 /*
  * CmdMessage
  */
-#define CMD_MSG_NAME_SIZE       (34)
-#define CMD_MSG_VALUE_SIZE      (8192)
+#define CMD_MSG_VALUE_SIZE (8192)
 
 typedef struct cmd_message {
 	int64_t chat_id;
@@ -35,7 +36,7 @@ typedef struct cmd_message {
 
 	union {
 		const char *name_ptr;
-		char        name[CMD_MSG_NAME_SIZE];
+		char        name[MODULE_NAME_SIZE];
 	};
 
 	union {
@@ -48,9 +49,7 @@ typedef struct cmd_message {
 /*
  * Module
  */
-#define MODULE_EXTERN_NAME_SIZE      (34)
 #define MODULE_EXTERN_FILE_NAME_SIZE (1024)
-#define MODULE_EXTERN_DESC_SIZE      (256)
 #define MODULE_EXTERN_ARGS_SIZE      (16)
 
 
@@ -98,7 +97,7 @@ typedef struct module_extern {
 
 	union {
 		const char *name_ptr;
-		char        name[MODULE_EXTERN_NAME_SIZE];
+		char        name[MODULE_NAME_SIZE];
 	};
 
 	union {
@@ -108,7 +107,7 @@ typedef struct module_extern {
 
 	union {
 		const char *description_ptr;
-		char        description[MODULE_EXTERN_DESC_SIZE];
+		char        description[MODULE_DESC_SIZE];
 	};
 } ModuleExtern;
 

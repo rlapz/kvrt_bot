@@ -19,7 +19,7 @@ int
 module_extern_exec_cmd(Update *update, const ModuleParam *param)
 {
 	const TgMessage *const msg = param->message;
-	char buffer[MODULE_EXTERN_NAME_SIZE];
+	char buffer[MODULE_NAME_SIZE];
 	cstr_copy_n2(buffer, LEN(buffer), param->bot_cmd.name, param->bot_cmd.name_len);
 	return 0;
 

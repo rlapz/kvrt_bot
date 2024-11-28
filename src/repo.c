@@ -374,7 +374,7 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->name, .size = MODULE_EXTERN_NAME_SIZE },
+				.text = { .cstr = mod->name, .size = MODULE_NAME_SIZE },
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
@@ -382,7 +382,7 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 			},
 			{
 				.type = DB_DATA_TYPE_TEXT,
-				.text = { .cstr = mod->description, .size = MODULE_EXTERN_DESC_SIZE },
+				.text = { .cstr = mod->description, .size = MODULE_DESC_SIZE },
 			},
 		},
 	};
