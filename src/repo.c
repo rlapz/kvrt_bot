@@ -58,11 +58,6 @@ int
 repo_admin_get_privileges(Repo *s, int64_t chat_id, int64_t user_id)
 {
 	int privileges = 0;
-	const char *const sql = "select privileges "
-				"from Admin "
-				"where (chat_id = ?) and (user_id = ?)"
-				"order by id desc limit 1;";
-
 	const DbArg args[] = {
 		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
 		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
@@ -74,6 +69,11 @@ repo_admin_get_privileges(Repo *s, int64_t chat_id, int64_t user_id)
 			{ .type = DB_DATA_TYPE_INT, .int_ = &privileges },
 		},
 	};
+
+	const char *const sql = "select privileges "
+				"from Admin "
+				"where (chat_id = ?) and (user_id = ?)"
+				"order by id desc limit 1;";
 
 	if (db_exec(&s->db, sql, args, LEN(args), &out, 1) < 0)
 		return -1;
@@ -188,12 +188,6 @@ repo_cmd_message_get_message(Repo *s, CmdMessage *msg)
 int
 repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, int offt, int *max_len)
 {
-	const char *sql = "select chat_id, name, message, created_at, created_by, updated_at, updated_by "
-			  "from Cmd_Message "
-			  "where (chat_id = ?) and (message is not null) "
-			  "order by name "
-			  "limit ? offset ?;";
-
 	int ret = -1;
 	const int fields_len = 7;
 	const DbArg args[] = {
@@ -211,10 +205,10 @@ repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, 
 		goto out0;
 
 	for (int i = 0, j = 0; i < len; i++) {
-		CmdMessage *const m = &msgs[i];
 		out_list[i].fields = &fields[j];
 		out_list[i].len = fields_len;
 
+		CmdMessage *const m = &msgs[i];
 		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &m->chat_id };
 		fields[j++] = (DbOutField) {
 			.type = DB_DATA_TYPE_TEXT,
@@ -235,6 +229,12 @@ repo_cmd_message_get_list(Repo *s, int64_t chat_id, CmdMessage msgs[], int len, 
 		};
 		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &m->updated_by };
 	}
+
+	const char *sql = "select chat_id, name, message, created_at, created_by, updated_at, updated_by "
+			  "from Cmd_Message "
+			  "where (chat_id = ?) and (message is not null) "
+			  "order by name "
+			  "limit ? offset ?;";
 
 	const int rcount = db_exec(&s->db, sql, args, LEN(args), out_list, len);
 	if (rcount < 0)
@@ -363,13 +363,14 @@ int
 repo_module_extern_get(Repo *s, ModuleExtern *mod)
 {
 	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = mod->chat_id },
 		{ .type = DB_DATA_TYPE_TEXT, .text = mod->name_ptr },
+		{ .type = DB_DATA_TYPE_INT64, .int64 = mod->chat_id },
 	};
 
 	const DbOut out = {
-		.len = 5,
+		.len = 7,
 		.fields = (DbOutField[]) {
+			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->is_enable },
 			{ .type = DB_DATA_TYPE_INT64, .int64 = &mod->chat_id },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
@@ -388,21 +389,89 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 		},
 	};
 
-	const char *sql = "select 1 from Module_Extern_Disabled "
-			  "where (chat_id = ?) and (module_name = ?);";
-
-	const int ret = db_exec(&s->db, sql, args, LEN(args), NULL, 0);
-	if (ret < 0)
-		return -1;
-
-	if (ret > 0)
-		return 0;
-
-	sql = "select ?, flags, args, name, file_name, description "
-	      "from Module_Extern "
-	      "where (name = ?) "
-	      "order by id desc "
-	      "limit 1;";
+	const char *const sql = "select 1, b.chat_id, a.flags, a.args, a.name, a.file_name, a.description "
+				"from Module_Extern as a "
+				"join Module_Extern_Disabled as b on (b.module_name != a.name) "
+				"where (a.name = ?) and (b.chat_id = ?) "
+				"order by a.id desc "
+				"limit 1;";
 
 	return db_exec(&s->db, sql, args, LEN(args), &out, 1);
+}
+
+
+int
+repo_module_extern_get_list(Repo *s, int64_t chat_id, ModuleExtern mods[], int len, int offt, int *max_len)
+{
+	int ret = -1;
+	const int fields_len = 6;
+	const DbArg args[] = {
+		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
+		{ .type = DB_DATA_TYPE_INT, .int_ = len },
+		{ .type = DB_DATA_TYPE_INT, .int_ = offt },
+	};
+
+	DbOut *const out_list = malloc(sizeof(DbOut) * len);
+	if (out_list == NULL)
+		return -1;
+
+	DbOutField *const fields = malloc(sizeof(DbOutField) * fields_len * len);
+	if (fields == NULL)
+		goto out0;
+
+	for (int i = 0, j = 0; i < len; i++) {
+		out_list[i].fields = &fields[j];
+		out_list[i].len = fields_len;
+
+		ModuleExtern *const m = &mods[i];
+		m->chat_id = chat_id;
+
+		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &m->is_enable };
+		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &m->flags };
+		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &m->args };
+		fields[j++] = (DbOutField) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutFieldText) { .cstr = m->name, .size = sizeof(m->name) },
+		};
+		fields[j++] = (DbOutField) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutFieldText) { .cstr = m->file_name, .size = sizeof(m->file_name) },
+		};
+		fields[j++] = (DbOutField) {
+			.type = DB_DATA_TYPE_TEXT,
+			.text = (DbOutFieldText) { .cstr = m->description, .size = sizeof(m->description) },
+		};
+	}
+
+	const char *sql = "select case when(b.id is null) then 1 else 0 end as is_enable, "
+				"a.flags, a.args, a.name, a.file_name, a.description "
+			  "from Module_Extern as a "
+			  "left join Module_Extern_Disabled as b "
+				"on (b.module_name = a.name) and (b.chat_id = ?) "
+			  "order by a.name "
+			  "limit ? offset ?;";
+
+	const int rcount = db_exec(&s->db, sql, args, LEN(args), out_list, len);
+	if (rcount < 0)
+		goto out1;
+
+
+	const DbOut out_count = {
+		.len = 1,
+		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = max_len },
+	};
+
+	sql = "select count(1) "
+	      "from Module_Extern as a "
+	      "left join Module_Extern_Disabled as b on (b.module_name = a.name) and (b.chat_id = ?);";
+
+	ret = db_exec(&s->db, sql, &args[0], 1, &out_count, 1);
+	if (ret > 0)
+		ret = rcount;
+
+out1:
+	free(fields);
+out0:
+	free(out_list);
+	return ret;
 }

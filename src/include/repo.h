@@ -40,6 +40,8 @@ int repo_module_extern_setup(Repo *s, int64_t chat_id);
 int repo_module_extern_toggle(Repo *s, const ModuleExtern *mod, int is_enable);
 int repo_module_extern_toggle_nsfw(Repo *s, int64_t chat_id, int is_enable);
 int repo_module_extern_get(Repo *s, ModuleExtern *mod);
+int repo_module_extern_get_list(Repo *s, int64_t chat_id, ModuleExtern mods[], int len, int offt,
+				int *max_len);
 
 
 #endif

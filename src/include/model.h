@@ -91,6 +91,7 @@ typedef struct module_param {
 
 
 typedef struct module_extern {
+	int     is_enable;
 	int     flags;
 	int     args;
 	int64_t chat_id;

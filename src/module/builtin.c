@@ -408,7 +408,7 @@ _module_cmd_help(Update *u, const ModuleParam *param)
 	int i = (offt < 0)? 0 : offt;
 	for (int j = 0; (j < len) && (i < max_len); i++, j++) {
 		const ModuleBuiltin *const b = &_module_list[i];
-		str_append_fmt(&u->str, "%u\\. %s \\- %s %s%s\n", j + idx,
+		str_append_fmt(&u->str, "%d\\. %s \\- %s %s%s\n", j + idx,
 			       common_tg_escape(cmd_buff, b->name),
 			       common_tg_escape(desc_buff, b->description),
 			       ((b->flags & MODULE_FLAG_ADMIN_ONLY)? "🅰️" : ""));
@@ -422,7 +422,52 @@ _module_cmd_help(Update *u, const ModuleParam *param)
 static void
 _module_cmd_extern_list(Update *u, const ModuleParam *param)
 {
-	common_send_text_plain(u, param->message, "[TODO]");
+	int idx, offt, max_len;
+	const TgMessage *msg;
+	const char *cmd_id;
+	ModuleExtern mods[CFG_ITEM_LIST_SIZE];
+	_prep_callback(param, &msg, &idx, &offt, &cmd_id);
+
+	const int ret = repo_module_extern_get_list(&u->repo, msg->chat.id, mods, LEN(mods), offt, &max_len);
+	if (ret < 0) {
+		const char *const err = "Failed to get External Command list";
+		if (cmd_id)
+			tg_api_answer_callback_query(&u->api, cmd_id, err, 1, NULL);
+		else
+			common_send_text_plain(u, msg, err);
+
+		return;
+	}
+
+	if (ret == 0) {
+		if (cmd_id)
+			tg_api_answer_callback_query(&u->api, cmd_id, "There is no External Command", 1, NULL);
+		else
+			common_send_text_plain(u, msg, "[Empty]");
+
+		return;
+	}
+
+	char cmd_buff[MODULE_NAME_SIZE * 2];
+	char desc_buff[MODULE_DESC_SIZE * 2];
+	const char *body = str_set_fmt(&u->str, "External Command List: \\(%d \\- %d\\)\n", idx, max_len);
+	for (int i = 0; i < ret; i++) {
+		ModuleExtern *const m = &mods[i];
+		str_append_fmt(&u->str, "%i\\. %s \\- %s ", i + idx, common_tg_escape(cmd_buff, m->name),
+			       common_tg_escape(desc_buff, m->description));
+
+		if (m->flags & MODULE_FLAG_ADMIN_ONLY)
+			str_append_fmt(&u->str, "%s", "🅰️");
+		if (m->flags & MODULE_FLAG_NSFW)
+			str_append_fmt(&u->str, "%s", "🔞");
+		if (m->is_enable == 0)
+			str_append_fmt(&u->str, "%s", "🚫");
+
+		str_append_n(&u->str, "\n", 1);
+	}
+
+	body = str_append_fmt(&u->str, "\n\\-\\-\\-\n🅰️: Admin only, 🔞: NSFW, 🚫: Disabled");
+	common_send_list(u, msg, _module_list[_MODULE_EXTERN_LIST].name, body, offt, max_len);
 }
 
 
