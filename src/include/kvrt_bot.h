@@ -15,30 +15,24 @@ typedef struct epoll_event Event;
 
 typedef struct kvrt_bot_client {
 	int          fd;
-	unsigned     slot;
 	int          state;
-	int          req_body_offt;
-	size_t       req_total_len;
-	json_object *req_body_json;
+	int          is_success;
+	size_t       body_len;
+	json_object *body;
 	size_t       bytes;
-	Buffer       buffer;
 	Event        event;
+	char         buffer[CFG_CLIENT_BUFFER_SIZE];
 } KvrtBotClient;
 
-typedef struct kvrt_bot_client_stack {
-	unsigned      count;
-	unsigned      slots[CFG_CLIENTS_SIZE];
-	KvrtBotClient list[CFG_CLIENTS_SIZE];
-} KvrtBotClientStack;
-
 typedef struct kvrt_bot {
-	volatile int       is_alive;
-	int                listen_fd;
-	int                event_fd;
-	Config             config;
-	Chld               chld;
-	ThrdPool           thrd_pool;
-	KvrtBotClientStack clients;
+	volatile int is_alive;
+	int          listen_fd;
+	int          event_fd;
+	unsigned     clients_count;
+	Config       config;
+	Chld         chld;
+	Mp           clients;
+	ThrdPool     thrd_pool;
 } KvrtBot;
 
 int  kvrt_bot_init(KvrtBot *k);

@@ -500,41 +500,81 @@ str_dup(Str *s)
 
 
 /*
- * Buffer
+ * Mp: Memory pool
  */
-void
-buffer_init(Buffer *b, size_t max_size)
-{
-	b->mem = NULL;
-	b->size = 0;
-	b->max_size = max_size;
-}
-
-
-void
-buffer_deinit(Buffer *b)
-{
-	free(b->mem);
-}
+typedef struct mp_node {
+	struct mp_node *next;
+	char            data[];
+} MpNode;
 
 
 int
-buffer_resize(Buffer *b, size_t len)
+mp_init(Mp *m, size_t nmemb, size_t size)
 {
-	if (len < b->size)
-		return 0;
+	m->nmemb = nmemb;
+	m->head = NULL;
 
-	const size_t new_size = b->size + len;
-	if (new_size >= b->max_size)
-		return -ENOMEM;
+	for (size_t i = 0; i < size; i++) {
+		MpNode *const node = malloc(sizeof(MpNode) * nmemb);
+		if (node == NULL)
+			goto err;
 
-	char *const new_mem = realloc(b->mem, new_size);
-	if (new_mem == NULL)
-		return -ENOMEM;
+#ifdef DEBUG
+		memset(node, 0xaa, nmemb);
+#endif
+		node->next = m->head;
+		m->head = node;
+	}
 
-	b->mem = new_mem;
-	b->size = new_size;
-	return 1;
+	return 0;
+
+err:
+	mp_deinit(m);
+	return -ENOMEM;
+}
+
+
+void
+mp_deinit(Mp *m)
+{
+	MpNode *head = m->head;
+	while (head != NULL) {
+		MpNode *const next = head->next;
+		free(head);
+
+		head = next;
+	}
+
+	m->head = NULL;
+}
+
+
+void *
+mp_alloc(Mp *m)
+{
+	MpNode *head = m->head;
+	if (head != NULL) {
+		m->head = head->next;
+	} else {
+		head = malloc(sizeof(MpNode) * m->nmemb);
+		if (head == NULL)
+			return NULL;
+
+	}
+
+#ifdef DEBUG
+	memset(head, 0xaa, m->nmemb);
+#endif
+	return &head->data;
+}
+
+
+void
+mp_reserve(Mp *m, void *mem)
+{
+	MpNode *const node = FIELD_PARENT_PTR(MpNode, data, mem);
+	node->next = m->head;
+	m->head = node;
 }
 
 
@@ -589,6 +629,7 @@ chld_spawn(Chld *c, const char file[], char *const argv[])
 	if (posix_spawn(&c->pids[slot], file_path, NULL, NULL, argv, NULL) != 0)
 		goto out0;
 
+	log_debug("chld_spawn: spawn: %d: [%u:%u]", c->pids[slot], slot, c->count);
 	c->entries[count] = slot;
 	c->count = count + 1;
 	ret = 0;
@@ -617,6 +658,8 @@ chld_reap(Chld *c)
 		c->slots[count] = slot;
 		rcount++;
 		i--;
+
+		log_debug("chld_spawn: reap: %d: [%u:%u]", c->pids[slot], slot, count);
 	}
 
 	assert(rcount <= c->count);

@@ -18,14 +18,13 @@ static int _spawn_child_process(ModuleExtern *m, Update *update, const ModulePar
 int
 module_extern_exec_cmd(Update *update, const ModuleParam *param)
 {
-	const TgMessage *const msg = param->message;
-	char buffer[MODULE_NAME_SIZE];
-	cstr_copy_n2(buffer, LEN(buffer), param->bot_cmd.name, param->bot_cmd.name_len);
-	return 0;
+	char module_name[MODULE_NAME_SIZE];
+	cstr_copy_n2(module_name, LEN(module_name), param->bot_cmd.name, param->bot_cmd.name_len);
 
+	const TgMessage *const msg = param->message;
 	ModuleExtern module = {
 		.chat_id = msg->chat.id,
-		.name_ptr = buffer,
+		.name_ptr = module_name,
 	};
 
 	const int ret = repo_module_extern_get(&update->repo, &module);

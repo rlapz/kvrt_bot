@@ -110,17 +110,19 @@ char *str_dup(Str *s);
 
 
 /*
- * Buffer
+ * Mp: Memory pool
  */
-typedef struct buffer {
-	char   *mem;
-	size_t  size;
-	size_t  max_size;
-} Buffer;
+typedef struct mp_node MpNode;
 
-void buffer_init(Buffer *b, size_t max_size);
-void buffer_deinit(Buffer *b);
-int  buffer_resize(Buffer *b, size_t len);
+typedef struct mp {
+	size_t  nmemb;
+	MpNode *head;
+} Mp;
+
+int   mp_init(Mp *m, size_t nmemb, size_t size);
+void  mp_deinit(Mp *m);
+void *mp_alloc(Mp *m);
+void  mp_reserve(Mp *m, void *mem);
 
 
 /*

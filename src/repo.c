@@ -370,6 +370,7 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 	const DbOut out = {
 		.len = 5,
 		.fields = (DbOutField[]) {
+			{ .type = DB_DATA_TYPE_INT64, .int64 = &mod->chat_id },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
 			{
@@ -397,11 +398,11 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 	if (ret > 0)
 		return 0;
 
-	sql = "select flags, args, name, file_name, description "
+	sql = "select ?, flags, args, name, file_name, description "
 	      "from Module_Extern "
 	      "where (name = ?) "
 	      "order by id desc "
 	      "limit 1;";
 
-	return db_exec(&s->db, sql, &args[1], 1, &out, 1);
+	return db_exec(&s->db, sql, args, LEN(args), &out, 1);
 }
