@@ -368,10 +368,8 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 	};
 
 	const DbOut out = {
-		.len = 7,
+		.len = 5,
 		.fields = (DbOutField[]) {
-			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->is_enable },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = &mod->chat_id },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->flags },
 			{ .type = DB_DATA_TYPE_INT, .int_ = &mod->args },
 			{
@@ -389,13 +387,15 @@ repo_module_extern_get(Repo *s, ModuleExtern *mod)
 		},
 	};
 
-	const char *const sql = "select 1, b.chat_id, a.flags, a.args, a.name, a.file_name, a.description "
-				"from Module_Extern as a "
-				"join Module_Extern_Disabled as b on (b.module_name != a.name) "
-				"where (a.name = ?) and (b.chat_id = ?) "
-				"order by a.id desc "
-				"limit 1;";
+	const char *const sql = "select flags, args, name, file_name, description "
+				"from Module_Extern "
+				"where (name = ?) and (name not in ("
+					"select module_name "
+					"from Module_Extern_Disabled "
+					"where (chat_id = ?)"
+				"));";
 
+	mod->is_enable = 1;
 	return db_exec(&s->db, sql, args, LEN(args), &out, 1);
 }
 
