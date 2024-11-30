@@ -33,7 +33,7 @@ static void _module_cmd_msg_list(Update *u, const ModuleParam *param);
 static void _module_cmd_help(Update *u, const ModuleParam *param);
 static void _module_cmd_extern_list(Update *u, const ModuleParam *param);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
-static int  _prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx,
+static void _prep_callback(const ModuleParam *param, const TgMessage **const msg, int *idx,
 			   int *offt, const char *cmd_id[]);
 
 
@@ -336,8 +336,12 @@ _module_cmd_msg_list(Update *u, const ModuleParam *param)
 	const TgMessage *msg;
 	const char *cmd_id;
 	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
-	if (_prep_callback(u, param, &msg, &idx, &offt, &cmd_id) < 0)
+	_prep_callback(param, &msg, &idx, &offt, &cmd_id);
+
+	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
+		common_send_text_plain(u, msg, "Not supported!");
 		return;
+	}
 
 	const int ret = repo_cmd_message_get_list(&u->repo, msg->chat.id, msgs, LEN(msgs), offt, &max_len);
 	if (ret < 0) {
@@ -395,8 +399,7 @@ _module_cmd_help(Update *u, const ModuleParam *param)
 	char desc_buff[MODULE_DESC_SIZE * 2];
 	const TgMessage *msg;
 	const char *cmd_id;
-	if (_prep_callback(u, param, &msg, &idx, &offt, &cmd_id) < 0)
-		return;
+	_prep_callback(param, &msg, &idx, &offt, &cmd_id);
 
 	const int max_len = LEN(_module_list);
 	const int len = (CFG_ITEM_LIST_SIZE > max_len)? max_len : CFG_ITEM_LIST_SIZE;
@@ -447,8 +450,8 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 }
 
 
-static int
-_prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg, int *idx, int *offt,
+static void
+_prep_callback(const ModuleParam *param, const TgMessage **const msg, int *idx, int *offt,
 	       const char *cmd_id[])
 {
 	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
@@ -457,17 +460,10 @@ _prep_callback(Update *u, const ModuleParam *param, const TgMessage **const msg,
 		*msg = param->callback->message;
 		*cmd_id = param->callback->id;
 		*idx = *offt + 1;
-		return 0;
+	} else {
+		*offt = -1;
+		*msg = param->message;
+		*cmd_id = NULL;
+		*idx = 1;
 	}
-
-	*msg = param->message;
-	if ((*msg)->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		common_send_text_plain(u, *msg, "Not supported!");
-		return -1;
-	}
-
-	*offt = -1;
-	*idx = 1;
-	*cmd_id = NULL;
-	return 0;
 }
