@@ -74,22 +74,15 @@ kvrt_bot_init(KvrtBot *k)
 	if (config_load_from_env(&k->config) < 0)
 		goto err0;
 
-	if (chld_init(&k->chld, k->config.cmd_path) < 0) {
-		log_err(0, "kvrt_bot: kvrt_bot_init: chld_init: failed to initialize");
-		goto err0;
-	}
-
 	if (mp_init(&k->clients, sizeof(KvrtBotClient), CFG_CLIENTS_MIN_SIZE) < 0) {
 		log_err(ENOMEM, "kvrt_bot: kvrt_bot_init: mp_init");
-		goto err1;
+		goto err0;
 	}
 
 	k->listen_fd = -1;
 	k->event_fd = -1;
 	return 0;
 
-err1:
-	chld_deinit(&k->chld);
 err0:
 	log_deinit();
 	return -1;
@@ -106,7 +99,6 @@ kvrt_bot_deinit(KvrtBot *k)
 		close(k->event_fd);
 
 	mp_deinit(&k->clients);
-	chld_deinit(&k->chld);
 	log_deinit();
 }
 
@@ -127,44 +119,66 @@ kvrt_bot_run(KvrtBot *k)
 		return ret;
 	}
 
-	const char *const api = str_set_fmt(&str_api, "%s%s", CFG_TELEGRAM_API, cfg->api_token);
-	if (api == NULL) {
+	const char *const base_api = str_set_fmt(&str_api, "%s%s%s", CFG_TELEGRAM_API_ENV,
+						 CFG_TELEGRAM_API, cfg->api_token);
+	if (base_api == NULL) {
 		ret = -1;
 		log_err(errno, "kvrt_bot: kvrt_bot_run: str_set_fmt: str api");
 		goto out0;
 	}
 
+	const char *const api = base_api + (sizeof(CFG_TELEGRAM_API_ENV) - 1);
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
 
+	/* TODO: pass cmd extern path */
+	char *envp[] = {
+		str_dup(&str_api),
+		NULL,
+	};
+
+	if (envp[0] == NULL) {
+		ret = -1;
+		log_err(errno, "kvrt_bot: kvrt_bot_run: str_dup: str api env");
+		goto out0;
+	}
+
+	if (chld_init(&k->chld, cfg->cmd_path, envp) < 0) {
+		log_err(0, "kvrt_bot: kvrt_bot_run: chld_init: failed to initialize");
+		goto out1;
+	}
 
 	/* Add 'update' handler for each worker threads */
 	updates = malloc(sizeof(Update) * cfg->worker_threads_num);
 	if (updates == NULL) {
 		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: module");
-		goto out0;
+		goto out2;
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
 		ret = update_init(&updates[iter], cfg->bot_id, cfg->owner_id, api, cfg->db_file, &k->chld);
 		if (ret < 0)
-			goto out1;
+			goto out3;
 	}
 
 	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates, sizeof(Update),
 			       cfg->worker_jobs_min, cfg->worker_jobs_max);
 	if (ret < 0)
-		goto out1;
+		goto out3;
 
 	ret = _run_event_loop(k);
 
 	thrd_pool_destroy(&k->thrd_pool);
 
-out1:
+out3:
 	chld_wait_all(&k->chld);
 	while (iter--)
 		update_deinit(&updates[iter]);
 
 	free(updates);
+out2:
+	chld_deinit(&k->chld);
+out1:
+	free(envp[0]);
 out0:
 	str_deinit(&str_api);
 	return ret;

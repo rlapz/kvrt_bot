@@ -132,6 +132,7 @@ void  mp_reserve(Mp *m, void *mem);
 
 typedef struct chld {
 	const char *path;
+	char       *const *envp;
 	Str         str;
 	unsigned    count;
 	unsigned    slots[CHLD_ITEMS_SIZE];
@@ -140,7 +141,7 @@ typedef struct chld {
 	mtx_t       mutex;
 } Chld;
 
-int  chld_init(Chld *c, const char path[]);
+int  chld_init(Chld *c, const char path[], char *const envp[]);
 void chld_deinit(Chld *c);
 int  chld_spawn(Chld *c, const char file[], char *const argv[]);
 void chld_reap(Chld *c);

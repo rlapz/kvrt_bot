@@ -582,7 +582,7 @@ mp_reserve(Mp *m, void *mem)
  * Chld
  */
 int
-chld_init(Chld *c, const char path[])
+chld_init(Chld *c, const char path[], char *const envp[])
 {
 	if (str_init_alloc(&c->str, 4096) < 0)
 		return -1;
@@ -596,6 +596,7 @@ chld_init(Chld *c, const char path[])
 
 	c->path = path;
 	c->count = 0;
+	c->envp = envp;
 	return 0;
 
 err0:
@@ -626,7 +627,7 @@ chld_spawn(Chld *c, const char file[], char *const argv[])
 		goto out0;
 
 	const unsigned slot = c->slots[count];
-	if (posix_spawn(&c->pids[slot], file_path, NULL, NULL, argv, NULL) != 0)
+	if (posix_spawn(&c->pids[slot], file_path, NULL, NULL, argv, c->envp) != 0)
 		goto out0;
 
 	log_debug("chld_spawn: spawn: %d: [%u:%u]", c->pids[slot], slot, c->count);
