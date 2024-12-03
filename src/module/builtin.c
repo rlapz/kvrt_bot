@@ -204,7 +204,7 @@ _module_cmd_admin_reload(Update *u, const ModuleParam *param)
 		};
 	}
 
-	if (is_priviledged == 0) {
+	if ((msg->from->id != u->owner_id) && (is_priviledged == 0)) {
 		resp = "Permission denied!";
 		goto out1;
 	}
