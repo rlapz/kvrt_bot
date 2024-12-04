@@ -129,20 +129,23 @@ void  mp_reserve(Mp *m, void *mem);
  * Chld
  */
 #define CHLD_ITEMS_SIZE CFG_UTIL_CHLD_ITEMS_SIZE
+#define CHLD_ENV_SIZE   (8)
 
 typedef struct chld {
 	const char *path;
-	char       *const *envp;
 	Str         str;
 	unsigned    count;
 	unsigned    slots[CHLD_ITEMS_SIZE];
 	unsigned    entries[CHLD_ITEMS_SIZE];
 	pid_t       pids[CHLD_ITEMS_SIZE];
+	unsigned    envp_len;
+	char       *envp[CHLD_ENV_SIZE + 1]; /* +1 NULL */
 	mtx_t       mutex;
 } Chld;
 
-int  chld_init(Chld *c, const char path[], char *const envp[]);
+int  chld_init(Chld *c, const char path[]);
 void chld_deinit(Chld *c);
+int  chld_add_env(Chld *c, const char key[], const char val[]);
 int  chld_spawn(Chld *c, const char file[], char *const argv[]);
 void chld_reap(Chld *c);
 void chld_wait_all(Chld *c);

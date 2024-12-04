@@ -22,8 +22,13 @@
 #define CFG_EVENT_RESPONSE_OK  "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
 #define CFG_EVENT_RESPONSE_ERR "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
 #define CFG_TELEGRAM_API       "https://api.telegram.org/bot"
-#define CFG_TELEGRAM_API_ENV   "TG_API="
 #define CFG_MSG_SPECIAL_CHARS  "_*[]()~`>#+-=|{}.!"
+
+#define CFG_ENV_TELEGRAM_API    "TG_API"
+#define CFG_ENV_CMD_EXTERN_PATH "CMD_PATH"
+#define CFG_ENV_OWNER_ID        "OWNER_ID"
+#define CFG_ENV_BOT_ID          "BOT_ID"
+#define CFG_ENV_DB_PATH         "DB_PATH"
 
 #define CFG_UTIL_BOT_CMD_ARGS_SIZE         (16)
 #define CFG_UTIL_CALLBACK_QUERY_ITEMS_SIZE (8)

@@ -42,6 +42,7 @@ typedef struct http_request {
 } HttpRequest;
 
 
+static int   _init_chld(KvrtBot *k, const char api[]);
 static int   _create_listener(KvrtBot *k);
 static int   _run_event_loop(KvrtBot *k);
 static void  _add_client(KvrtBot *k);
@@ -119,66 +120,50 @@ kvrt_bot_run(KvrtBot *k)
 		return ret;
 	}
 
-	const char *const base_api = str_set_fmt(&str_api, "%s%s%s", CFG_TELEGRAM_API_ENV,
-						 CFG_TELEGRAM_API, cfg->api_token);
-	if (base_api == NULL) {
+	const char *const api = str_set_fmt(&str_api, "%s%s", CFG_TELEGRAM_API, cfg->api_token);
+	if (api == NULL) {
 		ret = -1;
 		log_err(errno, "kvrt_bot: kvrt_bot_run: str_set_fmt: str api");
 		goto out0;
 	}
 
-	const char *const api = base_api + (sizeof(CFG_TELEGRAM_API_ENV) - 1);
 	log_debug("kvrt_bot: kvrt_bot_run: str api: %s", api);
 
-	/* TODO: pass cmd extern path */
-	char *envp[] = {
-		str_dup(&str_api),
-		NULL,
-	};
-
-	if (envp[0] == NULL) {
-		ret = -1;
-		log_err(errno, "kvrt_bot: kvrt_bot_run: str_dup: str api env");
+	ret = _init_chld(k, api);
+	if (ret < 0)
 		goto out0;
-	}
-
-	if (chld_init(&k->chld, cfg->cmd_path, envp) < 0) {
-		log_err(0, "kvrt_bot: kvrt_bot_run: chld_init: failed to initialize");
-		goto out1;
-	}
 
 	/* Add 'update' handler for each worker threads */
 	updates = malloc(sizeof(Update) * cfg->worker_threads_num);
 	if (updates == NULL) {
+		ret = -1;
 		log_err(errno, "kvrt_bot: kvrt_bot_run: malloc: module");
-		goto out2;
+		goto out1;
 	}
 
 	for (; iter < cfg->worker_threads_num; iter++) {
 		ret = update_init(&updates[iter], cfg->bot_id, cfg->owner_id, api, cfg->db_file, &k->chld);
 		if (ret < 0)
-			goto out3;
+			goto out2;
 	}
 
 	ret = thrd_pool_create(&k->thrd_pool, cfg->worker_threads_num, updates, sizeof(Update),
 			       cfg->worker_jobs_min, cfg->worker_jobs_max);
 	if (ret < 0)
-		goto out3;
+		goto out2;
 
 	ret = _run_event_loop(k);
 
 	thrd_pool_destroy(&k->thrd_pool);
 
-out3:
+out2:
 	chld_wait_all(&k->chld);
 	while (iter--)
 		update_deinit(&updates[iter]);
 
 	free(updates);
-out2:
-	chld_deinit(&k->chld);
 out1:
-	free(envp[0]);
+	chld_deinit(&k->chld);
 out0:
 	str_deinit(&str_api);
 	return ret;
@@ -195,6 +180,48 @@ kvrt_bot_stop(KvrtBot *k)
 /*
  * Private
  */
+static int
+_init_chld(KvrtBot *k, const char api[])
+{
+	Chld *const chld = &k->chld;
+	const Config *const cfg = &k->config;
+	if (chld_init(chld, cfg->cmd_path) < 0) {
+		log_err(0, "kvrt_bot: _init_chld: chld_init: failed to initialize");
+		return -1;
+	}
+
+	if (chld_add_env(chld, CFG_ENV_TELEGRAM_API, api) < 0)
+		goto err0;
+
+	if (chld_add_env(chld, CFG_ENV_CMD_EXTERN_PATH, cfg->cmd_path) < 0)
+		goto err0;
+
+	char owner_id[24];
+	if (snprintf(owner_id, LEN(owner_id), "%" PRIi64, cfg->owner_id) < 0)
+		goto err0;
+
+	if (chld_add_env(chld, CFG_ENV_OWNER_ID, owner_id) < 0)
+		goto err0;
+
+	char bot_id[24];
+	if (snprintf(bot_id, LEN(bot_id), "%" PRIi64, cfg->bot_id) < 0)
+		goto err0;
+
+	if (chld_add_env(chld, CFG_ENV_BOT_ID, bot_id) < 0)
+		goto err0;
+
+	if (chld_add_env(chld, CFG_ENV_DB_PATH, cfg->db_file) < 0)
+		goto err0;
+
+	return 0;
+
+err0:
+	chld_deinit(chld);
+	log_err(0, "kvrt_bot: _init_chld: chld_add_env: failed to add ENV variable");
+	return -1;
+}
+
+
 static int
 _create_listener(KvrtBot *k)
 {

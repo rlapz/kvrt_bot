@@ -582,8 +582,10 @@ mp_reserve(Mp *m, void *mem)
  * Chld
  */
 int
-chld_init(Chld *c, const char path[], char *const envp[])
+chld_init(Chld *c, const char path[])
 {
+	assert(CHLD_ENV_SIZE > 0);
+	memset(c, 0, sizeof(*c));
 	if (str_init_alloc(&c->str, 4096) < 0)
 		return -1;
 
@@ -595,8 +597,6 @@ chld_init(Chld *c, const char path[], char *const envp[])
 		c->slots[i] = i;
 
 	c->path = path;
-	c->count = 0;
-	c->envp = envp;
 	return 0;
 
 err0:
@@ -608,8 +608,32 @@ err0:
 void
 chld_deinit(Chld *c)
 {
+	for (unsigned i = 0; i < c->envp_len; i++)
+		free(c->envp[i]);
+
 	str_deinit(&c->str);
 	mtx_destroy(&c->mutex);
+}
+
+
+int
+chld_add_env(Chld *c, const char key[], const char val[])
+{
+	if (c->envp_len == CHLD_ENV_SIZE) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	char *const env = str_set_fmt(&c->str, "%s=%s", key, val);
+	if (env == NULL)
+		return -1;
+
+	char *const env_dup = str_dup(&c->str);
+	if (env_dup == NULL)
+		return -1;
+
+	c->envp[c->envp_len++] = env_dup;
+	return 0;
 }
 
 
