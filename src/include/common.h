@@ -7,7 +7,7 @@
 
 int  common_privileges_check(Update *u, const TgMessage *msg);
 void common_send_list(Update *u, const TgMessage *msg, const char context[], const char body[],
-			    int offt, int max);
+		      int offt, int max);
 
 
 static inline char *

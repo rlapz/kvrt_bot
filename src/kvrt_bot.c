@@ -20,14 +20,14 @@
 #include <util.h>
 
 
-#define HTTP_REQUEST_HEADER_LEN (16)
+#define _HTTP_REQUEST_HEADER_LEN (16)
 
 
 typedef enum state {
-	STATE_REQUEST_HEADER,
-	STATE_REQUEST_BODY,
-	STATE_RESPONSE,
-	STATE_FINISH,
+	_STATE_REQUEST_HEADER,
+	_STATE_REQUEST_BODY,
+	_STATE_RESPONSE,
+	_STATE_FINISH,
 } State;
 
 
@@ -37,7 +37,7 @@ typedef struct http_request {
 	const char        *path;
 	size_t             path_len;
 	int                min_ver;
-	struct phr_header  hdrs[HTTP_REQUEST_HEADER_LEN];
+	struct phr_header  hdrs[_HTTP_REQUEST_HEADER_LEN];
 	size_t             hdr_len;
 } HttpRequest;
 
@@ -357,7 +357,7 @@ _add_client(KvrtBot *k)
 	cl->body_len = 0;
 	cl->body = NULL;
 	cl->bytes = 0;
-	cl->state = STATE_REQUEST_HEADER;
+	cl->state = _STATE_REQUEST_HEADER;
 	k->clients_count++;
 	return;
 
@@ -388,16 +388,16 @@ _handle_client_state(KvrtBot *k, KvrtBotClient *client)
 {
 	int state = client->state;
 	switch (state) {
-	case STATE_REQUEST_HEADER:
+	case _STATE_REQUEST_HEADER:
 		state = _state_request_header(k, client);
 		break;
-	case STATE_REQUEST_BODY:
+	case _STATE_REQUEST_BODY:
 		state = _state_request_body(k, client);
 		break;
-	case STATE_RESPONSE:
+	case _STATE_RESPONSE:
 		state = _state_response(client);
 		break;
-	case STATE_FINISH:
+	case _STATE_FINISH:
 		_state_finish(k, client);
 		/* FINISHED */
 		return;
@@ -407,7 +407,7 @@ _handle_client_state(KvrtBot *k, KvrtBotClient *client)
 	}
 
 	/* prepare finishing state */
-	if (state == STATE_FINISH) {
+	if (state == _STATE_FINISH) {
 		client->event.events = EPOLLIN | EPOLLOUT;
 		if (epoll_ctl(k->event_fd, EPOLL_CTL_MOD, client->fd, &client->event) < 0) {
 			log_err(errno, "kvrt_bot: _state_response_prepare: epoll_ctl: MOD");
@@ -429,16 +429,16 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 
 	if (len == 0) {
 		log_err(ENOMEM, "kvrt_bot: _state_request_header: buffer full");
-		return STATE_FINISH;
+		return _STATE_FINISH;
 	}
 
 	const ssize_t rv = recv(client->fd, client->buffer + recvd, len, 0);
 	if (rv < 0) {
 		if (errno == EAGAIN)
-			return STATE_REQUEST_HEADER;
+			return _STATE_REQUEST_HEADER;
 
 		log_err(errno, "kvrt_bot: _state_request_header: recv");
-		return STATE_FINISH;
+		return _STATE_FINISH;
 	}
 
 	client->bytes = recvd + (size_t)rv;
@@ -446,10 +446,10 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 	case -2:
 		if (rv == 0) {
 			log_err(0, "kvrt_bot: _state_request_header: recv: EOF");
-			return STATE_FINISH;
+			return _STATE_FINISH;
 		}
 
-		return STATE_REQUEST_HEADER;
+		return _STATE_REQUEST_HEADER;
 	case -1:
 		log_err(0, "kvrt_bot: _state_request_header: _state_request_header_parse: invalid request");
 		return _state_response_prepare(k, client);
@@ -457,10 +457,10 @@ _state_request_header(KvrtBot *k, KvrtBotClient *client)
 		_state_request_body_parse(client);
 		return _state_response_prepare(k, client);
 	case 1:
-		return STATE_REQUEST_BODY;
+		return _STATE_REQUEST_BODY;
 	}
 
-	return STATE_FINISH;
+	return _STATE_FINISH;
 }
 
 
@@ -468,7 +468,7 @@ static int
 _state_request_header_parse(KvrtBot *k, KvrtBotClient *client, size_t last_len)
 {
 	const size_t len = client->bytes;
-	HttpRequest req = { .hdr_len = HTTP_REQUEST_HEADER_LEN };
+	HttpRequest req = { .hdr_len = _HTTP_REQUEST_HEADER_LEN };
 	const int ret = phr_parse_request(client->buffer, len, &req.method, &req.method_len,
 					  &req.path, &req.path_len, &req.min_ver, req.hdrs, &req.hdr_len,
 					  last_len);
@@ -624,25 +624,25 @@ _state_request_body(KvrtBot *k, KvrtBotClient *client)
 		const ssize_t rv = recv(client->fd, client->buffer + recvd, buffer_len - recvd, 0);
 		if (rv < 0) {
 			if (errno == EAGAIN)
-				return STATE_REQUEST_BODY;
+				return _STATE_REQUEST_BODY;
 
 			log_err(errno, "kvrt_bot: _state_request_body: recv");
-			return STATE_FINISH;
+			return _STATE_FINISH;
 		}
 
 		if (rv == 0) {
 			log_err(0, "kvrt_bot: _state_request_body: recv: EOF");
-			return STATE_FINISH;
+			return _STATE_FINISH;
 		}
 
 		recvd += (size_t)rv;
-		client->buffer[recvd] = '\0';
 		client->bytes = recvd;
 	}
 
 	if (recvd < buffer_len)
-		return STATE_REQUEST_BODY;
+		return _STATE_REQUEST_BODY;
 
+	client->buffer[recvd] = '\0';
 	if (recvd == buffer_len)
 		_state_request_body_parse(client);
 
@@ -656,11 +656,11 @@ _state_response_prepare(KvrtBot *k, KvrtBotClient *client)
 	client->event.events = EPOLLOUT;
 	if (epoll_ctl(k->event_fd, EPOLL_CTL_MOD, client->fd, &client->event) < 0) {
 		log_err(errno, "kvrt_bot: _state_response_prepare: epoll_ctl: MOD");
-		return STATE_FINISH;
+		return _STATE_FINISH;
 	}
 
 	client->bytes = 0;
-	return STATE_RESPONSE;
+	return _STATE_RESPONSE;
 }
 
 
@@ -679,15 +679,15 @@ _state_response(KvrtBotClient *client)
 		const ssize_t sn = send(client->fd, buffer + sent, buffer_len - sent, 0);
 		if (sn < 0) {
 			if (errno == EAGAIN)
-				return STATE_RESPONSE;
+				return _STATE_RESPONSE;
 
 			log_err(errno, "kvrt_bot: _state_response: send");
-			return STATE_FINISH;
+			return _STATE_FINISH;
 		}
 
 		if (sn == 0) {
 			log_err(0, "kvrt_bot: _state_response: send: EOF");
-			return STATE_FINISH;
+			return _STATE_FINISH;
 		}
 
 		sent += (size_t)sn;
@@ -695,10 +695,10 @@ _state_response(KvrtBotClient *client)
 	}
 
 	if (sent < buffer_len)
-		return STATE_RESPONSE;
+		return _STATE_RESPONSE;
 
 	client->is_success = 1;
-	return STATE_FINISH;
+	return _STATE_FINISH;
 }
 
 
