@@ -52,43 +52,6 @@ tg_api_deinit(TgApi *t)
 
 
 int
-tg_api_get_me(TgApi *t, TgUser *me, json_object **res)
-{
-	const char *const req = str_set_fmt(&t->str, "%s/getMe", t->api);
-	if (req == NULL) {
-		log_err(errno, "tg_api: tg_api_get_me: str");
-		return -1;
-	}
-
-	const char *const resp = _curl_request_get(t, req);
-	if (resp == NULL)
-		return -1;
-
-	json_object *const json = json_tokener_parse(resp);
-	if (json == NULL) {
-		log_err(0, "tg_api: tg_api_get_me: json_tokener_parse: failed");
-		return -1;
-	}
-
-	json_object *const result_obj = _parse_response(json);
-	if (result_obj == NULL)
-		goto err0;
-
-	if (me != NULL) {
-		if (tg_user_parse(me, result_obj) < 0)
-			goto err0;
-	}
-
-	*res = json;
-	return 0;
-
-err0:
-	json_object_put(json);
-	return -1;
-}
-
-
-int
 tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *reply_to, const char text[])
 {
 	int ret = -1;
@@ -137,72 +100,6 @@ out1:
 
 out0:
 	free(e_text);
-	return ret;
-}
-
-
-int
-tg_api_send_photo(TgApi *t, TgApiPhotoType type, int64_t chat_id, const int64_t *reply_to,
-		  const char caption[], const char src[])
-{
-	int ret = -1;
-	char *e_caption = NULL;
-	if (src == NULL) {
-		log_err(EINVAL, "tg_api: tg_api_send_photo: src null");
-		return -1;
-	}
-
-	/* TODO */
-	if (type != TG_API_PHOTO_TYPE_LINK) {
-		log_err(EINVAL, "tg_api: tg_api_send_photo: photo type: not supported");
-		return -1;
-	}
-
-	char *const e_src = curl_easy_escape(t->curl, src, 0);
-	if (e_src == NULL) {
-		log_err(0, "tg_api: tg_api_send_photo: curl_easy_escape: src: failed");
-		return -1;
-	}
-
-	const char *req = str_set_fmt(&t->str, "%s/sendPhoto?chat_id=%" PRIi64, t->api, chat_id);
-	if (req == NULL)
-		goto out1;
-
-	if (reply_to != NULL) {
-		req = str_append_fmt(&t->str, "&reply_to_message_id=%" PRIi64, *reply_to);
-		if (req == NULL)
-			goto out1;
-	}
-
-	if ((caption != NULL) && (caption[0] != '\0')) {
-		e_caption = curl_easy_escape(t->curl, caption, 0);
-		if (e_caption == NULL) {
-			log_err(0, "tg_api: tg_api_send_photo: curl_easy_escape: caption: failed");
-			goto out0;
-		}
-
-		req = str_append_fmt(&t->str, "&caption=%s", e_caption);
-		if (req == NULL)
-			goto out1;
-	}
-
-	req = str_append_fmt(&t->str, "&photo=%s", e_src);
-	if (req == NULL)
-		goto out1;
-
-	if (req == NULL) {
-out1:
-		log_err(errno, "tg_api: tg_api_send_photo: str");
-		goto out0;
-	}
-
-	log_debug("tg_api: tg_api_send_photo: request: %s", req);
-	if (_curl_request_get(t, req) != NULL)
-		ret = 0;
-
-out0:
-	free(e_src);
-	free(e_caption);
 	return ret;
 }
 
