@@ -27,6 +27,9 @@
 size_t
 cstr_copy(char dest[], const char src[])
 {
+	assert(dest != NULL);
+	assert(src != NULL);
+
 	const size_t slen = strlen(src);
 	memcpy(dest, src, slen);
 	dest[slen] = '\0';
@@ -37,6 +40,7 @@ cstr_copy(char dest[], const char src[])
 size_t
 cstr_copy_n(char dest[], size_t size, const char src[])
 {
+	assert(dest != NULL);
 	if (size == 0)
 		return 0;
 
@@ -58,6 +62,7 @@ cstr_copy_n(char dest[], size_t size, const char src[])
 size_t
 cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 {
+	assert(dest != NULL);
 	if (size <= len)
 		len = size - 1;
 
@@ -70,6 +75,9 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 int
 cstr_cmp_n(const char a[], const char b[], size_t b_len)
 {
+	assert(a != NULL);
+	assert(b != NULL);
+
 	const size_t a_len = strlen(a);
 	if (a_len != b_len)
 		return 0;
@@ -85,6 +93,9 @@ cstr_cmp_n(const char a[], const char b[], size_t b_len)
 int
 cstr_casecmp_n(const char a[], const char b[], size_t b_len)
 {
+	assert(a != NULL);
+	assert(b != NULL);
+
 	const size_t a_len = strlen(a);
 	if (a_len != b_len)
 		return 0;
@@ -100,6 +111,8 @@ cstr_casecmp_n(const char a[], const char b[], size_t b_len)
 char *
 cstr_trim_l(char dest[])
 {
+	assert(dest != NULL);
+
 	char *ret = dest;
 	while (*ret != '\0') {
 		if (isspace(*ret) == 0)
@@ -115,6 +128,8 @@ cstr_trim_l(char dest[])
 char *
 cstr_trim_r(char dest[])
 {
+	assert(dest != NULL);
+
 	char *ptr = dest;
 	if (*ptr == '\0')
 		return ptr;
