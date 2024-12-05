@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include <tg_api.h>
 #include <config.h>
@@ -402,14 +403,28 @@ _curl_request_get(TgApi *t, const char url[])
 	str_reset(&t->str, 0);
 	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str);
 
-	/* TODO: check response type: must be 'json' */
-
-	const CURLcode res = curl_easy_perform(t->curl);
+	CURLcode res = curl_easy_perform(t->curl);
 	if (res != CURLE_OK) {
 		log_err(0, "tg_api: _curl_request_get: curl_easy_perform: %s", curl_easy_strerror(res));
 		return NULL;
 	}
 
+	char *content_type = NULL;
+	res = curl_easy_getinfo(t->curl, CURLINFO_CONTENT_TYPE, &content_type);
+	if (res != CURLE_OK) {
+		log_err(0, "tg_api: _curl_request_get: curl_easy_getinfo: %s", curl_easy_strerror(res));
+		return NULL;
+	}
+
+	if (content_type == NULL) {
+		log_err(0, "tg_api: _curl_request_get: content-type: NULL");
+		return NULL;
+	}
+
+	if (strcasecmp(content_type, "application/json") != 0) {
+		log_err(0, "tg_api: _curl_request_get: content-type: \"%s\": invalid", content_type);
+		return NULL;
+	}
 
 #ifdef DEBUG
 	json_object *const json = json_tokener_parse(t->str.cstr);
