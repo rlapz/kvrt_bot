@@ -74,12 +74,12 @@ enum {
 
 
 typedef struct module_param {
-	int type;
+	int              type;
+	const TgMessage *message;
 	union {
 		struct {
-			BotCmd           bot_cmd;
-			const TgMessage *message;
-			json_object     *json;
+			BotCmd       bot_cmd;
+			json_object *json;
 		};
 
 		struct {

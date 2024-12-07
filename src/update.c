@@ -9,7 +9,7 @@
 
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
-static int  _handle_commands(Update *u, const TgMessage *msg, json_object *json);
+static void _handle_commands(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_callback(Update *u, const TgCallbackQuery *cb);
 static void _handler_new_member(Update *u, const TgMessage *msg);
 static void _admin_load(Update *u, const TgMessage *msg);
@@ -91,16 +91,15 @@ out0:
 static void
 _handle_message(Update *u, const TgMessage *msg, json_object *json)
 {
-	if (msg->from == NULL)
+	if (msg->from == NULL) {
+		log_err(0, "update: _handle_message: \"message from\" == NULL");
 		return;
+	}
 
 	log_debug("update: _handle_message: message type: %s", tg_message_type_str(msg->type));
 	switch (msg->type) {
 	case TG_MESSAGE_TYPE_COMMAND:
-		if (_handle_commands(u, msg, json))
-			break;
-
-		_send_invalid_cmd(u, msg);
+		_handle_commands(u, msg, json);
 		break;
 	case TG_MESSAGE_TYPE_TEXT:
 		_handle_text(u, msg, json);
@@ -124,38 +123,48 @@ _handle_text(Update *u, const TgMessage *msg, json_object *json)
 }
 
 
-static int
+static void
 _handle_commands(Update *u, const TgMessage *msg, json_object *json)
 {
 	ModuleParam param = {
 		.type = MODULE_PARAM_TYPE_CMD,
-		.json = json,
 		.message = msg,
+		.json = json,
 	};
 
-	if (bot_cmd_parse(&param.bot_cmd, '/', msg->text.cstr) < 0)
-		return 0;
+	if (bot_cmd_parse(&param.bot_cmd, '/', msg->text.cstr) < 0) {
+		log_err(0, "update: _handle_commands: bot_cmd_parse: invalid");
+		return;
+	}
 
 	if (module_builtin_exec_cmd(u, &param))
-		return 1;
+		return;
 
-	return module_extern_exec_cmd(u, &param);
+	if (module_extern_exec_cmd(u, &param))
+		return;
+
+	_send_invalid_cmd(u, msg);
 }
 
 
 static void
 _handle_callback(Update *u, const TgCallbackQuery *cb)
 {
-	if ((cb->message == NULL) || (cb->data == NULL))
+	if ((cb->message == NULL) || (cb->data == NULL)) {
+		log_err(0, "update: _handle_callback: \"message\" or \"data\" == NULL");
 		return;
+	}
 
 	ModuleParam param = {
 		.type = MODULE_PARAM_TYPE_CALLBACK,
+		.message = cb->message,
 		.callback = cb,
 	};
 
-	if (callback_query_parse(&param.query, cb->data) < 0)
+	if (callback_query_parse(&param.query, cb->data) < 0) {
+		log_err(0, "update: _handle_callback: callback_query_parse: invalid");
 		return;
+	}
 
 	if (module_builtin_exec_callback(u, &param))
 		return;

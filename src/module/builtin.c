@@ -33,8 +33,11 @@ static void _module_cmd_msg_list(Update *u, const ModuleParam *param);
 static void _module_cmd_help(Update *u, const ModuleParam *param);
 static void _module_cmd_extern_list(Update *u, const ModuleParam *param);
 static int  _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd);
-static void _prep_callback(const ModuleParam *param, const TgMessage **const msg, int *idx,
-			   int *offt, const char *cmd_id[]);
+
+/*
+ * Helpers
+ */
+static void _prep_callback(const ModuleParam *param, int *idx, int *offt, const char *cmd_id[]);
 
 
 enum {
@@ -124,7 +127,7 @@ module_builtin_exec_cmd(Update *update, const ModuleParam *param)
 		return 1;
 	}
 
-	return _module_cmd_msg_exec(update, param->message, &param->bot_cmd);
+	return _module_cmd_msg_exec(update, msg, &param->bot_cmd);
 }
 
 
@@ -333,10 +336,10 @@ static void
 _module_cmd_msg_list(Update *u, const ModuleParam *param)
 {
 	int idx, offt, max_len;
-	const TgMessage *msg;
 	const char *cmd_id;
+	const TgMessage *const msg = param->message;
 	CmdMessage msgs[CFG_ITEM_LIST_SIZE];
-	_prep_callback(param, &msg, &idx, &offt, &cmd_id);
+	_prep_callback(param, &idx, &offt, &cmd_id);
 
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
 		common_send_text_plain(u, msg, "Not supported!");
@@ -397,9 +400,8 @@ _module_cmd_help(Update *u, const ModuleParam *param)
 	int idx, offt;
 	char cmd_buff[MODULE_NAME_SIZE * 2];
 	char desc_buff[MODULE_DESC_SIZE * 2];
-	const TgMessage *msg;
-	const char *cmd_id;
-	_prep_callback(param, &msg, &idx, &offt, &cmd_id);
+	const TgMessage *const msg = param->message;
+	_prep_callback(param, &idx, &offt, NULL);
 
 	const int max_len = LEN(_module_list);
 	const int len = (CFG_ITEM_LIST_SIZE > max_len)? max_len : CFG_ITEM_LIST_SIZE;
@@ -423,10 +425,10 @@ static void
 _module_cmd_extern_list(Update *u, const ModuleParam *param)
 {
 	int idx, offt, max_len;
-	const TgMessage *msg;
 	const char *cmd_id;
+	const TgMessage *const msg = param->message;
 	ModuleExtern mods[CFG_ITEM_LIST_SIZE];
-	_prep_callback(param, &msg, &idx, &offt, &cmd_id);
+	_prep_callback(param, &idx, &offt, &cmd_id);
 
 	const int ret = repo_module_extern_get_list(&u->repo, msg->chat.id, mods, LEN(mods), offt, &max_len);
 	if (ret < 0) {
@@ -495,20 +497,26 @@ _module_cmd_msg_exec(Update *u, const TgMessage *msg, const BotCmd *cmd)
 }
 
 
+/*
+ * Helpers
+ */
 static void
-_prep_callback(const ModuleParam *param, const TgMessage **const msg, int *idx, int *offt,
-	       const char *cmd_id[])
+_prep_callback(const ModuleParam *param, int *idx, int *offt, const char *cmd_id[])
 {
 	if (param->type == MODULE_PARAM_TYPE_CALLBACK) {
 		const CallbackQueryArg *const arg0 = &param->query.args[0];
-		*offt = (int)cstr_to_llong_n(arg0->value, arg0->len);
-		*msg = param->callback->message;
-		*cmd_id = param->callback->id;
-		*idx = *offt + 1;
+		const int _offt = (int)cstr_to_llong_n(arg0->value, arg0->len);
+
+		if (cmd_id != NULL)
+			*cmd_id = param->callback->id;
+
+		*offt = _offt;
+		*idx = _offt + 1;
 	} else {
+		if (cmd_id != NULL)
+			*cmd_id = NULL;
+
 		*offt = -1;
-		*msg = param->message;
-		*cmd_id = NULL;
 		*idx = 1;
 	}
 }
