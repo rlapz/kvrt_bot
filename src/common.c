@@ -1,19 +1,74 @@
-#include <ctype.h>
-#include <common.h>
-#include <update.h>
-#include <repo.h>
+#include <string.h>
+#include <time.h>
+
+#include "common.h"
+
+#include "config.h"
+#include "model.h"
+#include "tg_api.h"
+#include "util.h"
 
 
+/*
+ * BotCmd
+ */
 int
-common_privileges_check(Update *u, const TgMessage *msg)
+bot_cmd_parse(BotCmd *b, const char uname[], const char src[])
+{
+	SpaceTokenizer st;
+	const char *next = space_tokenizer_next(&st, src);
+
+	/* verify username & skip username */
+	const char *const _uname = strchr(st.value, '@');
+	const char *const _uname_end = st.value + st.len;
+	if ((_uname != NULL) && (_uname < _uname_end)) {
+		if (cstr_casecmp_n(uname, _uname, (size_t)(_uname_end - _uname)) == 0)
+			return -1;
+
+		b->name_len = (unsigned)(_uname - st.value);
+		b->has_username = 1;
+	} else {
+		b->name_len = st.len;
+		b->has_username = 0;
+	};
+
+	b->name = st.value;
+	b->args = next;
+	return 0;
+}
+
+
+/*
+ * CallbackQuery
+ */
+int
+callback_query_parse(CallbackQuery *c, const char src[])
+{
+	SpaceTokenizer st;
+	const char *next = space_tokenizer_next(&st, src);
+	if (st.len == 0)
+		return -1;
+
+	c->ctx = st.value;
+	c->ctx_len = st.len;
+	c->args = next;
+	return 0;
+}
+
+
+/*
+ * misc
+ */
+int
+privileges_check(const TgMessage *msg, int64_t owner_id)
 {
 	const char *resp;
-	if (msg->from->id == u->owner_id)
-		return 0;
+	if (msg->from->id == owner_id)
+		return 1;
 
-	const int privs = repo_admin_get_privileges(&u->repo, msg->chat.id, msg->from->id);
+	const int privs = model_admin_get_privilegs(msg->chat.id, msg->from->id);
 	if (privs < 0) {
-		resp = "Failed to get admin list";
+		resp = "Falied to get admin list";
 		goto out0;
 	}
 
@@ -22,69 +77,141 @@ common_privileges_check(Update *u, const TgMessage *msg)
 		goto out0;
 	}
 
-	return 0;
+	return 1;
 
 out0:
-	common_send_text_plain(u, msg, resp);
-	return -1;
+	send_text_plain(msg, resp);
+	return 0;
 }
 
 
-void
-common_send_list(Update *u, const TgMessage *msg, const char context[], const char body[], int offt, int max)
+char *
+tg_escape(const char src[])
 {
-	TgApiInlineKeyboard kbd = {
-		.len = 0,
-		.items = (TgApiInlineKeyboardItem[]) {
-			{
-				.text = "Next",
-				.callbacks_len = 2,
-				.callbacks = (TgApiCallbackData[]) {
-					{ .type = TG_API_CALLBACK_DATA_TYPE_TEXT, .text = context },
-					{ .type = TG_API_CALLBACK_DATA_TYPE_INT },
-				},
+	return cstr_escape("_*[]()~`>#+-|{}.!", '\\', src);
+}
+
+
+/*
+ * MessageList
+ */
+int
+_message_list_add_template(const MessageList *l, Str *str)
+{
+	const MessageListPagination *const p = &l->pagination;
+	if (str_append_fmt(str, "*%s*\n%s\n\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- "
+				"Total\\: %u", l->title, l->body, p->current_page,
+					       p->total_page, p->total) == NULL) {
+		return -1;
+	}
+
+	return 0;
+}
+
+
+int
+message_list_paginate(const MessageList *l, int64_t *ret_id)
+{
+	int ret = -1;
+	const MessageListPagination *const p = &l->pagination;
+
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		return -1;
+
+	if (_message_list_add_template(l, &str) < 0)
+		goto out0;
+
+	const time_t now = time(NULL);
+	const TgApiInlineKeyboardButton btns[] = {
+		{
+			.text = "Prev",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = p->current_page - 1 },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = now },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
 			},
-			{
-				.text = "Prev",
-				.callbacks_len = 2,
-				.callbacks = (TgApiCallbackData[]) {
-					{ .type = TG_API_CALLBACK_DATA_TYPE_TEXT, .text = context },
-					{ .type = TG_API_CALLBACK_DATA_TYPE_INT },
-				},
+			.data_len = 4,
+		},
+		{
+			.text = "Next",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = p->current_page + 1 },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = now },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
 			},
+			.data_len = 4,
 		},
 	};
 
-	/* start page */
-	if (offt < 0) {
-		/* no pagination */
-		if (max <= CFG_ITEM_LIST_SIZE) {
-			common_send_text_format(u, msg, body);
-			return;
-		}
-
-		kbd.len = 1;
-		kbd.items[0].callbacks[1].int_ = CFG_ITEM_LIST_SIZE; /* next page */
-		tg_api_send_inline_keyboard(&u->api, msg->chat.id, &msg->id, body, &kbd, 1);
-		return;
+	TgApiInlineKeyboard kbds = { 0 };
+	/* next */
+	if (p->has_next_page) {
+		kbds.len++;
+		kbds.buttons = &btns[1];
 	}
-
-	TgApiInlineKeyboardItem *items = NULL;
 
 	/* prev */
-	if ((offt - CFG_ITEM_LIST_SIZE) >= 0) {
-		kbd.len++;
-		kbd.items[1].callbacks[1].int_ = offt - CFG_ITEM_LIST_SIZE;
-		items = &kbd.items[1];
+	if (p->current_page > 1) {
+		kbds.len++;
+		kbds.buttons = btns;
 	}
 
-	/* next */
-	if ((offt + CFG_ITEM_LIST_SIZE) < max) {
-		kbd.len++;
-		kbd.items[0].callbacks[1].int_ = offt + CFG_ITEM_LIST_SIZE;
-		items = &kbd.items[0];
+	ret = tg_api_edit_inline_keyboard(l->msg->chat.id, l->msg->id, str.cstr, &kbds,
+					  1, ret_id);
+
+out0:
+	str_deinit(&str);
+	return ret;
+}
+
+
+int
+message_list_send(const MessageList *l, int64_t *ret_id)
+{
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		return -1;
+
+	int ret = -1;
+	if (_message_list_add_template(l, &str) < 0)
+		goto out0;
+
+	const unsigned next_page = l->pagination.current_page - 1;
+	const TgApiInlineKeyboard kbd = {
+		.buttons = &(TgApiInlineKeyboardButton) {
+			.text = "Next",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = next_page },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = time(NULL) },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
+			},
+			.data_len = 4,
+		},
+		.len = 1,
+	};
+
+	ret = tg_api_send_inline_keyboard(l->msg->chat.id, &l->msg->id, str.cstr, &kbd, 1, ret_id);
+
+out0:
+	str_deinit(&str);
+	return ret;
+}
+
+
+int
+message_list_check_expiration(const char id[], time_t prev)
+{
+	const time_t diff = time(NULL) - prev;
+	if (diff >= CFG_LIST_TIMEOUT_S) {
+		if (tg_api_answer_callback_query(id, "Expired!", NULL, 1) < 0)
+			return -1;
+
+		return 0;
 	}
 
-	kbd.items = items;
-	tg_api_edit_inline_keyboard(&u->api, msg->chat.id, msg->id, body, &kbd, 1);
+	return 1;
 }

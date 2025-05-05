@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <tg.h>
-#include <config.h>
-#include <util.h>
+#include "tg.h"
+
+#include "config.h"
+#include "util.h"
 
 
 static int  _parse_message(TgMessage *m, json_object *message_obj);
@@ -56,7 +57,7 @@ tg_user_parse(TgUser *u, json_object *user_obj)
 
 
 const char *
-tg_chat_type_str(TgChatType type)
+tg_chat_type_str(int type)
 {
 	switch (type) {
 	case TG_CHAT_TYPE_PRIVATE: return "private";
@@ -64,14 +65,13 @@ tg_chat_type_str(TgChatType type)
 	case TG_CHAT_TYPE_SUPERGROUP: return "supergroup";
 	case TG_CHAT_TYPE_CHANNEL: return "channel";
 	case TG_CHAT_TYPE_SENDER: return "sender";
-	default: break;
 	}
 
 	return "unknown";
 }
 
 
-TgChatType
+int
 tg_chat_type_get(const char type_str[])
 {
 	if (strcmp(type_str, "private") == 0)
@@ -91,13 +91,12 @@ tg_chat_type_get(const char type_str[])
 
 
 const char *
-tg_sticker_type_str(TgStickerType type)
+tg_sticker_type_str(int type)
 {
 	switch (type) {
 	case TG_STICKER_TYPE_REGULAR: return "regular";
 	case TG_STICKER_TYPE_MASK: return "mask";
 	case TG_STICKER_TYPE_CUSTOM_EMOJI: return "custom emoji";
-	default: break;
 	}
 
 	return "unknown";
@@ -107,7 +106,7 @@ tg_sticker_type_str(TgStickerType type)
 int
 tg_chat_admin_parse(TgChatAdmin *a, json_object *json)
 {
-	TgChatAdminPrivilege privs = 0;
+	int privs = 0;
 	memset(a, 0, sizeof(*a));
 
 	json_object *status_obj;
@@ -261,7 +260,7 @@ tg_chat_admin_list_free(TgChatAdminList *a)
 
 
 const char *
-tg_message_entity_type_str(TgMessageEntityType type)
+tg_message_entity_type_str(int type)
 {
 	switch (type) {
 	case TG_MESSAGE_ENTITY_TYPE_MENTION: return "mention";
@@ -282,7 +281,6 @@ tg_message_entity_type_str(TgMessageEntityType type)
 	case TG_MESSAGE_ENTITY_TYPE_TEXT_LINK: return "text link";
 	case TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION: return "text metion";
 	case TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI: return "custom emoji";
-	default: break;
 	}
 
 	return "unknown";
@@ -290,7 +288,7 @@ tg_message_entity_type_str(TgMessageEntityType type)
 
 
 const char *
-tg_message_type_str(TgMessageType type)
+tg_message_type_str(int type)
 {
 	switch (type) {
 	case TG_MESSAGE_TYPE_AUDIO: return "audio";
@@ -302,7 +300,6 @@ tg_message_type_str(TgMessageType type)
 	case TG_MESSAGE_TYPE_COMMAND: return "bot command";
 	case TG_MESSAGE_TYPE_LEFT_CHAT_MEMBER: return "left chat member";
 	case TG_MESSAGE_TYPE_NEW_MEMBER: return "new chat member";
-	default: break;
 	}
 
 	return "unknown";
@@ -310,12 +307,11 @@ tg_message_type_str(TgMessageType type)
 
 
 const char *
-tg_update_type_str(TgUpdateType type)
+tg_update_type_str(int type)
 {
 	switch (type) {
 	case TG_UPDATE_TYPE_MESSAGE: return "message";
 	case TG_UPDATE_TYPE_CALLBACK_QUERY: return "callback query";
-	default: break;
 	}
 
 	return "unknown";
@@ -381,8 +377,6 @@ tg_update_free(TgUpdate *u)
 		free(u->callback_query.from);
 		if (u->callback_query.message != NULL)
 			_free_message(u->callback_query.message);
-		break;
-	default:
 		break;
 	}
 }
@@ -941,8 +935,6 @@ _free_message(TgMessage *m)
 		break;
 	case TG_MESSAGE_TYPE_STICKER:
 		free(m->sticker.thumbnail);
-		break;
-	default:
 		break;
 	}
 

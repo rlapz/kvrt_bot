@@ -2,6 +2,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -12,13 +13,16 @@
 #include <time.h>
 #include <unistd.h>
 #include <spawn.h>
+#include <json.h>
 
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 
-#include <util.h>
+#include <curl/curl.h>
+
+#include "util.h"
 
 
 /*
@@ -27,8 +31,7 @@
 size_t
 cstr_copy(char dest[], const char src[])
 {
-	assert(dest != NULL);
-	assert(src != NULL);
+	assert(VAL_IS_NULL_OR(dest, src) == 0);
 
 	const size_t slen = strlen(src);
 	memcpy(dest, src, slen);
@@ -72,11 +75,26 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 }
 
 
+size_t
+cstr_dup_n(char *dest[], const char src[], size_t len)
+{
+	const size_t new_cstr_size = len + 1;
+	char *const new_cstr = malloc(new_cstr_size);
+	if (new_cstr == NULL) {
+		*dest = NULL;
+		return 0;
+	}
+
+	*dest = new_cstr;
+	return cstr_copy_n2(new_cstr, new_cstr_size, src, len);
+}
+
+
 int
 cstr_cmp_n(const char a[], const char b[], size_t b_len)
 {
-	assert(a != NULL);
-	assert(b != NULL);
+	if ((a == NULL) && (b == NULL))
+		return 1;
 
 	const size_t a_len = strlen(a);
 	if (a_len != b_len)
@@ -85,7 +103,35 @@ cstr_cmp_n(const char a[], const char b[], size_t b_len)
 	if (strncmp(a, b, b_len) != 0)
 		return 0;
 
-	/* equals */
+	return 1;
+}
+
+
+int
+cstr_cmp_n2(const char a[], size_t a_len, const char b[], size_t b_len)
+{
+	if ((a == NULL) && (b == NULL))
+		return 1;
+
+	if (a_len != b_len)
+		return 0;
+
+	if (strncmp(a, b, b_len) != 0)
+		return 0;
+
+	return 1;
+}
+
+
+int
+cstr_casecmp(const char a[], const char b[])
+{
+	if ((a == NULL) && (b == NULL))
+		return 1;
+
+	if (strcasecmp(a, b) != 0)
+		return 0;
+
 	return 1;
 }
 
@@ -93,8 +139,8 @@ cstr_cmp_n(const char a[], const char b[], size_t b_len)
 int
 cstr_casecmp_n(const char a[], const char b[], size_t b_len)
 {
-	assert(a != NULL);
-	assert(b != NULL);
+	if ((a == NULL) && (b == NULL))
+		return 1;
 
 	const size_t a_len = strlen(a);
 	if (a_len != b_len)
@@ -103,7 +149,22 @@ cstr_casecmp_n(const char a[], const char b[], size_t b_len)
 	if (strncasecmp(a, b, b_len) != 0)
 		return 0;
 
-	/* equals */
+	return 1;
+}
+
+
+int
+cstr_casecmp_n2(const char a[], size_t a_len, const char b[], size_t b_len)
+{
+	if ((a == NULL) && (b == NULL))
+		return 1;
+
+	if (a_len != b_len)
+		return 0;
+
+	if (strncasecmp(a, b, b_len) != 0)
+		return 0;
+
 	return 1;
 }
 
@@ -146,44 +207,168 @@ cstr_trim_r(char dest[])
 }
 
 
-/*
- * WARN: Unsafe
- */
 char *
-cstr_escape(char dest[], const char esc[], int c, const char src[])
+cstr_escape(const char escape[], const char c, const char src[])
 {
-	size_t i = 0;
-	for (const char *p = src; *p != '\0'; p++) {
-		for (const char *s = esc; *s != '\0'; s++) {
-			if (*p != *s)
+	if (CSTR_IS_EMPTY_OR(escape, src))
+		return NULL;
+
+	Str str;
+	const size_t src_len = strlen(src);
+	if (str_init_alloc(&str, src_len) < 0)
+		return NULL;
+
+	for (size_t i = 0; i < src_len; i++) {
+		const char tmp = src[i];
+		const char *eptr = escape;
+		for (; *eptr != '\0'; eptr++) {
+			if (tmp != *eptr)
 				continue;
 
-			dest[i++] = c;
+			if (str_append_c(&str, c) == NULL)
+				goto err0;
 		}
 
-		dest[i++] = *p;
+		if (str_append_c(&str, tmp) == NULL)
+			goto err0;
 	}
 
-	dest[i] = '\0';
+	return str.cstr;
+
+err0:
+	str_deinit(&str);
+	return NULL;
+}
+
+
+char *
+cstr_to_lower_n(char dest[], size_t len)
+{
+	for (size_t i = 0; i < len; i++) {
+		if (dest[i] == '\0')
+			break;
+
+		dest[i] = (char)tolower(dest[i]);
+	}
+
 	return dest;
 }
 
 
-long long
-cstr_to_llong_n(const char cstr[], size_t len)
+int
+cstr_to_llong(const char cstr[], long long *ret)
 {
-	char buffer[24];
-	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
-	return strtoll(buffer, NULL, 10);
+	errno = 0;
+	const long long _ret = strtoll(cstr, NULL, 10);
+	if (errno == 0)
+		*ret = _ret;
+
+	return -errno;
 }
 
 
-unsigned long long
-cstr_to_ullong_n(const char cstr[], size_t len)
+int
+cstr_to_llong_n(const char cstr[], size_t len, long long *ret)
 {
-	char buffer[24];
+	char buffer[INT64_DIGITS_LEN];
 	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
-	return strtoull(buffer, NULL, 10);
+
+	errno = 0;
+	const long long _ret = strtoll(buffer, NULL, 10);
+	if (errno == 0)
+		*ret = _ret;
+
+	return -errno;
+}
+
+
+int
+cstr_to_ullong_n(const char cstr[], size_t len, unsigned long long *ret)
+{
+	char buffer[UINT64_DIGITS_LEN];
+	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
+
+	errno = 0;
+	const unsigned long long _ret = strtoull(buffer, NULL, 10);
+	if (errno == 0)
+		*ret = _ret;
+
+	return -errno;
+}
+
+
+int
+cstr_is_empty_and_n(size_t count, ...)
+{
+	va_list va;
+	va_start(va, count);
+
+	int ret = 0;
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void*);
+		if ((curr != NULL) || (((char *)curr)[0] != '\0'))
+			goto out0;
+	}
+
+	ret = 1;
+
+out0:
+	va_end(va);
+	return ret;
+}
+
+
+int
+cstr_is_empty_or_n(size_t count, ...)
+{
+	va_list va;
+	va_start(va, count);
+
+	int ret = 1;
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void*);
+		if ((curr == NULL) || (((char *)curr)[0] == '\0'))
+			goto out0;
+	}
+
+	ret = 0;
+
+out0:
+	va_end(va);
+	return ret;
+}
+
+
+/*
+ * ArrayPtr
+ */
+void
+array_ptr_init(ArrayPtr *a)
+{
+	a->len = 0;
+	a->items = NULL;
+}
+
+
+void
+array_ptr_deinit(ArrayPtr *a)
+{
+	free(a->items);
+}
+
+
+int
+array_ptr_append(ArrayPtr *a, void *item)
+{
+	const size_t new_len = a->len + 1;
+	void **const items = realloc(a->items, (sizeof(void *) * new_len));
+	if (items == NULL)
+		return -errno;
+
+	items[a->len] = item;
+	a->len = new_len;
+	a->items = items;
+	return 0;
 }
 
 
@@ -203,97 +388,91 @@ space_tokenizer_next(SpaceTokenizer *s, const char raw[])
 
 	s->len = len;
 	s->value = value;
-	return &value[len];
+	return cstr_trim_l((char *)&value[len]);
 }
 
 
 /*
- * BotCmd
+ * DList
  */
-int
-bot_cmd_parse(BotCmd *b, char prefix, const char src[])
+static void
+_dlist_init_node(DList *d, DListNode *node)
 {
-	SpaceTokenizer st;
-	const char *next = space_tokenizer_next(&st, src);
-	if ((st.len <= 1) || (st.value[0] != prefix))
-		return -1;
+	node->next = NULL;
+	node->prev = NULL;
+	d->first = node;
+	d->last = node;
+}
 
-	/* ignore @username */
-	const char *username = strchr(st.value, '@');
-	if ((username != NULL) && (username < &st.value[st.len]))
-		b->name_len = (unsigned)(username - st.value);
+
+void
+dlist_init(DList *d)
+{
+	d->first = NULL;
+	d->last = NULL;
+	d->len = 0;
+}
+
+
+void
+dlist_append(DList *d, DListNode *node)
+{
+	if (d->last != NULL) {
+		node->prev = d->last;
+		node->next = NULL;
+		d->last->next = node;
+		d->last = node;
+	} else {
+		_dlist_init_node(d, node);
+	}
+
+	d->len++;
+}
+
+
+void
+dlist_prepend(DList *d, DListNode *node)
+{
+	if (d->first != NULL) {
+		node->next = d->first;
+		node->prev = NULL;
+		d->first->prev = node;
+		d->first = node;
+	} else {
+		_dlist_init_node(d, node);
+	}
+
+	d->len++;
+}
+
+
+void
+dlist_remove(DList *d, DListNode *node)
+{
+	assert(d->len > 0);
+	if (node->next != NULL)
+		node->next->prev = node->prev;
 	else
-		b->name_len = st.len;
+		d->last = node->prev;
 
-	b->name = st.value;
+	if (node->prev != NULL)
+		node->prev->next = node->next;
+	else
+		d->first = node->next;
 
-	unsigned count = 0;
-	while ((next = space_tokenizer_next(&st, next)) != NULL) {
-		if (count == BOT_CMD_ARGS_SIZE)
-			break;
-
-		b->args[count] = (BotCmdArg) {
-			.value = st.value,
-			.len = st.len,
-		};
-
-		count++;
-	}
-
-	b->args_len = count;
-	return 0;
+	d->len--;
 }
 
 
-int
-bot_cmd_compare(const BotCmd *b, const char cmd[])
+DListNode *
+dlist_pop(DList *d)
 {
-	if (b == NULL)
-		return 0;
+	DListNode *const node = d->last;
+	if (node == NULL)
+		return NULL;
 
-	return cstr_casecmp_n(cmd, b->name, (size_t)b->name_len);
-}
-
-
-/*
- * CallbackQuery
- */
-int
-callback_query_parse(CallbackQuery *c, const char src[])
-{
-	SpaceTokenizer st;
-	const char *next = space_tokenizer_next(&st, src);
-	if (st.len == 0)
-		return -1;
-
-	c->context = st.value;
-	c->context_len = st.len;
-
-	unsigned count = 0;
-	while ((next = space_tokenizer_next(&st, next)) != NULL) {
-		if (count == CALLBACK_QUERY_ARGS_SIZE)
-			break;
-
-		c->args[count] = (CallbackQueryArg) {
-			.value = st.value,
-			.len = st.len,
-		};
-
-		count++;
-	}
-
-	c->args_len = count;
-	return 0;
-}
-
-
-int
-callback_query_compare(const CallbackQuery *c, const char callback[])
-{
-	if (c == NULL)
-		return 0;
-
-	return cstr_casecmp_n(callback, c->context, (size_t)c->context_len);
+	dlist_remove(d, node);
+	return node;
 }
 
 
@@ -378,6 +557,24 @@ str_append_n(Str *s, const char cstr[], size_t len)
 	memcpy(s->cstr + slen, cstr, len);
 
 	slen += len;
+	s->len = slen;
+	s->cstr[slen] = '\0';
+	return s->cstr;
+}
+
+
+char *
+str_append_c(Str *s, char c)
+{
+	if (_str_resize(s, 1) < 0) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	size_t slen = s->len;
+	s->cstr[slen] = c;
+
+	slen++;
 	s->len = slen;
 	s->cstr[slen] = '\0';
 	return s->cstr;
@@ -488,6 +685,18 @@ str_append_fmt(Str *s, const char fmt[], ...)
 }
 
 
+char *
+str_pop(Str *s, size_t count)
+{
+	if ((s->len == 0) || (s->len == count))
+		return NULL;
+
+	s->len -= count;
+	s->cstr[s->len] = '\0';
+	return s->cstr;
+}
+
+
 int
 str_reset(Str *s, size_t offt)
 {
@@ -515,165 +724,258 @@ str_dup(Str *s)
 
 
 /*
- * Mp: Memory pool
+ * CstrMap
+ *
+ * 64bit FNV-1a case-insensitive hash function & hash map
+ * ref: https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function
  */
-typedef struct mp_node {
-	struct mp_node *next;
-	char            data[];
-} MpNode;
+static CstrMapItem *
+_cstrmap_map_exec(CstrMap *c, const char key[])
+{
+	uint64_t hash = 0xcbf29ce484222325; /* FNV-1 offset */
+	for (const char *p = key; *p != '\0'; p++) {
+		hash ^= (uint64_t)((unsigned char)tolower(*p));
+		hash *= 0x00000100000001b3; /* FNV-1 prime */
+	}
+
+	const size_t size = c->size;
+	size_t index = (size_t)(hash & (size - 1));
+	CstrMapItem *item = &c->items[index];
+	for (size_t i = 0; (i < size) && (item->key != NULL); i++) {
+		if (strcasecmp(item->key, key) == 0) {
+			/* found matched key */
+			return item;
+		}
+
+		log_debug("cstrmap: _cstrmap_map: linear probing: [%s:%s]:[%zu:%zu]", key, item->key, i, index);
+		index = (index + 1) % size;
+		item = &c->items[index];
+	}
+
+	/* slot full, no free key */
+	if (item->key != NULL)
+		return NULL;
+
+	return item;
+}
 
 
 int
-mp_init(Mp *m, size_t nmemb, size_t size)
+cstr_map_init(CstrMap *c, size_t size)
 {
-	m->nmemb = nmemb;
-	m->head = NULL;
+	assert(size != 0);
+	while ((size % 2) != 0)
+		size++;
 
-	for (size_t i = 0; i < size; i++) {
-		MpNode *const node = malloc(sizeof(MpNode) * nmemb);
-		if (node == NULL)
-			goto err;
+	void *const items = calloc(size, sizeof(CstrMapItem));
+	if (items == NULL)
+		return -1;
 
-#ifdef DEBUG
-		memset(node, 0xaa, nmemb);
-#endif
-		node->next = m->head;
-		m->head = node;
-	}
-
+	c->size = size;
+	c->items = items;
 	return 0;
-
-err:
-	mp_deinit(m);
-	return -ENOMEM;
 }
 
 
 void
-mp_deinit(Mp *m)
+cstr_map_deinit(CstrMap *c)
 {
-	MpNode *head = m->head;
-	while (head != NULL) {
-		MpNode *const next = head->next;
-		free(head);
+	free(c->items);
+}
 
-		head = next;
-	}
 
-	m->head = NULL;
+int
+cstr_map_set(CstrMap *c, const char key[], void *value)
+{
+	CstrMapItem *const item = _cstrmap_map_exec(c, key);
+	if (item == NULL)
+		return -1;
+
+	item->key = key;
+	item->value = value;
+	return 0;
 }
 
 
 void *
-mp_alloc(Mp *m)
+cstr_map_get(CstrMap *c, const char key[])
 {
-	MpNode *head = m->head;
-	if (head != NULL) {
-		m->head = head->next;
-	} else {
-		head = malloc(sizeof(MpNode) * m->nmemb);
-		if (head == NULL)
-			return NULL;
+	CstrMapItem *const item = _cstrmap_map_exec(c, key);
+	if ((item == NULL) || (item->key == NULL))
+		return NULL;
 
-	}
-
-#ifdef DEBUG
-	memset(head, 0xaa, m->nmemb);
-#endif
-	return &head->data;
-}
-
-
-void
-mp_reserve(Mp *m, void *mem)
-{
-	MpNode *const node = FIELD_PARENT_PTR(MpNode, data, mem);
-	node->next = m->head;
-	m->head = node;
+	return item->value;
 }
 
 
 /*
  * Chld
  */
+typedef struct chld {
+	const char *path;
+	const char *log_file;
+	unsigned    count;
+	unsigned    slots[CFG_CHLD_ITEMS_SIZE];
+	unsigned    entries[CFG_CHLD_ITEMS_SIZE];
+	pid_t       pids[CFG_CHLD_ITEMS_SIZE];
+	unsigned    envp_len;
+	char       *envp[CFG_CHLD_ENVP_SIZE + 1]; /* +1 NULL */
+	mtx_t       mutex;
+} Chld;
+
+static Chld *_chld_instance = NULL;
+
+
 int
-chld_init(Chld *c, const char path[])
+chld_init(const char path[], const char log_file[])
 {
-	assert(CHLD_ENV_SIZE > 0);
-	memset(c, 0, sizeof(*c));
-	if (str_init_alloc(&c->str, 4096) < 0)
+	assert(CFG_CHLD_ENVP_SIZE > 0);
+	assert(CSTR_IS_EMPTY_OR(path, log_file) == 0);
+
+	Chld *const c = malloc(sizeof(Chld));
+	if (c == NULL)
 		return -1;
 
-	if (mtx_init(&c->mutex, mtx_plain) != 0)
-		goto err0;
+	memset(c, 0, sizeof(Chld));
+	if (mtx_init(&c->mutex, mtx_plain) != 0) {
+		free(c);
+		return -1;
+	}
 
-	unsigned i = CHLD_ITEMS_SIZE;
+	unsigned i = CFG_CHLD_ITEMS_SIZE;
 	while (i--)
 		c->slots[i] = i;
 
 	c->path = path;
+	c->log_file = log_file;
+	_chld_instance = c;
 	return 0;
-
-err0:
-	str_deinit(&c->str);
-	return -1;
 }
 
 
 void
-chld_deinit(Chld *c)
+chld_deinit(void)
 {
-	for (unsigned i = 0; i < c->envp_len; i++)
-		free(c->envp[i]);
+	assert(_chld_instance != NULL);
+	for (unsigned i = 0; i < _chld_instance->envp_len; i++)
+		free(_chld_instance->envp[i]);
 
-	str_deinit(&c->str);
-	mtx_destroy(&c->mutex);
+	mtx_destroy(&_chld_instance->mutex);
+
+	free(_chld_instance);
+	_chld_instance = NULL;
 }
 
 
 int
-chld_add_env(Chld *c, const char key[], const char val[])
+chld_add_env(const char key_value[])
 {
-	if (c->envp_len == CHLD_ENV_SIZE) {
+	if (cstr_is_empty(key_value)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	Chld *const c = _chld_instance;
+	if (c->envp_len == CFG_CHLD_ENVP_SIZE) {
 		errno = ENOMEM;
 		return -1;
 	}
 
-	char *const env = str_set_fmt(&c->str, "%s=%s", key, val);
-	if (env == NULL)
+	char *const new_kv = strdup(key_value);
+	if (new_kv == NULL)
 		return -1;
 
-	char *const env_dup = str_dup(&c->str);
-	if (env_dup == NULL)
-		return -1;
-
-	c->envp[c->envp_len++] = env_dup;
+	log_debug("chld: chld_add_env: \"%s\"", key_value);
+	c->envp[c->envp_len++] = new_kv;
 	return 0;
 }
 
 
 int
-chld_spawn(Chld *c, const char file[], char *const argv[])
+chld_add_env_kv(const char key[], const char val[])
+{
+	Chld *const c = _chld_instance;
+	assert(c != NULL);
+
+	if (CSTR_IS_EMPTY_OR(key, val)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (c->envp_len == CFG_CHLD_ENVP_SIZE) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	Str str;
+	if (str_init_alloc(&str, 4096) < 0)
+		return -1;
+
+	char *const env = str_set_fmt(&str, "%s=%s", key, val);
+	if (env == NULL) {
+		const int err = errno;
+		str_deinit(&str);
+		errno = err;
+		return -1;
+	}
+
+	log_debug("chld: chld_add_env_kv: \"%s=%s\"", key, val);
+	c->envp[c->envp_len++] = env;
+	return 0;
+}
+
+
+int
+chld_spawn(const char file[], char *const argv[])
 {
 	int ret = -1;
-	mtx_lock(&c->mutex);
-	const unsigned count = c->count;
-	if (count == CHLD_ITEMS_SIZE)
-		goto out0;
+	Chld *const c = _chld_instance;
+	assert(c != NULL);
 
-	const char *const file_path = str_set_fmt(&c->str, "%s/%s", c->path, file);
-	if (file_path == NULL)
+	mtx_lock(&c->mutex);
+
+	const unsigned count = c->count;
+	if (count == CFG_CHLD_ITEMS_SIZE) {
+		log_err(0, "chld_spawn: slot full");
 		goto out0;
+	}
+
+	posix_spawn_file_actions_t act;
+	if (posix_spawn_file_actions_init(&act) != 0) {
+		log_err(errno, "chld_spawn: posix_spawn_file_actions_init: \"%s\"", file);
+		goto out0;
+	}
+
+	const int flags = O_WRONLY | O_CREAT | O_APPEND;
+	if (posix_spawn_file_actions_addopen(&act, STDOUT_FILENO, c->log_file, flags, 0644) != 0) {
+		log_err(errno, "chld_spawn: posix_spawn_file_actions_addopen: STDOUT: \"%s\"", file);
+		goto out1;
+	}
+
+	if (posix_spawn_file_actions_adddup2(&act, STDOUT_FILENO, STDERR_FILENO) != 0) {
+		log_err(errno, "chld_spawn: posix_spawn_file_actions_adddup2: \"%s\"", file);
+		goto out1;
+	}
+
+	if (posix_spawn_file_actions_addchdir_np(&act, c->path) != 0) {
+		log_err(errno, "chld_spawn: posix_spawn_file_actions_addchdir_np: \"%s\"", file);
+		goto out1;
+	}
 
 	const unsigned slot = c->slots[count];
-	if (posix_spawn(&c->pids[slot], file_path, NULL, NULL, argv, c->envp) != 0)
-		goto out0;
+	if (posix_spawn(&c->pids[slot], file, &act, NULL, argv, c->envp) != 0) {
+		log_err(errno, "chld_spawn: posix_spawn: \"%s\"", file);
+		goto out1;
+	}
 
-	log_debug("chld_spawn: spawn: %d: [%u:%u]", c->pids[slot], slot, c->count);
+	log_debug("chld_spawn: spawn: \"%s\": %d: [%u:%u]", file, c->pids[slot], slot, c->count);
+
 	c->entries[count] = slot;
 	c->count = count + 1;
 	ret = 0;
 
+out1:
+	posix_spawn_file_actions_destroy(&act);
 out0:
 	mtx_unlock(&c->mutex);
 	return ret;
@@ -681,8 +983,11 @@ out0:
 
 
 void
-chld_reap(Chld *c)
+chld_reap(void)
 {
+	Chld *const c = _chld_instance;
+	assert(c != NULL);
+
 	mtx_lock(&c->mutex);
 
 	unsigned rcount = 0;
@@ -699,7 +1004,7 @@ chld_reap(Chld *c)
 		rcount++;
 		i--;
 
-		log_debug("chld_spawn: reap: %d: [%u:%u]", c->pids[slot], slot, count);
+		log_debug("chld_reap: reap: %d: [%u:%u]", c->pids[slot], slot, count);
 	}
 
 	assert(rcount <= c->count);
@@ -711,8 +1016,11 @@ chld_reap(Chld *c)
 
 
 void
-chld_wait_all(Chld *c)
+chld_wait_all(void)
 {
+	Chld *const c = _chld_instance;
+	assert(c != NULL);
+
 	mtx_lock(&c->mutex);
 
 	const unsigned count = c->count;
@@ -730,9 +1038,338 @@ chld_wait_all(Chld *c)
 
 
 /*
+ * misc
+ */
+int
+val_is_null_and_n(size_t count, ...)
+{
+	va_list va;
+	va_start(va, count);
+
+	int ret = 0;
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void *);
+		if (curr != NULL)
+			goto out0;
+	}
+
+	ret = 1;
+
+out0:
+	va_end(va);
+	return ret;
+}
+
+
+int
+val_is_null_or_n(size_t count, ...)
+{
+	va_list va;
+	va_start(va, count);
+
+	int ret = 1;
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void *);
+		if (curr == NULL)
+			goto out0;
+	}
+
+	ret = 0;
+
+out0:
+	va_end(va);
+	return ret;
+}
+
+
+enum {
+	_ARGS_PARSE_STATE_NORMAL,
+	_ARGS_PARSE_STATE_SINGLE_QUOTE,
+	_ARGS_PARSE_STATE_DOUBLE_QUOTE,
+	_ARGS_PARSE_STATE_ESCAPE,
+};
+
+int
+args_parse(char *args[], unsigned size, unsigned *out_len, const char src[])
+{
+	int ret = -1;
+	if (VAL_IS_NULL_OR(args, out_len) || (size == 0) || cstr_is_empty(src))
+		return ret;
+
+	const size_t src_len = strlen(src);
+	char *const tmp = malloc(src_len + 1);
+	if (tmp == NULL)
+		return ret;
+
+	unsigned argc = 0;
+	unsigned pos = 0;
+	int state = _ARGS_PARSE_STATE_NORMAL;
+	int is_started = 0;
+	for (size_t i = 0; (i < src_len) && (argc < size); i++) {
+		char chr = src[i];
+		if (chr == '\0')
+			break;
+
+		switch (state) {
+		case _ARGS_PARSE_STATE_NORMAL:
+			if (isspace(chr)) {
+				if (is_started == 0)
+					continue;
+
+				tmp[pos] = '\0';
+				char *const new_item = strdup(tmp);
+				if (new_item == NULL)
+					goto out0;
+
+				args[argc++] = new_item;
+				pos = 0;
+				is_started = 0;
+				continue;
+			}
+
+			switch (chr) {
+			case '\'':
+				i++;
+				if (src[i] == '\'') {
+					chr = '\0';
+				} else {
+					state = _ARGS_PARSE_STATE_SINGLE_QUOTE;
+					chr = src[i];
+				}
+				break;
+			case '\"':
+				i++;
+				if (src[i] == '\"') {
+					chr = '\0';
+				} else {
+					state = _ARGS_PARSE_STATE_DOUBLE_QUOTE;
+					chr = src[i];
+				}
+				break;
+			case '\\':
+				state = _ARGS_PARSE_STATE_ESCAPE;
+				break;
+			}
+
+			is_started = 1;
+			break;
+		case _ARGS_PARSE_STATE_SINGLE_QUOTE:
+			switch (chr) {
+			case '\\':
+				state = _ARGS_PARSE_STATE_ESCAPE;
+				continue;
+			case '\'':
+				state = _ARGS_PARSE_STATE_NORMAL;
+				continue;
+			}
+			break;
+		case _ARGS_PARSE_STATE_DOUBLE_QUOTE:
+			switch (chr) {
+			case '\\':
+				state = _ARGS_PARSE_STATE_ESCAPE;
+				continue;
+			case '\"':
+				state = _ARGS_PARSE_STATE_NORMAL;
+				continue;
+			}
+			break;
+		case _ARGS_PARSE_STATE_ESCAPE:
+			state = _ARGS_PARSE_STATE_NORMAL;
+			is_started = 1;
+			break;
+		}
+
+		tmp[pos++] = chr;
+	}
+
+	switch (state) {
+	case _ARGS_PARSE_STATE_SINGLE_QUOTE:
+	case _ARGS_PARSE_STATE_DOUBLE_QUOTE:
+	case _ARGS_PARSE_STATE_ESCAPE:
+		goto out0;
+	}
+
+	if (is_started || (pos > 0)) {
+		tmp[pos] = '\0';
+		char *const new_item = strdup(tmp);
+		if (new_item == NULL)
+			goto out0;
+
+		args[argc++] = new_item;
+	}
+
+	*out_len = argc;
+	ret = 0;
+
+out0:
+	if (ret < 0)
+		args_free(args, argc);
+
+	free(tmp);
+	return ret;
+}
+
+
+void
+args_free(char *args[], unsigned len)
+{
+	if (args == NULL)
+		return;
+
+	for (unsigned i = 0; i < len; i++)
+		free(args[i]);
+}
+
+
+/*
+ * Http
+ */
+char *
+http_url_escape(const char src[])
+{
+	return curl_easy_escape(NULL, src, -1);
+}
+
+
+void
+http_url_escape_free(char url[])
+{
+	curl_free(url);
+}
+
+
+static size_t
+_http_writer(void *ctx, size_t size, size_t nmemb, void *udata)
+{
+	Str *const s = (Str *)udata;
+	if (str_append_n(s, (const char *)ctx, nmemb * size) == NULL)
+		return 0;
+
+	return nmemb * size;
+}
+
+
+char *
+http_send_get(const char url[], const char content_type[])
+{
+	Str str;
+	char *ret = NULL;
+	if (cstr_is_empty(url))
+		return NULL;
+
+	log_debug("http: http_send_get: url: %s", url);
+	if (str_init_alloc(&str, 128) < 0)
+		return NULL;
+
+	CURL *const handle = curl_easy_init();
+	if (handle == NULL)
+		goto out0;
+
+	if (curl_easy_setopt(handle, CURLOPT_URL, url) != CURLE_OK)
+		goto out1;
+
+	if (curl_easy_setopt(handle, CURLOPT_WRITEDATA, &str) != CURLE_OK)
+		goto out1;
+
+	if (curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, _http_writer) != CURLE_OK)
+		goto out1;
+
+	struct curl_slist *slist = NULL;
+	if (cstr_is_empty(content_type) == 0) {
+		Str ctp;
+		str_init_alloc(&ctp, 0);
+		const char *ctp_s = str_set_fmt(&ctp, "Content-Type: %s", content_type);
+		if (ctp_s == NULL)
+			goto out1;
+
+		slist = curl_slist_append(NULL, ctp_s);
+		if (slist == NULL) {
+			str_deinit(&ctp);
+			goto out1;
+		}
+
+		if (curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist) != CURLE_OK) {
+			str_deinit(&ctp);
+			goto out2;
+		}
+
+		str_deinit(&ctp);
+	}
+
+	if (curl_easy_perform(handle) != CURLE_OK)
+		goto out2;
+
+	if (cstr_is_empty(content_type) == 0) {
+		char *ct = NULL;
+		if (curl_easy_getinfo(handle, CURLINFO_CONTENT_TYPE, &ct) != CURLE_OK)
+			goto out2;
+
+		if (ct == NULL)
+			goto out2;
+
+#ifdef DEBUG
+		if (strcasecmp(ct, "application/json") == 0)
+			dump_json_str("http: http_send_get", str.cstr);
+#endif
+
+		if (strcasecmp(ct, content_type) != 0)
+			goto out2;
+	}
+
+	ret = str_dup(&str);
+
+out2:
+	curl_slist_free_all(slist);
+out1:
+	curl_easy_cleanup(handle);
+out0:
+	str_deinit(&str);
+	return ret;
+}
+
+
+/*
+ * Dump
+ */
+void
+dump_json_str(const char ctx[], const char json[])
+{
+#ifdef DEBUG
+	json_object *obj = json_tokener_parse(json);
+	if (obj == NULL)
+		return;
+
+	log_debug("\n----[Dump JSON]---\n%s:\n%s\n------------------", ctx,
+		  json_object_to_json_string_ext(obj, JSON_C_TO_STRING_PRETTY));
+
+	json_object_put(obj);
+#else
+	(void)ctx;
+	(void)json;
+#endif
+}
+
+
+void
+dump_json_obj(const char ctx[], json_object *json)
+{
+#ifdef DEBUG
+	if (json == NULL)
+		return;
+
+	log_debug("\n----[Dump JSON]---\n%s:\n%s\n------------------", ctx,
+		  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
+#else
+	(void)ctx;
+	(void)json;
+#endif
+}
+
+
+/*
  * Log
  */
-static char   *_log_buffer;
+static char   *_log_buffer = NULL;
 static size_t  _log_buffer_size;
 static mtx_t   _log_mutex;
 
@@ -765,6 +1402,9 @@ out0:
 int
 log_init(size_t buffer_size)
 {
+	if (_log_buffer != NULL)
+		return 0;
+
 	char *const buffer = malloc(buffer_size);
 	if (buffer == NULL)
 		return -1;
@@ -796,6 +1436,8 @@ log_err(int errnum, const char fmt[], ...)
 	va_list va;
 	char datetm[32];
 
+	if (_log_buffer == NULL)
+		return;
 
 	mtx_lock(&_log_mutex); // lock
 
@@ -827,6 +1469,8 @@ log_debug(__attribute_maybe_unused__ const char fmt[], ...)
 	va_list va;
 	char datetm[32];
 
+	if (_log_buffer == NULL)
+		return;
 
 	mtx_lock(&_log_mutex); // lock
 
@@ -855,6 +1499,8 @@ log_info(const char fmt[], ...)
 	va_list va;
 	char datetm[32];
 
+	if (_log_buffer == NULL)
+		return;
 
 	mtx_lock(&_log_mutex); // lock
 

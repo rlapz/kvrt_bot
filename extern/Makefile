@@ -6,18 +6,15 @@
 #
 # See LICENSE file for license details
 
-TARGET := kvrt_bot
+TARGET := api
 
 IS_DEBUG ?= 0
 PREFIX   := /usr
 CC       := cc
 CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_GNU_SOURCE
-LFLAGS   := -lcurl -ljson-c -lsqlite3
+LFLAGS   := -lcurl -ljson-c
 
-SRC := src/cmd.c src/common.c src/config.c src/db.c src/ev.c src/main.c src/model.c \
-	   src/picohttpparser.c src/sched.c src/tg_api.c src/tg.c src/thrd_pool.c \
-	   src/update.c src/util.c src/webhook.c \
-	   src/cmd/admin.c src/cmd/general.c src/cmd/test.c
+SRC := api.c ../src/util.c ../src/tg.c ../src/tg_api.c
 OBJ := $(SRC:.c=.o)
 
 ifeq ($(IS_DEBUG), 1)
@@ -27,17 +24,10 @@ else
 	CFLAGS := $(CFLAGS) -O2
 endif
 
-
 #------------------------------------------------------------------------------------#
 build: options $(TARGET)
 
-cmd: options $(TARGET)
-	rm -f src/cmd.o
-
-run: cmd $(TARGET)
-	./$(TARGET)
-
-$(TARGET).o:
+$(TARGET).o: $(TARGET).c
 	$(CC) $(CFLAGS) -c -o $(@) $(<)
 
 $(TARGET): $(OBJ)
@@ -53,4 +43,4 @@ clean:
 	rm -f $(OBJ) $(TARGET)
 
 
-.PHONY: build clean cmd options run
+.PHONY: build clean

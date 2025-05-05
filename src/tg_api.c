@@ -1,438 +1,400 @@
-#include <errno.h>
-#include <json.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <strings.h>
+#include <assert.h>
+#include <inttypes.h>
 
-#include <tg_api.h>
-#include <config.h>
-#include <tg.h>
-#include <util.h>
+#include <curl/curl.h>
+
+#include "tg_api.h"
+
+#include "tg.h"
+#include "util.h"
 
 
-static size_t       _curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata);
-static const char  *_curl_request_get(TgApi *t, const char url[]);
-static json_object *_parse_response(json_object *json_obj);
-static char        *_build_inline_keyboard_item(Str *s, const TgApiInlineKeyboardItem *item);
-static char        *_build_inline_keyboards(TgApi *t, const TgApiInlineKeyboard kbds[], int len);
+static const char *_base_api = NULL;
+
+
+static int _response_get_message_id(const char resp[], int64_t *ret_id);
+static int _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len,
+				  char *ret_str[]);
+static int _parse_response(json_object *root, json_object **res_obj);
 
 
 /*
  * Public
  */
-int
-tg_api_init(TgApi *t, const char base_api[])
-{
-	int ret = str_init_alloc(&t->str, 1024);
-	if (ret < 0) {
-		log_err(ret, "tg_api: tg_api_init: str_init_alloc");
-		return ret;
-	}
-
-	CURL *const curl = curl_easy_init();
-	if (curl == NULL) {
-		log_err(0, "tg_api: curl_easy_init: failed to init");
-		str_deinit(&t->str);
-		return -1;
-	}
-
-	t->curl = curl;
-	t->api = base_api;
-	return 0;
-}
-
-
 void
-tg_api_deinit(TgApi *t)
+tg_api_init(const char base_api[])
 {
-	str_deinit(&t->str);
-	curl_easy_cleanup(t->curl);
+	_base_api = base_api;
 }
 
 
+/* TODO: error handler */
 int
-tg_api_send_text(TgApi *t, TgApiTextType type, int64_t chat_id, const int64_t *reply_to, const char text[])
+tg_api_send_text(int type, int64_t chat_id, const int64_t *reply_to, const char text[], int64_t *ret_id)
 {
+	assert(_base_api != NULL);
+
 	int ret = -1;
-	if (text == NULL) {
-		log_err(EINVAL, "tg_api: tg_api_send_text: text null");
-		return -1;
-	}
+	if (cstr_is_empty(text))
+		return ret;
 
-	char *const e_text = curl_easy_escape(t->curl, text, 0);
-	if (e_text == NULL) {
-		log_err(0, "tg_api: tg_api_send_text: curl_easy_escape: text: failed");
-		return -1;
-	}
+	Str str;
+	str_init_alloc(&str, 0);
+	str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id);
 
-	const char *req = str_set_fmt(&t->str, "%s/sendMessage?chat_id=%" PRIi64, t->api, chat_id);
-	if (req == NULL)
-		goto out1;
+	if (reply_to != NULL)
+		str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to);
 
-	if (reply_to != NULL) {
-		req = str_append_fmt(&t->str, "&reply_to_message_id=%" PRIi64, *reply_to);
-		if (req == NULL)
-			goto out1;
-	}
+	char *const new_text = curl_easy_escape(NULL, text, 0);
+	if (new_text == NULL)
+		goto out0;
 
 	switch (type) {
 	case TG_API_TEXT_TYPE_PLAIN:
-		req = str_append_fmt(&t->str, "&text=%s", e_text);
+		str_append_fmt(&str, "&text=%s", new_text);
 		break;
 	case TG_API_TEXT_TYPE_FORMAT:
-		req = str_append_fmt(&t->str, "&parse_mode=MarkdownV2&text=%s", e_text);
+		str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s", new_text);
 		break;
 	default:
-		log_err(0, "tg_api: tg_api_send_text: invalid type option");
 		goto out0;
 	}
 
-	if (req == NULL) {
-out1:
-		log_err(errno, "tg_api: tg_api_send_text: str");
-		goto out0;
-	}
-
-	log_debug("tg_api: tg_api_send_text: request: %s", req);
-	if (_curl_request_get(t, req) != NULL)
+	char *const resp = http_send_get(str.cstr, "application/json");
+	if (ret_id != NULL)
+		ret = _response_get_message_id(resp, ret_id);
+	else
 		ret = 0;
 
+	free(resp);
 out0:
-	free(e_text);
+	curl_free(new_text);
+	str_deinit(&str);
 	return ret;
 }
 
 
 int
-tg_api_send_inline_keyboard(TgApi *t, int64_t chat_id, const int64_t *reply_to, const char text[],
-			    const TgApiInlineKeyboard kbds[], int len)
+tg_api_delete_message(int64_t chat_id, int64_t message_id)
 {
-	if (text == NULL) {
-		log_err(EINVAL, "tg_api: tg_api_send_inline_keyboard: text null");
-		return -1;
-	}
+	assert(_base_api != NULL);
 
 	int ret = -1;
-	char *const _kbds = _build_inline_keyboards(t, kbds, len);
-	if (_kbds == NULL)
+	if ((chat_id == 0) || (message_id == 0))
+		return ret;
+
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
 		return -1;
 
-	char *const txt = curl_easy_escape(t->curl, text, 0);
-	if (txt == NULL)
+	str_set_fmt(&str, "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64, _base_api,
+		    chat_id, message_id);
+
+	char *const resp = http_send_get(str.cstr, "application/json");
+	if  (resp == NULL)
 		goto out0;
 
-	if (str_set_fmt(&t->str, "%s/sendMessage?chat_id=%" PRIi64, t->api, chat_id) == NULL)
-		goto out1;
+	free(resp);
+	ret = 0;
 
-	if (reply_to != NULL) {
-		if (str_append_fmt(&t->str, "&reply_to_message_id=%" PRIi64, *reply_to) == NULL)
-			goto out1;
-	}
-
-	const char *const req = str_append_fmt(&t->str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s",
-					       txt, _kbds);
-	if (req == NULL)
-		goto out1;
-
-	log_debug("tg_api: tg_api_send_inline_keyboard: request: %s", req);
-	if (_curl_request_get(t, req) != NULL)
-		ret = 0;
-
-out1:
-	free(txt);
 out0:
-	free(_kbds);
+	str_deinit(&str);
 	return ret;
 }
 
 
 int
-tg_api_edit_inline_keyboard(TgApi *t, int64_t chat_id, int64_t msg_id, const char text[],
-			    const TgApiInlineKeyboard kbds[], int len)
+tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char text[],
+			    const TgApiInlineKeyboard kbds[], size_t kbds_len,
+			    int64_t *ret_id)
 {
-	if (text == NULL) {
-		log_err(EINVAL, "tg_api: tg_api_edit_inline_keyboard: text null");
-		return -1;
-	}
+	assert(_base_api != NULL);
 
 	int ret = -1;
-	char *const _kbds = _build_inline_keyboards(t, kbds, len);
-	if (_kbds == NULL)
+	if (cstr_is_empty(text))
+		return ret;
+
+	char *ret_str = NULL;
+	if (_build_inline_keyboard(kbds, (unsigned)kbds_len, &ret_str) < 0)
 		return -1;
 
-	if (str_set_fmt(&t->str, "%s/editMessageText?chat_id=%" PRIi64, t->api, chat_id) == NULL)
+	char *const new_text = curl_easy_escape(NULL, text, 0);
+	if (new_text == NULL)
 		goto out0;
 
-	if (str_append_fmt(&t->str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2", msg_id) == NULL)
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		goto out1;
+
+	str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id);
+	if (reply_to != NULL)
+		str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to);
+	str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s", new_text, ret_str);
+
+	char *const resp = http_send_get(str.cstr, "application/json");
+	if (ret_id != NULL)
+		ret = _response_get_message_id(resp, ret_id);
+	else
+		ret = 0;
+
+	free(resp);
+	str_deinit(&str);
+
+out1:
+	curl_free(new_text);
+out0:
+	curl_free(ret_str);
+	return ret;
+}
+
+
+int
+tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
+			    const TgApiInlineKeyboard kbds[], size_t kbds_len,
+			    int64_t *ret_id)
+{
+	assert(_base_api != NULL);
+
+	int ret = -1;
+	if (cstr_is_empty(text))
+		return ret;
+
+	char *ret_str = NULL;
+	if (_build_inline_keyboard(kbds, (unsigned)kbds_len, &ret_str) < 0)
+		return ret;
+
+	char *const new_text = curl_easy_escape(NULL, text, 0);
+	if (new_text == NULL)
 		goto out0;
 
-	char *e_text = NULL;
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		goto out1;
+
+	str_set_fmt(&str, "%s/editMessageText?chat_id=%" PRIi64, _base_api, chat_id);
+	str_append_fmt(&str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2&text=%s", msg_id, new_text);
+	str_append_fmt(&str, "&reply_markup=%" PRIi64, ret_str);
+
+	char *const resp = http_send_get(str.cstr, "application/json");
+	if (ret_id != NULL)
+		ret = _response_get_message_id(resp, ret_id);
+	else
+		ret = 0;
+
+	free(resp);
+	str_deinit(&str);
+
+out1:
+	curl_free(new_text);
+out0:
+	curl_free(ret_str);
+	return ret;
+}
+
+
+int
+tg_api_answer_callback_query(const char id[], const char text[], const char url[], int show_alert)
+{
+	assert(_base_api != NULL);
+
+	int ret = -1;
+	if (CSTR_IS_EMPTY(id, text, url))
+		return ret;
+
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		return ret;
+
+	str_set_fmt(&str, "%s/answerCallbackQuery?callback_query_id=%s", _base_api, id);
 	if (text != NULL) {
-		e_text = curl_easy_escape(t->curl, text, 0);
-		if (e_text == NULL)
+		char *const new_text = curl_easy_escape(NULL, text, 0);
+		if (new_text == NULL)
 			goto out0;
 
-		if (str_append_fmt(&t->str, "&text=%s", e_text) == NULL)
-			goto out1;
+		str_append_fmt(&str, "&text=%s", new_text);
+		curl_free(new_text);
 	}
 
-	const char *const req = str_append_fmt(&t->str, "&reply_markup=%s", _kbds);
-	if (req == NULL)
-		goto out1;
-
-	log_debug("tg_api: tg_api_edit_inline_keyboard: request: %s", req);
-	if (_curl_request_get(t, req) != NULL)
-		ret = 0;
-
-out1:
-	free(e_text);
-out0:
-	free(_kbds);
-	return ret;
-}
-
-
-int
-tg_api_answer_callback_query(TgApi *t, const char id[], const char text[], int show_alert,
-			     const char url[])
-{
-	int ret = -1;
-	if (str_set_fmt(&t->str, "%s/answerCallbackQuery?callback_query_id=%s", t->api, id) == NULL)
-		return -1;
-
-	char *e_text = NULL;
-	if (text != NULL) {
-		e_text = curl_easy_escape(t->curl, text, 0);
-		if (e_text == NULL)
-			return -1;
-
-		if (str_append_fmt(&t->str, "&text=%s", e_text) == NULL)
-			goto out0;
-	}
-
-	char *e_url = NULL;
 	if (url != NULL) {
-		e_url = curl_easy_escape(t->curl, url, 0);
-		if (e_url == NULL)
+		char *const new_url = curl_easy_escape(NULL, url, 0);
+		if (new_url == NULL)
 			goto out0;
 
-		if (str_append_fmt(&t->str, "&url=%s", e_url) == NULL)
-			goto out1;
+		str_append_fmt(&str, "&url=%s", new_url);
+		curl_free(new_url);
 	}
 
-	const char *const req = str_append_fmt(&t->str, "&show_alert=%s", ((show_alert)? "true" : "false"));
-	if (req == NULL)
-		goto out1;
+	str_append_fmt(&str, "&show_alert=%d", show_alert);
 
-	if (_curl_request_get(t, req) != NULL)
-		ret = 0;
+	char *const resp = http_send_get(str.cstr, "application/json");
+	free(resp);
 
-out1:
-	free(e_url);
 out0:
-	free(e_text);
+	str_deinit(&str);
 	return ret;
 }
 
 
 int
-tg_api_get_admin_list(TgApi *t, int64_t chat_id, TgChatAdminList *list, json_object **res)
+tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj)
 {
-	const char *const req = str_set_fmt(&t->str, "%s/getChatAdministrators?chat_id=%" PRIi64, t->api,
-					    chat_id);
-	if (req == NULL) {
-		log_err(0, "tg_api: tg_api_get_admin_list: str_set_fmt: failed");
-		return -1;
-	}
+	assert(_base_api != NULL);
 
-	const char *const resp = _curl_request_get(t, req);
+	int ret = -1;
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		return ret;
+
+	const char *const req = str_set_fmt(&str, "%s/getChatAdministrators?chat_id=%" PRIi64,
+					    _base_api, chat_id);
+	if (req == NULL)
+		goto out0;
+
+	char *const resp = http_send_get(req, "application/json");
 	if (resp == NULL)
-		return -1;
+		goto out0;
 
 	json_object *const json = json_tokener_parse(resp);
-	if (json == NULL) {
-		log_err(0, "tg_api: tg_api_get_admin_list: json_tokener_parse: failed");
-		return -1;
-	}
-
 	if (list != NULL) {
-		json_object *const result_obj = _parse_response(json);
-		if (result_obj == NULL)
-			goto err0;
+		json_object *res;
+		if (_parse_response(json, &res) < 0)
+			goto out1;
 
-		if (tg_chat_admin_list_parse(list, result_obj) < 0)
-			goto err0;
+		if (tg_chat_admin_list_parse(list, res) < 0)
+			goto out1;
 	}
 
-	*res = json;
-	return 0;
+	*res_obj = json;
+	ret = 0;
 
-err0:
-	json_object_put(json);
-	return -1;
+out1:
+	if (ret < 0)
+		json_object_put(json);
+
+	free(resp);
+out0:
+	str_deinit(&str);
+	return ret;
 }
 
 
 /*
  * Private
  */
-static size_t
-_curl_writer_fn(char buffer[], size_t size, size_t nitems, void *udata)
+static int
+_response_get_message_id(const char resp[], int64_t *ret_id)
 {
-	const size_t real_size = size * nitems;
-	if (str_append_n((Str *)udata, buffer, real_size) == NULL) {
-		log_err(errno, "tg_api: _curl_writer_fn: str_append_n: failed to append");
-		return 0;
-	}
+	int ret = -1;
+	if (resp == NULL)
+		return ret;
 
-	return real_size;
-}
+	json_object *const root_obj = json_tokener_parse(resp);
+	if (root_obj == NULL)
+		return ret;
 
+	dump_json_obj("tg_api: _response_get_message_id", root_obj);
 
-static const char *
-_curl_request_get(TgApi *t, const char url[])
-{
-	curl_easy_reset(t->curl);
-	curl_easy_setopt(t->curl, CURLOPT_URL, url);
-	curl_easy_setopt(t->curl, CURLOPT_WRITEFUNCTION, _curl_writer_fn);
-
-	str_reset(&t->str, 0);
-	curl_easy_setopt(t->curl, CURLOPT_WRITEDATA, &t->str);
-
-	CURLcode res = curl_easy_perform(t->curl);
-	if (res != CURLE_OK) {
-		log_err(0, "tg_api: _curl_request_get: curl_easy_perform: %s", curl_easy_strerror(res));
-		return NULL;
-	}
-
-	char *content_type = NULL;
-	res = curl_easy_getinfo(t->curl, CURLINFO_CONTENT_TYPE, &content_type);
-	if (res != CURLE_OK) {
-		log_err(0, "tg_api: _curl_request_get: curl_easy_getinfo: %s", curl_easy_strerror(res));
-		return NULL;
-	}
-
-	if (content_type == NULL) {
-		log_err(0, "tg_api: _curl_request_get: content-type: NULL");
-		return NULL;
-	}
-
-	if (strcasecmp(content_type, "application/json") != 0) {
-		log_err(0, "tg_api: _curl_request_get: content-type: \"%s\": invalid", content_type);
-		return NULL;
-	}
-
-#ifdef DEBUG
-	json_object *const json = json_tokener_parse(t->str.cstr);
-	if (json == NULL) {
-		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---", t->str.cstr);
-	} else {
-		log_debug("tg_api: _curl_request_get: response: \n---\n%s\n---",
-			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-	}
-
-	json_object_put(json);
-#endif
-	return t->str.cstr;
-}
-
-
-static json_object *
-_parse_response(json_object *json_obj)
-{
 	json_object *ok_obj;
-	if (json_object_object_get_ex(json_obj, "ok", &ok_obj) == 0) {
-		log_err(0, "tg_api: _parse_response: json_object_object_get_ex: ok: invalid");
-		return NULL;
-	}
+	if (json_object_object_get_ex(root_obj, "ok", &ok_obj) == 0)
+		goto out0;
 
 	const int is_ok = json_object_get_boolean(ok_obj);
-	if (is_ok == 0) {
-		log_err(0, "tg_api: _parse_response: ok: false");
-		return NULL;
-	}
+	if (is_ok != 1)
+		goto out0;
 
 	json_object *result_obj;
-	if (json_object_object_get_ex(json_obj, "result", &result_obj) == 0) {
-		log_err(0, "tg_api: _parse_response: json_object_object_get_ex: result: invalid");
-		return NULL;
-	}
+	if (json_object_object_get_ex(root_obj, "result", &result_obj) == 0)
+		goto out0;
 
-	return result_obj;
+	json_object *id_obj;
+	if (json_object_object_get_ex(result_obj, "message_id", &id_obj) == 0)
+		goto out0;
+
+	*ret_id = json_object_get_int64(id_obj);
+	ret = 0;
+
+out0:
+	json_object_put(root_obj);
+	return ret;
 }
 
 
-static char *
-_build_inline_keyboard_item(Str *s, const TgApiInlineKeyboardItem *item)
+static int
+_build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char *ret_str[])
 {
-	if (item->text == NULL)
-		return NULL;
+	Str str;
+	if (str_init_alloc(&str, 0) < 0)
+		return -1;
 
-	str_append_fmt(s, "{\"text\": \"%s\"", item->text);
+	str_set_fmt(&str, "{\"inline_keyboard\": [");
+	for (unsigned i = 0; i < kbds_len; i++) {
+		str_append_n(&str, "[", 1);
 
-	const int cb_len = item->callbacks_len;
-	if (cb_len > 0) {
-		str_append_fmt(s, ", \"callback_data\": \"");
-		for (int i = 0; i < cb_len; i++) {
-			const TgApiCallbackData *const d = &item->callbacks[i];
-			switch (d->type) {
-			case TG_API_CALLBACK_DATA_TYPE_INT:
-				str_append_fmt(s, "%d", d->int_);
-				break;
-			case TG_API_CALLBACK_DATA_TYPE_UINT:
-				str_append_fmt(s, "%u", d->uint_);
-				break;
-			case TG_API_CALLBACK_DATA_TYPE_INT64:
-				str_append_fmt(s, "%" PRIi64, d->int64);
-				break;
-			case TG_API_CALLBACK_DATA_TYPE_UINT64:
-				str_append_fmt(s, "%" PRIu64, d->uint64);
-				break;
-			case TG_API_CALLBACK_DATA_TYPE_TEXT:
-				str_append_fmt(s, "%s", d->text);
-				break;
+		const TgApiInlineKeyboard *const kbd = &kbds[i];
+		for (unsigned j = 0; j < kbd->len; j++) {
+			const TgApiInlineKeyboardButton *const btn = kbd[i].buttons;
+			str_append_fmt(&str, "{\"text\": \"%s\"", btn->text);
+
+			if (btn->data != NULL) {
+				str_append_fmt(&str, ", \"callback_data\": \"");
+
+				for (unsigned k = 0; k < btn->data_len; k++) {
+					const TgApiInlineKeyboardButtonData *const d = &btn->data[k];
+					switch (d->type) {
+					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT:
+						str_append_fmt(&str, "%" PRIi64 " ", d->int_);
+						break;
+					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT:
+						str_append_fmt(&str, "%" PRIu64 " ", d->uint);
+						break;
+					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
+						str_append_fmt(&str, "%s ", d->text);
+						break;
+					}
+				}
+
+				if (btn->data_len > 0)
+					str_pop(&str, 1);
+
+				str_append_n(&str, "\"", 1);
+			} else if (btn->url != NULL) {
+				str_append_fmt(&str, ", \"url\": \"%s\"", btn->url);
 			}
 
-			if (i < (cb_len - 1))
-				str_append_n(s, " ", 1);
+			str_append_n(&str, "}, ", 3);
 		}
-		str_append_n(s, "\"", 1);
-	} else if (item->url) {
-		str_append_fmt(s, ", \"url\": \"%s\"", item->url);
-	} else {
-		return NULL;
+
+		if (kbd->len > 0)
+			str_pop(&str, 2);
+
+		str_append_n(&str, "], ", 3);
 	}
 
-	return str_append_n(s, "}", 1);
+	if (kbds_len > 0)
+		str_pop(&str, 2);
+
+	str_append_n(&str, "]}", 2);
+
+	*ret_str = curl_easy_escape(NULL, str.cstr, (int)str.len);
+	str_deinit(&str);
+
+	return 0;
 }
 
 
-static char *
-_build_inline_keyboards(TgApi *t, const TgApiInlineKeyboard kbds[], int len)
+static int
+_parse_response(json_object *root, json_object **res_obj)
 {
-	str_set_fmt(&t->str, "{\"inline_keyboard\": [");
-	for (int i = 0; i < len; i++) {
-		const TgApiInlineKeyboard *const k = &kbds[i];
-		str_append_n(&t->str, "[", 1);
+	json_object *ok_obj;
+	if (json_object_object_get_ex(root, "ok", &ok_obj) == 0)
+		return -1;
 
-		for (int j = 0; j < k->len; j++) {
-			if (_build_inline_keyboard_item(&t->str, &k->items[j]) == NULL)
-				goto out0;
+	const int is_ok = json_object_get_boolean(ok_obj);
+	if (is_ok == 0)
+		return -1;
 
-			if (j < (k->len - 1))
-				str_append_n(&t->str, ",", 1);
-		}
+	if (json_object_object_get_ex(root, "result", res_obj) == 0)
+		return -1;
 
-	out0:
-		str_append_n(&t->str, "]", 1);
-		if (i < (len - 1))
-			str_append_n(&t->str, ",", 1);
-	}
-
-	const char *const raw = str_append_n(&t->str, "]}", 2);
-	if (raw == NULL)
-		return NULL;
-
-	return curl_easy_escape(t->curl, raw, (int)t->str.len);
+	return 0;
 }

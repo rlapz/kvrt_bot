@@ -4,32 +4,42 @@
 #include <stdio.h>
 #include <threads.h>
 
-#include <thrd_pool.h>
-#include <util.h>
+#include "thrd_pool.h"
+
+#include "util.h"
 
 
 typedef struct thrd_pool_job {
-	ThrdPoolFn   func;
-	void        *udata;
-	ThrdPoolJob *next;
+	ThrdPoolFn  func;
+	void       *ctx;
+	void       *udata;
+	DListNode   node;
 } ThrdPoolJob;
+
+typedef struct thrd_pool ThrdPool;
 
 typedef struct thrd_pool_worker {
 	ThrdPool *parent;
-	void     *context;
 	thrd_t    thread;
 } ThrdPoolWorker;
 
+typedef struct thrd_pool {
+	volatile int    is_alive;
+	DList           jobs_queue;
+	ThrdPoolWorker *workers;
+	unsigned        workers_len;
+	cnd_t           cond_job;
+	mtx_t           mtx_general;
+} ThrdPool;
 
-static int          _create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size);
-void                _stop(ThrdPool *t);
-static int          _jobs_init(ThrdPool *t, unsigned init_size, unsigned max_size);
-static void         _jobs_deinit(ThrdPool *t);
-static int          _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *udata);
+
+static ThrdPool _instance;
+
+static void         _jobs_destroy(ThrdPool *t);
+static int          _create_threads(ThrdPool *t);
+static int          _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *ctx, void *udata);
 static ThrdPoolJob *_jobs_dequeue(ThrdPool *t);
-static void         _jobs_pool_push(ThrdPool *t, ThrdPoolJob *job);
-static ThrdPoolJob *_jobs_pool_pop(ThrdPool *t);
-static void         _jobs_pool_destroy(ThrdPool *t);
+static void         _stop(ThrdPool *t);
 static int          _worker_fn(void *udata);
 
 
@@ -37,86 +47,87 @@ static int          _worker_fn(void *udata);
  * Public
  */
 int
-thrd_pool_create(ThrdPool *t, unsigned thrd_size, void *thrd_ctx_arr, size_t thrd_ctx_blk_size,
-		 unsigned jobs_init_size, unsigned jobs_max_size)
+thrd_pool_init(unsigned thrd_size)
 {
+	ThrdPool *const t = &_instance;
 	if (thrd_size <= 1) {
-		log_err(EINVAL, "thrd_pool: thrd_pool_create: _jobs_init: thrd_size: %u", thrd_size);
-		return -1;
-	}
-
-	if (_jobs_init(t, jobs_init_size, jobs_max_size) < 0) {
-		log_err(errno, "thrd_pool: thrd_pool_create: _jobs_init: %zu:%zu", jobs_init_size, jobs_max_size);
+		log_err(EINVAL, "thrd_pool: thrd_pool_init: thrd_size: %u", thrd_size);
 		return -1;
 	}
 
 	if (mtx_init(&t->mtx_general, mtx_plain) != 0) {
-		log_err(0, "thrd_pool: thrd_pool_create: mtx_init: failed to init");
-		goto err0;
+		log_err(0, "thrd_pool: thrd_pool_init: mtx_init: failed to init");
+		return -1;
 	}
 
 	if (cnd_init(&t->cond_job) != 0) {
-		log_err(0, "thrd_pool: thrd_pool_create: cnd_init: failed to init");
+		log_err(0, "thrd_pool: thrd_pool_init: cnd_init: failed to init");
+		goto err0;
+	}
+
+	void *const workers = malloc(sizeof(ThrdPoolWorker) * thrd_size);
+	if (workers == NULL) {
+		log_err(errno, "thrd_pool: thrd_pool_init: malloc: workers");
 		goto err1;
 	}
 
-	t->workers = malloc(sizeof(ThrdPoolWorker) * thrd_size);
-	if (t->workers == NULL) {
-		log_err(errno, "thrd_pool: thrd_pool_create: malloc: workers: failed to allocate");
-		goto err2;
-	}
+	dlist_init(&t->jobs_queue);
 
+	t->workers = workers;
 	t->workers_len = thrd_size;
-	if (_create_threads(t, thrd_ctx_arr, thrd_ctx_blk_size) < 0)
-		goto err3;
+	t->is_alive = 1;
+
+	if (_create_threads(t) < 0)
+		goto err2;
 
 	return 0;
 
-err3:
-	free(t->workers);
 err2:
-	cnd_destroy(&t->cond_job);
+	free(workers);
 err1:
-	mtx_destroy(&t->mtx_general);
+	cnd_destroy(&t->cond_job);
 err0:
-	_jobs_deinit(t);
+	mtx_destroy(&t->mtx_general);
 	return -1;
 }
 
 
 void
-thrd_pool_destroy(ThrdPool *t)
+thrd_pool_deinit(void)
 {
-	_stop(t);
-	if (t->workers != NULL) {
-		for (unsigned i = 0; i < t->workers_len; i++) {
-			if (thrd_join(t->workers[i].thread, NULL) != 0)
-				log_err(0, "thrd_pool: thrd_pool_destroy: thrd_join: failed to join %u", i);
-		}
+	ThrdPool *const t = &_instance;
 
-		free(t->workers);
+	_stop(t);
+	for (unsigned i = 0; i < t->workers_len; i++) {
+		if (thrd_join(t->workers[i].thread, NULL) != thrd_success) {
+			log_err(0, "thrd_pool: thrd_pool_destroy: thrd_join: failed to join %u", i);
+		}
 	}
 
-	_jobs_deinit(t);
+	free(t->workers);
+	_jobs_destroy(t);
 	cnd_destroy(&t->cond_job);
 	mtx_destroy(&t->mtx_general);
 }
 
 
 int
-thrd_pool_add_job(ThrdPool *t, ThrdPoolFn func, void *udata)
+thrd_pool_add_job(ThrdPoolFn func, void *ctx, void *udata)
 {
 	int ret;
-	mtx_lock(&t->mtx_general); /* LOCK */
+	ThrdPool *const t = &_instance;
+	mtx_lock(&t->mtx_general);
 
-	ret = _jobs_enqueue(t, func, udata);
-	if (ret < 0)
+	ret = _jobs_enqueue(t, func, ctx, udata);
+	if (ret < 0) {
+		log_err(ret, "thrd_pool: thrd_pool_add_job: _jobs_enqueue");
 		goto out0;
+	}
 
 	cnd_signal(&t->cond_job);
 
 out0:
-	mtx_unlock(&t->mtx_general); /* UNLOCK */
+	mtx_unlock(&t->mtx_general);
 	return ret;
 }
 
@@ -124,27 +135,29 @@ out0:
 /*
  * Private
  */
-static int
-_create_threads(ThrdPool *t, void *ctx_arr, size_t ctx_blk_size)
+static void
+_jobs_destroy(ThrdPool *t)
 {
-	ThrdPoolWorker *wrk;
-	char *const ctx_mem = (char *)ctx_arr;
+	DListNode *node;
+	while ((node = dlist_pop(&t->jobs_queue)) != NULL)
+		free(FIELD_PARENT_PTR(ThrdPoolJob, node, node));
+}
+
+
+static int
+_create_threads(ThrdPool *t)
+{
 	unsigned iter = 0;
+	for (; iter < t->workers_len; iter++) {
+		ThrdPoolWorker *const worker = &t->workers[iter];
+		worker->parent = t;
 
-
-	t->is_alive = 1;
-	while (iter < t->workers_len) {
-		wrk = &t->workers[iter];
-		wrk->parent = t;
-		wrk->context = &ctx_mem[iter * ctx_blk_size];
-
-		log_debug("thrd_pool: _create_threads: ctx: %p", wrk->context);
-		if (thrd_create(&wrk->thread, _worker_fn, wrk) != 0) {
-			log_err(0, "thrd_pool: _create_threads: thrd_create: failed to create thread: %u", iter);
+		log_debug("thrd_pool: _create_threads: worker: %u: %p", iter, (void *)worker);
+		if (thrd_create(&worker->thread, _worker_fn, worker) != thrd_success) {
+			log_err(0, "thrd_pool: _create_threads: thrd_create: failed to create thread: %u: %p",
+				iter, (void *)worker);
 			goto err0;
 		}
-
-		iter++;
 	}
 
 	return 0;
@@ -158,84 +171,20 @@ err0:
 }
 
 
-void
-_stop(ThrdPool *t)
-{
-	mtx_lock(&t->mtx_general); /* LOCK */
-	t->is_alive = 0;
-	cnd_broadcast(&t->cond_job);
-	mtx_unlock(&t->mtx_general); /* UNLOCK */
-}
-
-
 static int
-_jobs_init(ThrdPool *t, unsigned init_size, unsigned max_size)
+_jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *ctx, void *udata)
 {
-	if ((max_size == 0) || init_size > max_size) {
-		errno = EINVAL;
-		return -1;
-	}
+	ThrdPoolJob *const job = malloc(sizeof(ThrdPoolJob));
+	if (job == NULL)
+		return -errno;
 
-	t->jobs_pool = NULL;
-	for (unsigned i = 0; i < init_size; i++) {
-		ThrdPoolJob *const job = malloc(sizeof(ThrdPoolJob));
-		if (job == NULL) {
-			_jobs_pool_destroy(t);
-			errno = ENOMEM;
-			return -1;
-		}
+	*job = (ThrdPoolJob) {
+		.func = func,
+		.ctx = ctx,
+		.udata = udata,
+	};
 
-		_jobs_pool_push(t, job);
-	}
-
-	t->jobs_len = 0;
-	t->jobs_cap = init_size;
-	t->jobs_max = max_size;
-	t->job_first = NULL;
-	t->job_last = NULL;
-	return 0;
-}
-
-
-static void
-_jobs_deinit(ThrdPool *t)
-{
-	ThrdPoolJob *job;
-	while ((job = _jobs_dequeue(t)) != NULL);
-
-	_jobs_pool_destroy(t);
-	t->job_first = NULL;
-	t->job_last = NULL;
-}
-
-
-static int
-_jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *udata)
-{
-	/* reuse allocated memory if any */
-	ThrdPoolJob *job = _jobs_pool_pop(t);
-	if (job == NULL) {
-		if (t->jobs_cap > t->jobs_max)
-			return -ENOMEM;
-
-		job = malloc(sizeof(ThrdPoolJob));
-		if (job == NULL)
-			return -ENOMEM;
-
-		t->jobs_cap++;
-	}
-
-	if (t->job_last == NULL)
-		t->job_first = job;
-	else
-		t->job_last->next = job;
-
-	job->func = func;
-	job->udata = udata;
-	job->next = NULL;
-
-	t->job_last = job;
-	t->jobs_len++;
+	dlist_prepend(&t->jobs_queue, &job->node);
 	return 0;
 }
 
@@ -243,47 +192,21 @@ _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *udata)
 static ThrdPoolJob *
 _jobs_dequeue(ThrdPool *t)
 {
-	ThrdPoolJob *const job = t->job_first;
-	if ((job == NULL) || (t->jobs_len == 0))
+	DListNode *const node = dlist_pop(&t->jobs_queue);
+	if (node == NULL)
 		return NULL;
 
-	t->job_first = job->next;
-	if (t->job_first == NULL)
-		t->job_last = NULL;
-
-	_jobs_pool_push(t, job);
-	t->jobs_len--;
-	return job;
-}
-
-
-static inline void
-_jobs_pool_push(ThrdPool *t, ThrdPoolJob *job)
-{
-	job->next = t->jobs_pool;
-	t->jobs_pool = job;
-}
-
-
-static inline ThrdPoolJob *
-_jobs_pool_pop(ThrdPool *t)
-{
-	ThrdPoolJob *const job = t->jobs_pool;
-	if (job != NULL)
-		t->jobs_pool = job->next;
-
-	return job;
+	return FIELD_PARENT_PTR(ThrdPoolJob, node, node);
 }
 
 
 static void
-_jobs_pool_destroy(ThrdPool *t)
+_stop(ThrdPool *t)
 {
-	ThrdPoolJob *job;
-	while ((job = _jobs_pool_pop(t)) != NULL)
-		free(job);
-
-	t->jobs_pool = NULL;
+	mtx_lock(&t->mtx_general);
+	t->is_alive = 0;
+	cnd_broadcast(&t->cond_job);
+	mtx_unlock(&t->mtx_general);
 }
 
 
@@ -294,12 +217,12 @@ _worker_fn(void *udata)
 	ThrdPool *const t = w->parent;
 	ThrdPoolJob *job;
 	ThrdPoolFn tmp_func;
-	void *tmp_udata;
+	void *tmp_ctx, *tmp_udata;
 
 
-	log_debug("thrd_pool: worker_fn: ctx: %p: %p", udata, (void *)w->context);
+	log_debug("thrd_pool: worker_fn: udata: %p: %p", udata, (void *)w);
 
-	mtx_lock(&t->mtx_general); /* LOCK */
+	mtx_lock(&t->mtx_general);
 	while (t->is_alive) {
 		while ((job = _jobs_dequeue(t)) == NULL) {
 			cnd_wait(&t->cond_job, &t->mtx_general);
@@ -307,20 +230,20 @@ _worker_fn(void *udata)
 				goto out0;
 		}
 
-		/* copy job's data to prevent clobbered by other thread */
 		tmp_func = job->func;
+		tmp_ctx = job->ctx;
 		tmp_udata = job->udata;
-
-		mtx_unlock(&t->mtx_general); /* UNLOCK */
+		mtx_unlock(&t->mtx_general);
 
 		assert(tmp_func != NULL);
-		tmp_func(w->context, tmp_udata);
+		tmp_func(tmp_ctx, tmp_udata);
+		free(job);
 
-		mtx_lock(&t->mtx_general); /* LOCK */
+		mtx_lock(&t->mtx_general);
 		cnd_signal(&t->cond_job);
 	}
 
 out0:
-	mtx_unlock(&t->mtx_general); /* UNLOCK */
+	mtx_unlock(&t->mtx_general);
 	return 0;
 }
