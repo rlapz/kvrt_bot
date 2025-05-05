@@ -1,91 +1,182 @@
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
-#include <db.h>
-#include <model.h>
-#include <util.h>
+#include "db.h"
+
+#include "model.h"
+#include "util.h"
 
 
-static int _create_tables(sqlite3 *s);
-static int _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
-static int _exec_get_output(sqlite3_stmt *s, const DbOut out[], int out_len);
-static int _exec_get_output_values(sqlite3_stmt *s, DbOutField fields[], int len);
+typedef struct db_conn {
+	sqlite3   *sql;
+	DListNode  node;
+} DbConn;
+
+typedef struct db {
+	volatile int  is_alive;
+	const char   *db_path;
+	DList         sql_pool;
+	mtx_t         mutex;
+	cnd_t         cond;
+} Db;
+
+static Db _instance;
+
+
+static void _pool_cleanup(Db *d);
+static int  _create_tables(void);
+static int  _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
+static int  _exec_get_output(sqlite3_stmt *s, const DbOut out[], int out_len);
+static int  _exec_get_output_values(sqlite3_stmt *s, DbOutField fields[], int len);
 
 
 /*
  * Public
  */
 int
-db_init(Db *d, const char path[])
+db_init(const char path[], int conn_pool_size)
 {
-	sqlite3 *sql;
-	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
+	Db *const d = &_instance;
+	dlist_init(&d->sql_pool);
 
-	if (sqlite3_threadsafe() == 0)
-		log_info("db: db_init: sqlite3_threadsafe: hmm, the sqlite3 library is not thread safe :(");
+	for (int i = 0; i < conn_pool_size; i++) {
+		DbConn *const conn = malloc(sizeof(DbConn));
+		if (conn == NULL) {
+			log_err(errno, "db: db_init: malloc");
+			goto err0;
+		}
 
-	if (sqlite3_open_v2(path, &sql, flags, NULL) != 0) {
-		log_err(0, "db: db_init: sqlite3_open: %s: %s", path, sqlite3_errmsg(sql));
+		const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
+		const int ret = sqlite3_open_v2(path, &conn->sql, flags, NULL);
+		if (ret != SQLITE_OK) {
+			log_err(0, "db: db_init: sqlite3_open_v2: failed to open: \"%s\": %s",
+				path, sqlite3_errstr(ret));
+
+			free(conn);
+			goto err0;
+		}
+
+		dlist_append(&d->sql_pool, &conn->node);
+	}
+
+	if (mtx_init(&d->mutex, mtx_plain) != thrd_success) {
+		log_err(0, "db: db_init: mtx_init: failed");
 		goto err0;
 	}
 
-	if (_create_tables(sql) < 0)
-		goto err0;
+	if (cnd_init(&d->cond) != thrd_success) {
+		log_err(0, "db: db_init: cnd_init: failed");
+		goto err1;
+	}
 
-	d->sql = sql;
-	d->path = path;
-	return 0;
+	d->is_alive = 1;
+	d->db_path = path;
+	if (_create_tables() < 0)
+		goto err2;
 
+	return DB_RET_OK;
+
+err2:
+	cnd_destroy(&d->cond);
+err1:
+	mtx_destroy(&d->mutex);
 err0:
-	sqlite3_close(sql);
-	return -1;
+	_pool_cleanup(d);
+	return DB_RET_ERR;
 }
 
 
 void
-db_deinit(Db *d)
+db_deinit(void)
 {
-	sqlite3_close(d->sql);
+	Db *const d = &_instance;
+
+	d->is_alive = 0;
+	cnd_broadcast(&d->cond);
+
+	_pool_cleanup(d);
+	mtx_destroy(&d->mutex);
+	cnd_destroy(&d->cond);
 }
 
 
-int
-db_transaction_begin(Db *d)
+DbConn *
+db_conn_get(void)
 {
-	char *err_msg;
-	if (sqlite3_exec(d->sql, "begin transaction;", NULL, NULL, &err_msg) != SQLITE_OK) {
-		log_err(0, "db: db_transaction_begin: sqlite3_exec: %s", err_msg);
-		sqlite3_free(err_msg);
-		return -1;
+	Db *const d = &_instance;
+	DListNode *node = NULL;
+	DbConn *conn = NULL;
+
+	mtx_lock(&d->mutex);
+
+	while (d->is_alive) {
+		if ((node = dlist_pop(&d->sql_pool)) != NULL)
+			break;
+
+		cnd_wait(&d->cond, &d->mutex);
 	}
 
-	return 0;
+	if (node != NULL)
+		conn = FIELD_PARENT_PTR(DbConn, node, node);
+
+	mtx_unlock(&d->mutex);
+	return conn;
+}
+
+
+void
+db_conn_put(DbConn *conn)
+{
+	Db *const d = &_instance;
+	mtx_lock(&d->mutex);
+
+	dlist_append(&d->sql_pool, &conn->node);
+	cnd_signal(&d->cond);
+
+	mtx_unlock(&d->mutex);
 }
 
 
 int
-db_transaction_end(Db *d, int is_ok)
+db_conn_tran_begin(DbConn *conn)
+{
+	char *err_msg;
+	const int ret = sqlite3_exec(conn->sql, "begin transaction;", NULL, NULL, &err_msg);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_conn_tran_begin: sqlite3_exec: %s", err_msg);
+		sqlite3_free(err_msg);
+	}
+
+	return -ret;
+}
+
+
+int
+db_conn_tran_end(DbConn *conn, int is_ok)
 {
 	char *err_msg;
 	const char *const sql = (is_ok)? "commit transaction;" : "rollback transaction;";
-	if (sqlite3_exec(d->sql, sql, NULL, NULL, &err_msg) != SQLITE_OK) {
-		log_err(0, "db: db_transaction_end(%d): sqlite3_exec: %s", is_ok, err_msg);
+	const int ret = sqlite3_exec(conn->sql, sql, NULL, NULL, &err_msg);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_conn_tran_end(%d): sqlite3_exec: %s", is_ok, err_msg);
 		sqlite3_free(err_msg);
-		return -1;
 	}
 
-	return 0;
+	return -ret;
 }
 
 
 int
-db_exec(Db *d, const char query[], const DbArg args[], int args_len, const DbOut out[], int out_len)
+db_conn_exec(DbConn *conn, const char query[], const DbArg args[], int args_len,
+	     const DbOut out[], int out_len)
 {
 	sqlite3_stmt *stmt;
-	int ret = sqlite3_prepare_v2(d->sql, query, -1, &stmt, NULL);
+	int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (ret != SQLITE_OK) {
-		log_err(0, "db: _exec: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		return -1;
+		log_err(0, "db: db_conn_exec: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		return -ret;
 	}
 
 	ret = _exec_set_args(stmt, args, args_len);
@@ -97,17 +188,16 @@ db_exec(Db *d, const char query[], const DbArg args[], int args_len, const DbOut
 		goto out0;
 	}
 
+	log_debug("db: db_conn_exec: query: %s", query);
+
 	ret = sqlite3_step(stmt);
 	switch (ret) {
 	case SQLITE_DONE:
-		ret = 0;
-		break;
 	case SQLITE_ROW:
-		ret = 1;
 		break;
 	default:
-		log_err(0, "db: _exec: sqlite3_step: %s", sqlite3_errstr(ret));
-		ret = -1;
+		log_err(0, "db: db_conn_exec: sqlite3_step: %s", sqlite3_errstr(ret));
+		ret = -ret;
 		break;
 	}
 
@@ -118,97 +208,88 @@ out0:
 
 
 int
-db_changes(Db *s)
+db_conn_changes(DbConn *conn)
 {
-	return sqlite3_changes(s->sql);
+	return sqlite3_changes(conn->sql);
+}
+
+
+int
+db_conn_busy_timeout(DbConn *conn, int timeout_s)
+{
+	const int ret = sqlite3_busy_timeout(conn->sql, 1000 * timeout_s);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: db_conn_busy_timeout: sqlite3_busy_timeout: %s", sqlite3_errstr(ret));
+		return -ret;
+	}
+
+	return DB_RET_OK;
 }
 
 
 /*
  * Private
  */
-static int
-_create_tables(sqlite3 *s)
+static void
+_pool_cleanup(Db *d)
 {
-	const char *const admin =
-		"create table if not exists Admin("
-		"id         integer primary key autoincrement,"
-		"chat_id    bigint not null,"			/* telegram chat id */
-		"user_id    bigint not null,"			/* telegram user id */
-		"privileges integer not null,"			/* Bitwise-OR TgChatAdminPrivilege */
-		"created_at datetime default (datetime('now', 'localtime')) not null);";
+	DListNode *node;
+	while ((node = dlist_pop(&d->sql_pool)) != NULL) {
+		DbConn *const conn = FIELD_PARENT_PTR(DbConn, node, node);
+		sqlite3_close(conn->sql);
 
-	const char *const module_extern =
-		"create table if not exists Module_Extern("
-		"id          integer primary key autoincrement,"
-		"flags       integer not null,"			/* Bitwise-OR MODULE_FLAG_* */
-		"name        varchar(33) not null,"
-		"file_name   varchar(1023) not null,"
-		"description varchar(255) not null,"
-		"args        integer not null,"			/* Bitwise-OR MODULE_EXTERN_* */
-		"created_at  datetime default(datetime('now', 'localtime')) not null);";
+		free(conn);
+	}
+}
 
-	const char *const module_extern_disabled =
-		"create table if not exists Module_Extern_Disabled("
-		"id          integer primary key autoincrement,"
-		"module_name varchar(33) not null,"
-		"chat_id     bigint not null,"			/* telegram chat id */
-		"created_at  datetime default(datetime('now','localtime')) not null);";
 
-	const char *const cmd_message =
-		"create table if not exists Cmd_Message("
-		"id         integer primary key autoincrement,"
-		"chat_id    bigint not null,"			/* telegram chat id */
-		"name       varchar(33) not null,"
-		"message    varchar(8191) null,"
-		"created_at datetime default (datetime('now', 'localtime')) not null,"
-		"created_by bigint not null,"			/* telegram user id */
-		"updated_at datatime null,"
-		"updated_by bigint null);";			/* telegram user id */
-
-	const char *const param =
-		"create table if not exists Param("
-		"id         integer primary key autoincrement,"
-		"key        varchar(15) not null,"
-		"value      varchar(8191) not null,"
-		"chat_id    bigint null,"			/* telegram chat id */
-		"created_at datetime null,"
-		"created_by bigint null,"			/* telegram user id */
-		"updated_at datetime null,"
-		"updated_by bigint null);";			/* telegram user id */
-
+static int
+_create_tables(void)
+{
+	Str str;
+	int ret = str_init_alloc(&str, 0);
+	if (ret < 0) {
+		log_err(ret, "db: _create_tables: str_init_alloc");
+		return DB_RET_ERR;
+	}
 
 	char *err_msg;
-	if (sqlite3_exec(s, admin, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: Admin: %s", err_msg);
-		goto err0;
+	struct {
+		const char *table_name;
+		const char *(*func)(Str *);
+	} params[] = {
+		{ "Chat", model_chat_query },
+		{ "Param", model_param_query },
+		{ "Param_Chat", model_param_chat_query },
+		{ "Admin", model_admin_query },
+		{ "Sched_Message", model_sched_message_query },
+		{ "Block_List", model_block_list_query },
+		{ "Cmd_Extern", model_cmd_extern_query },
+		{ "Cmd_Extern_Disabled", model_cmd_extern_disabled_query },
+		{ "Cmd_Message", model_cmd_message_query },
+	};
+
+	ret = DB_RET_ERR;
+
+	DbConn *const conn = db_conn_get();
+	for (size_t i = 0; i < LEN(params); i++) {
+		const char *const query = params[i].func(&str);
+		ret = sqlite3_exec(conn->sql, query, NULL, NULL, &err_msg);
+		if (ret != SQLITE_OK) {
+			const char *const table_name = params[i].table_name;
+			log_err(0, "db: _create_tables: sqlite3_exec: %s: %s", table_name, err_msg);
+			ret = -ret;
+			goto out0;
+		}
 	}
 
-	if (sqlite3_exec(s, module_extern, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: Module_Extern: %s", err_msg);
-		goto err0;
-	}
+	ret = DB_RET_OK;
 
-	if (sqlite3_exec(s, module_extern_disabled, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: Module_Extern_Disabled: %s", err_msg);
-		goto err0;
-	}
-
-	if (sqlite3_exec(s, cmd_message, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: Cmd_Message: %s", err_msg);
-		goto err0;
-	}
-
-	if (sqlite3_exec(s, param, NULL, NULL, &err_msg) != 0) {
-		log_err(0, "db: _create_tables: Param: %s", err_msg);
-		goto err0;
-	}
-
-	return 0;
-
-err0:
+out0:
+	db_conn_put(conn);
 	sqlite3_free(err_msg);
-	return -1;
+	str_deinit(&str);
+	return ret;
 }
 
 
@@ -237,12 +318,12 @@ _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len)
 		}
 
 		if (ret != SQLITE_OK) {
-			log_err(0, "db: _exec_set_args: bind: failed to bind: %s", sqlite3_errstr(ret));
-			return -1;
+			log_err(0, "db: _exec_set_args: bind: %s", sqlite3_errstr(ret));
+			return -ret;
 		}
 	}
 
-	return 0;
+	return DB_RET_OK;
 }
 
 
@@ -251,17 +332,18 @@ _exec_get_output(sqlite3_stmt *s, const DbOut out[], int out_len)
 {
 	int i = 0;
 	for (; i < out_len; i++) {
-		const int ret = sqlite3_step(s);
+		int ret = sqlite3_step(s);
 		if (ret == SQLITE_DONE)
 			break;
 
 		if (ret != SQLITE_ROW) {
-			log_err(0, "db: _exec_get_outputs: sqlite3_step: %s", sqlite3_errstr(ret));
-			return -1;
+			log_err(0, "db: _exec_get_output: sqlite3_step: %s", sqlite3_errstr(ret));
+			return -ret;
 		}
 
-		if (_exec_get_output_values(s, out[i].fields, out[i].len) < 0)
-			return -1;
+		ret = _exec_get_output_values(s, out[i].fields, out[i].len);
+		if (ret < 0)
+			return ret;
 	}
 
 	return i;
@@ -306,21 +388,23 @@ _exec_get_output_values(sqlite3_stmt *s, DbOutField fields[], int len)
 			*field->int64 = sqlite3_column_int64(s, i);
 			break;
 		case DB_DATA_TYPE_TEXT:
-			if (type != SQLITE_TEXT)
+			if (type != SQLITE3_TEXT)
 				goto err0;
 
+			const char *const rtext = (const char *)sqlite3_column_text(s, i);
 			DbOutFieldText *const text = &field->text;
-			text->len = cstr_copy_n(text->cstr, text->size, (const char *)sqlite3_column_text(s, i));
+			text->len = cstr_copy_n(text->cstr, text->size, rtext);
 			break;
 		default:
-			log_err(0, "db: _exec_get_output_values: invalid out type: [%d:%d]", i, field->type);
-			return -1;
+			log_err(0, "db: _exec_get_output_values: invalid out type: [%d:%d]",
+				i, field->type);
+			break;
 		}
 	}
 
-	return 0;
+	return DB_RET_OK;
 
 err0:
-	log_err(0, "db: _exec_get_output_values: [%d:%d]: column type didn't match", i, fields[i].type);
-	return -1;
+	log_err(0, "db: _exec_get_output_values: [%d:%d]: invalid column type pairs", i, fields[i].type);
+	return DB_RET_ERR;
 }

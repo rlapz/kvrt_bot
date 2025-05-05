@@ -1,0 +1,28 @@
+{
+    "api": {
+        "token": "0000000000:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "secret": "xxxx"
+    },
+    "hook": {
+        "url": "https://example.com",
+        "path": "/"
+    },
+    "tg": {
+        "bot_id": 111111111,
+        "owner_id": 2222222222,
+        "bot_username": "@eeeeeeeeeee"
+    },
+    "sys": {
+        "worker_size": 8,
+        "db_pool_conn_size": 16,
+        "db_file": "./db.sqlite"
+    },
+    "listen": {
+        "host": "127.0.0.1",
+        "port": 8007
+    },
+    "cmd_extern": {
+        "path": "./extern",
+        "log_file": "./extern/log.txt"
+    }
+}

@@ -8,7 +8,7 @@
 
 #include <curl/curl.h>
 
-#include <util.h>
+#include "util.h"
 
 
 /* User */
@@ -25,18 +25,18 @@ int tg_user_parse(TgUser *u, json_object *user_obj);
 
 
 /* Chat */
-typedef enum tg_chat_type {
+enum {
 	TG_CHAT_TYPE_PRIVATE = 0,
 	TG_CHAT_TYPE_GROUP,
 	TG_CHAT_TYPE_SUPERGROUP,
 	TG_CHAT_TYPE_CHANNEL,
 	TG_CHAT_TYPE_SENDER,
 	TG_CHAT_TYPE_UNKNOWN,
-} TgChatType;
+};
 
 typedef struct tg_chat {
 	int64_t     id;
-	TgChatType  type;
+	int         type;
 	int         is_forum;
 	const char *title;
 	const char *username;
@@ -44,12 +44,12 @@ typedef struct tg_chat {
 	const char *last_name;
 } TgChat;
 
-const char *tg_chat_type_str(TgChatType type);
-TgChatType  tg_chat_type_get(const char type_str[]);
+const char *tg_chat_type_str(int type);
+int         tg_chat_type_get(const char type_str[]);
 
 
 /* ChatAdmin */
-typedef enum tg_chat_admin_privilege {
+enum {
 	TG_CHAT_ADMIN_PRI_CREATOR                = (1 << 0),
 	TG_CHAT_ADMIN_PRI_CAN_BE_EDITED          = (1 << 1),
 	TG_CHAT_ADMIN_PRI_CAN_MANAGE_CHAT        = (1 << 2),
@@ -66,13 +66,13 @@ typedef enum tg_chat_admin_privilege {
 	TG_CHAT_ADMIN_PRI_CAN_EDIT_MESSAGES      = (1 << 13), /* optional */
 	TG_CHAT_ADMIN_PRI_CAN_PIN_MESSAGES       = (1 << 14), /* optional */
 	TG_CHAT_ADMIN_PRI_CAN_MANAGE_TOPICS      = (1 << 15), /* optional */
-} TgChatAdminPrivilege;
+};
 
 typedef struct tg_chat_admin {
-	int                   is_anonymous;
-	TgUser               *user;
-	const char           *custom_title; 	/* optional*/
-	TgChatAdminPrivilege  privileges;
+	int         is_anonymous;
+	TgUser     *user;
+	const char *custom_title; 	/* optional*/
+	int         privileges;
 } TgChatAdmin;
 
 int  tg_chat_admin_parse(TgChatAdmin *a, json_object *json);
@@ -156,15 +156,15 @@ typedef struct tg_video {
 /*
  * Sticker
  */
-typedef enum tg_sticker_type {
+enum {
 	TG_STICKER_TYPE_REGULAR = 0,
 	TG_STICKER_TYPE_MASK,
 	TG_STICKER_TYPE_CUSTOM_EMOJI,
 	TG_STICKER_TYPE_UNKNWON,
-} TgStickerType;
+};
 
 typedef struct tg_sticker {
-	TgStickerType  type;
+	int            type;
 	const char    *id;
 	const char    *uid;
 	int64_t        width;
@@ -178,13 +178,13 @@ typedef struct tg_sticker {
 	int64_t        size;
 } TgSticker;
 
-const char *tg_sticker_type_str(TgStickerType type);
+const char *tg_sticker_type_str(int type);
 
 
 /*
  * Message
  */
-typedef enum tg_message_entity_type {
+enum {
 	TG_MESSAGE_ENTITY_TYPE_MENTION = 0,
 	TG_MESSAGE_ENTITY_TYPE_HASHTAG,
 	TG_MESSAGE_ENTITY_TYPE_CASHTAG,
@@ -205,12 +205,12 @@ typedef enum tg_message_entity_type {
 	TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION,
 	TG_MESSAGE_ENTITY_TYPE_CUSTOM_EMOJI,
 	TG_MESSAGE_ENTITY_TYPE_UNKNOWN,
-} TgMessageEntityType;
+};
 
 typedef struct tg_message_entity {
-	TgMessageEntityType type;
-	int64_t             offset;
-	int64_t             length;
+	int     type;
+	int64_t offset;
+	int64_t length;
 	union {
 		const char *url;		/* text_link only */
 		const char *lang;		/* 'pre' only */
@@ -219,10 +219,10 @@ typedef struct tg_message_entity {
 	};
 } TgMessageEntity;
 
-const char *tg_message_entity_type_str(TgMessageEntityType type);
+const char *tg_message_entity_type_str(int type);
 
 
-typedef enum tg_mesage_type {
+enum {
 	TG_MESSAGE_TYPE_AUDIO = 0,
 	TG_MESSAGE_TYPE_DOCUMENT,
 	TG_MESSAGE_TYPE_VIDEO,
@@ -233,14 +233,14 @@ typedef enum tg_mesage_type {
 	TG_MESSAGE_TYPE_NEW_MEMBER,
 	TG_MESSAGE_TYPE_LEFT_CHAT_MEMBER,
 	TG_MESSAGE_TYPE_UNKNOWN,
-} TgMessageType;
+};
 
 typedef struct tg_message {
-	TgMessageType      type;
-	int64_t            id;
-	int64_t            date;
-	TgUser            *from;
-	TgChat             chat;
+	int      type;
+	int64_t  id;
+	int64_t  date;
+	TgUser  *from;
+	TgChat   chat;
 	struct tg_message *reply_to;
 	TgMessageEntity   *entities;
 	size_t             entities_len;
@@ -257,7 +257,7 @@ typedef struct tg_message {
 	};
 } TgMessage;
 
-const char *tg_message_type_str(TgMessageType type);
+const char *tg_message_type_str(int type);
 
 
 /*
@@ -276,17 +276,17 @@ typedef struct tg_callback_query {
 /*
  * Update
  */
-typedef enum tg_update_type {
+enum {
 	TG_UPDATE_TYPE_MESSAGE = 0,
 	TG_UPDATE_TYPE_CALLBACK_QUERY,
 	TG_UPDATE_TYPE_UNKNOWN,
-} TgUpdateType;
+};
 
-const char *tg_update_type_str(TgUpdateType type);
+const char *tg_update_type_str(int type);
 
 typedef struct tg_update {
-	TgUpdateType type;
-	int64_t      id;
+	int     type;
+	int64_t id;
 	union {
 		TgMessage       message;
 		TgCallbackQuery callback_query;

@@ -1,87 +1,43 @@
-#include <errno.h>
+#include <strings.h>
+#include <stdint.h>
 
-#include <update.h>
-#include <model.h>
-#include <module.h>
-#include <repo.h>
-#include <common.h>
+#include "update.h"
+
+#include "cmd.h"
+#include "tg.h"
+#include "util.h"
 
 
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
-static void _handle_text(Update *u, const TgMessage *msg, json_object *json);
-static void _handle_commands(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_callback(Update *u, const TgCallbackQuery *cb);
-static void _handler_new_member(Update *u, const TgMessage *msg);
-static void _admin_load(Update *u, const TgMessage *msg);
-static void _send_invalid_cmd(Update *u, const TgMessage *msg);
+static void _handle_message_command(Update *u, const TgMessage *msg, json_object *json);
+static void _handle_member_new(Update *u, const TgMessage *msg);
+static void _handle_member_leave(Update *u, const TgMessage *msg);
+static void _admin_load(const TgMessage *msg);
 
 
 /*
- * Public
+ * Update
  */
-int
-update_init(Update *u, int64_t bot_id, int64_t owner_id, const char base_api[], const char db_path[],
-	    Chld *chld)
-{
-	if (repo_init(&u->repo, db_path) < 0)
-		return -1;
-
-	if (tg_api_init(&u->api, base_api) < 0)
-		goto err0;
-
-	if (str_init_alloc(&u->str, 1024) < 0) {
-		log_err(ENOMEM, "update: update_init: str_init_alloc");
-		goto err1;
-	}
-
-	u->bot_id = bot_id;
-	u->owner_id = owner_id;
-	u->base_api = base_api;
-	u->chld = chld;
-	return 0;
-
-err1:
-	tg_api_deinit(&u->api);
-err0:
-	repo_deinit(&u->repo);
-	return -1;
-}
-
-
-void
-update_deinit(Update *u)
-{
-	str_deinit(&u->str);
-	tg_api_deinit(&u->api);
-	repo_deinit(&u->repo);
-}
-
-
 void
 update_handle(Update *u, json_object *json)
 {
-	TgUpdate update;
-	if (tg_update_parse(&update, json) < 0) {
-		log_err(0, "update: update_handle: failed to parse Update");
-		goto out0;
+	TgUpdate tgu;
+	if (tg_update_parse(&tgu, json) < 0) {
+		log_err(0, "update: update_handle: tg_update_parse: failed");
+		return;
 	}
 
-	log_debug("update: update_handle: %s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-	switch (update.type) {
+	switch (tgu.type) {
 	case TG_UPDATE_TYPE_MESSAGE:
-		_handle_message(u, &update.message, json);
+		_handle_message(u, &tgu.message, json);
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
-		_handle_callback(u, &update.callback_query);
-		break;
-	default:
+		_handle_callback(u, &tgu.callback_query);
 		break;
 	}
 
-	tg_update_free(&update);
-
-out0:
-	json_object_put(json);
+	tg_update_free(&tgu);
 }
 
 
@@ -91,131 +47,187 @@ out0:
 static void
 _handle_message(Update *u, const TgMessage *msg, json_object *json)
 {
+	log_debug("update: _handle_message: %zu", msg->id);
 	if (msg->from == NULL) {
 		log_err(0, "update: _handle_message: \"message from\" == NULL");
 		return;
 	}
 
-	log_debug("update: _handle_message: message type: %s", tg_message_type_str(msg->type));
 	switch (msg->type) {
 	case TG_MESSAGE_TYPE_COMMAND:
-		_handle_commands(u, msg, json);
-		break;
-	case TG_MESSAGE_TYPE_TEXT:
-		_handle_text(u, msg, json);
+		_handle_message_command(u, msg, json);
 		break;
 	case TG_MESSAGE_TYPE_NEW_MEMBER:
-		_handler_new_member(u, msg);
+		_handle_member_new(u, msg);
 		break;
-	default:
+	case TG_MESSAGE_TYPE_LEFT_CHAT_MEMBER:
+		_handle_member_leave(u, msg);
 		break;
 	}
-}
-
-
-static void
-_handle_text(Update *u, const TgMessage *msg, json_object *json)
-{
-	/* TODO */
-	(void)u;
-	(void)msg;
-	(void)json;
-}
-
-
-static void
-_handle_commands(Update *u, const TgMessage *msg, json_object *json)
-{
-	ModuleParam param = {
-		.type = MODULE_PARAM_TYPE_CMD,
-		.message = msg,
-		.json = json,
-	};
-
-	if (bot_cmd_parse(&param.bot_cmd, '/', msg->text.cstr) < 0) {
-		log_err(0, "update: _handle_commands: bot_cmd_parse: invalid");
-		return;
-	}
-
-	if (module_builtin_exec_cmd(u, &param))
-		return;
-
-	if (module_extern_exec_cmd(u, &param))
-		return;
-
-	_send_invalid_cmd(u, msg);
 }
 
 
 static void
 _handle_callback(Update *u, const TgCallbackQuery *cb)
 {
-	if ((cb->message == NULL) || (cb->data == NULL)) {
-		log_err(0, "update: _handle_callback: \"message\" or \"data\" == NULL");
+	log_debug("update: _handle_callback");
+	if (VAL_IS_NULL_OR(cb->message, cb->data))
 		return;
-	}
 
-	ModuleParam param = {
-		.type = MODULE_PARAM_TYPE_CALLBACK,
-		.message = cb->message,
+	Cmd cmd = {
+		.is_callback = 1,
+		.id_bot = u->id_bot,
+		.id_owner = u->id_owner,
+		.username = u->username,
+		.msg = cb->message,
 		.callback = cb,
 	};
 
-	if (callback_query_parse(&param.query, cb->data) < 0) {
-		log_err(0, "update: _handle_callback: callback_query_parse: invalid");
-		return;
-	}
-
-	if (module_builtin_exec_callback(u, &param))
+	if (callback_query_parse(&cmd.query, cb->data) < 0)
 		return;
 
-	module_extern_exec_callback(u, &param);
+	cmd_exec(&cmd);
 }
 
 
 static void
-_handler_new_member(Update *u, const TgMessage *msg)
+_handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 {
+	log_debug("update: _handle_message_command");
+
+	Cmd cmd = {
+		.id_bot = u->id_bot,
+		.id_owner = u->id_owner,
+		.username = u->username,
+		.msg = msg,
+		.json = json,
+	};
+
+	if (bot_cmd_parse(&cmd.bot_cmd, u->username, msg->text.cstr) < 0)
+		return;
+
+	cmd_exec(&cmd);
+}
+
+
+static void
+_handle_member_new(Update *u, const TgMessage *msg)
+{
+	log_debug("update: _handle_member_new");
+
+	const int64_t chat_id = msg->chat.id;
 	const TgUser *const user = &msg->new_member;
-	if (user->id == u->bot_id) {
-		_admin_load(u, msg);
-		repo_module_extern_setup(&u->repo, msg->chat.id);
+	if (user->id == u->id_bot) {
+		_admin_load(msg);
+		model_cmd_extern_disabled_setup(chat_id);
+		return;
 	}
+
+	if (model_admin_get_privilegs(chat_id, u->id_bot) > 0) {
+		ModelParamChat prm;
+		const int ret = model_param_chat_get(&prm, chat_id, "opt_delete_on_join");
+		if ((ret > 0) && (cstr_casecmp(prm.param.value0_out, "true") == 0)) {
+			ModelSchedMessage schd = {
+				.chat_id = chat_id,
+				.message_id = msg->id,
+				.expire = 5,
+			};
+
+			if (model_sched_message_delete(&schd, 3) <= 0)
+				tg_api_delete_message(chat_id, msg->id);
+		}
+	}
+
+	if ((msg->from == NULL) || user->is_bot)
+		return;
+
+	ModelParamChat welcome_msg;
+	if (model_param_chat_get(&welcome_msg, chat_id, "msg_welcome") <= 0)
+		return;
+
+	const char *const message = welcome_msg.param.value0_out;
+	if (cstr_is_empty(message))
+		return;
+
+	char *const message_e = tg_escape(message);
+	if (message_e == NULL)
+		return;
+
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		goto out0;
+
+	if (str_set_fmt(&str, "%s\n", message_e) == NULL)
+		goto out1;
+
+	char *const fname_e = tg_escape(user->first_name);
+	if (fname_e == NULL)
+		goto out1;
+
+	const char *const text = str_append_fmt(&str, "[%s](tg://user?id=%" PRIi64 ")",
+						fname_e, user->id);
+	if (text == NULL)
+		goto out2;
+
+	int64_t ret_id;
+	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, NULL, text, &ret_id) < 0)
+		goto out2;
+
+	const ModelSchedMessage schd = { .chat_id = chat_id, .message_id = ret_id, .expire = 5 };
+	model_sched_message_delete(&schd, 10);
+
+out2:
+	free(fname_e);
+out1:
+	str_deinit(&str);
+out0:
+	free(message_e);
 }
 
 
 static void
-_admin_load(Update *u, const TgMessage *msg)
+_handle_member_leave(Update *u, const TgMessage *msg)
 {
-	json_object *json_obj;
-	TgChatAdminList admin_list;
-	int64_t chat_id = msg->chat.id;
-	if (tg_api_get_admin_list(&u->api, chat_id, &admin_list, &json_obj) < 0)
+	log_debug("update: _handle_member_leave");
+	if (msg->left_chat_member.id == u->id_bot)
 		return;
 
-	Admin db_admins[TG_CHAT_ADMIN_LIST_SIZE];
-	const int db_admins_len = (int)admin_list.len;
-	for (int i = 0; (i < db_admins_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
+	if (model_admin_get_privilegs(msg->chat.id, u->id_bot) <= 0)
+		return;
+
+	ModelParamChat prm;
+	const int ret = model_param_chat_get(&prm, msg->chat.id, "opt_delete_on_leave");
+	if ((ret <= 0) || (cstr_casecmp(prm.param.value0_out, "true") == 0))
+		return;
+
+	const ModelSchedMessage schd = { .chat_id = msg->chat.id, .message_id = msg->id, .expire = 5 };
+	if (model_sched_message_delete(&schd, 3) <= 0)
+		tg_api_delete_message(msg->chat.id, msg->id);
+}
+
+
+static void
+_admin_load(const TgMessage *msg)
+{
+	json_object *json;
+	TgChatAdminList admin_list;
+	const int64_t chat_id = msg->chat.id;
+	if (tg_api_get_admin_list(chat_id, &admin_list, &json) < 0)
+		return;
+
+	ModelAdmin db_admin_list[TG_CHAT_ADMIN_LIST_SIZE];
+	const int db_admin_list_len = (int)admin_list.len;
+	for (int i = 0; (i < db_admin_list_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
 		const TgChatAdmin *const adm = &admin_list.list[i];
-		db_admins[i] = (Admin) {
+		db_admin_list[i] = (ModelAdmin) {
 			.chat_id = chat_id,
 			.user_id = adm->user->id,
 			.privileges = adm->privileges,
 		};
 	}
 
-	repo_admin_reload(&u->repo, db_admins, db_admins_len);
+	model_admin_reload(db_admin_list, db_admin_list_len);
 
-	json_object_put(json_obj);
+	json_object_put(json);
 	tg_chat_admin_list_free(&admin_list);
-}
-
-
-static void
-_send_invalid_cmd(Update *u, const TgMessage *msg)
-{
-	if (msg->chat.type != TG_CHAT_TYPE_PRIVATE)
-		return;
-
-	common_send_text_plain(u, msg, str_set_fmt(&u->str, "%s: invalid command!", msg->text));
 }
