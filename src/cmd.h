@@ -137,7 +137,7 @@ void cmd_test_list(const Cmd *cmd);
 	.name = "/test_nsfw",							\
 	.description = "test nsfw",						\
 	.callback_fn = cmd_test_nsfw,						\
-	.flags = MODEL_CMD_FLAG_TEST | MODEL_CMD_FLAG_NSFW,			\
+	.flags = MODEL_CMD_FLAG_TEST | MODEL_CMD_FLAG_NSFW | MODEL_CMD_FLAG_EXTRA,\
 },										\
 {										\
 	.name = "/test_admin",							\
