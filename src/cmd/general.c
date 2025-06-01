@@ -10,7 +10,7 @@
 static const char *const _icon_admin  = "🅰️";
 static const char *const _icon_nsfw   = "🔞";
 static const char *const _icon_extra  = "🎲";
-//static const char *const _icon_extern = "🗿";
+static const char *const _icon_extern = "📦";
 
 
 static char *_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len);
@@ -164,8 +164,8 @@ _builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
 			goto err0;
 	}
 
-	str_append_fmt(&str, "\n\\> %s: Admin only, %s: Extra, %s: NSFW \\<",
-		       _icon_admin, _icon_extra, _icon_nsfw);
+	str_append_fmt(&str, "\n\\-\\> %s: Admin only, %s: Extra, %s: NSFW, %s: Extern \\<\\-",
+		       _icon_admin, _icon_extra, _icon_nsfw, _icon_extern);
 	return str.cstr;
 
 err0:
