@@ -21,7 +21,7 @@
 #define CFG_HTTP_RESPONSE_ERROR       "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
 #define CFG_TELEGRAM_API              "https://api.telegram.org/bot"
 #define CFG_MAX_CLIENTS               (128)
-#define CFG_LIST_ITEMS_SIZE           (3)
+#define CFG_LIST_ITEMS_SIZE           (8)
 #define CFG_LIST_TIMEOUT_S            (3600)
 #define CFG_CONNECTION_TIMEOUT_S      (3)
 #define CFG_CMD_BUILTIN_MAP_SIZE      (1024)

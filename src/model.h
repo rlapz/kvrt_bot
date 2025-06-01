@@ -15,6 +15,7 @@ enum {
 	MODEL_CMD_FLAG_CALLBACK = (1 << 1),
 	MODEL_CMD_FLAG_ADMIN    = (1 << 2),
 	MODEL_CMD_FLAG_NSFW     = (1 << 3),
+	MODEL_CMD_FLAG_EXTRA    = (1 << 4),
 };
 
 #define MODEL_CMD_NAME_SIZE (34)
@@ -27,7 +28,8 @@ enum {
 enum {
 	MODEL_CHAT_FLAG_ALLOW_CMD_NSFW   = (1 << 0),
 	MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN = (1 << 1),
-	MODEL_CHAT_FLAG_ALLOW_CMD_TEST   = (1 << 2),
+	MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA  = (1 << 2),
+	MODEL_CHAT_FLAG_ALLOW_CMD_TEST   = (1 << 3),
 };
 
 typedef struct model_chat {

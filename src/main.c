@@ -394,9 +394,13 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	if (cstr_casecmp_n2(content_type, content_type_len, "application/json", 16) == 0)
 		return -1;
 
-	if (cstr_to_ullong_n(scontent_len, scontent_len_len, (unsigned long long *)content_len) < 0)
+	uint64_t clen;
+	if (cstr_to_uint64_n(scontent_len, scontent_len_len, &clen) < 0)
 		return -1;
 
+	assert(clen < SIZE_MAX);
+
+	*content_len = (size_t)clen;
 	/* TODO: add more validations */
 	return 0;
 }

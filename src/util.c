@@ -256,19 +256,19 @@ cstr_to_lower_n(char dest[], size_t len)
 
 
 int
-cstr_to_llong(const char cstr[], long long *ret)
+cstr_to_int64(const char cstr[], int64_t *ret)
 {
 	errno = 0;
 	const long long _ret = strtoll(cstr, NULL, 10);
 	if (errno == 0)
-		*ret = _ret;
+		*ret = (int64_t)_ret;
 
 	return -errno;
 }
 
 
 int
-cstr_to_llong_n(const char cstr[], size_t len, long long *ret)
+cstr_to_int64_n(const char cstr[], size_t len, int64_t *ret)
 {
 	char buffer[INT64_DIGITS_LEN];
 	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
@@ -276,14 +276,14 @@ cstr_to_llong_n(const char cstr[], size_t len, long long *ret)
 	errno = 0;
 	const long long _ret = strtoll(buffer, NULL, 10);
 	if (errno == 0)
-		*ret = _ret;
+		*ret = (int64_t)_ret;
 
 	return -errno;
 }
 
 
 int
-cstr_to_ullong_n(const char cstr[], size_t len, unsigned long long *ret)
+cstr_to_uint64_n(const char cstr[], size_t len, uint64_t *ret)
 {
 	char buffer[UINT64_DIGITS_LEN];
 	cstr_copy_n2(buffer, LEN(buffer), cstr, len);
@@ -291,7 +291,7 @@ cstr_to_ullong_n(const char cstr[], size_t len, unsigned long long *ret)
 	errno = 0;
 	const unsigned long long _ret = strtoull(buffer, NULL, 10);
 	if (errno == 0)
-		*ret = _ret;
+		*ret = (uint64_t)_ret;
 
 	return -errno;
 }
@@ -539,6 +539,8 @@ str_deinit(Str *s)
 {
 	if (s->is_alloc)
 		free(s->cstr);
+
+	s->cstr = NULL;
 }
 
 
@@ -688,7 +690,7 @@ str_append_fmt(Str *s, const char fmt[], ...)
 char *
 str_pop(Str *s, size_t count)
 {
-	if ((s->len == 0) || (s->len == count))
+	if ((s->len == 0) || (s->len < count))
 		return NULL;
 
 	s->len -= count;
@@ -739,13 +741,11 @@ _cstrmap_map_exec(CstrMap *c, const char key[])
 	}
 
 	const size_t size = c->size;
-	size_t index = (size_t)(hash & (size - 1));
+	size_t index = (size_t)(hash % size);
 	CstrMapItem *item = &c->items[index];
 	for (size_t i = 0; (i < size) && (item->key != NULL); i++) {
-		if (strcasecmp(item->key, key) == 0) {
-			/* found matched key */
+		if (strcasecmp(item->key, key) == 0)
 			return item;
-		}
 
 		log_debug("cstrmap: _cstrmap_map: linear probing: [%s:%s]:[%zu:%zu]", key, item->key, i, index);
 		index = (index + 1) % size;
@@ -764,8 +764,6 @@ int
 cstr_map_init(CstrMap *c, size_t size)
 {
 	assert(size != 0);
-	while ((size % 2) != 0)
-		size++;
 
 	void *const items = calloc(size, sizeof(CstrMapItem));
 	if (items == NULL)

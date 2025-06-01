@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <string.h>
 
 #include "cmd.h"
@@ -35,14 +36,15 @@
 static CmdBuiltin _cmd_builtin_list[] = {
 	CMD_BUILTIN_LIST_GENERAL,
 	CMD_BUILTIN_LIST_ADMIN,
+	CMD_BUILTIN_LIST_EXTRA,
 	CMD_BUILTIN_LIST_TEST,
 };
 
-static int      _cmd_builtin_list_len = LEN(_cmd_builtin_list);
+static unsigned _cmd_builtin_list_len = LEN(_cmd_builtin_list);
 static CstrMap  _map;
 
 static int  _register_builtin(CstrMap *m);
-static void _remove_builtin(int *iter);
+static void _remove_builtin(unsigned *iter);
 static int  _exec_builtin(const Cmd *c, const char name[], int chat_flags);
 static int  _exec_extern(const Cmd *c, const char name[], int chat_flags);
 static int  _exec_cmd_message(const Cmd *c, const char name[]);
@@ -114,10 +116,40 @@ cmd_exec(const Cmd *c)
 
 
 int
-cmd_builtin_get_list(const CmdBuiltin *list[])
+cmd_builtin_get_list(CmdBuiltin *list[], int chat_flags, unsigned *start_num, MessageListPagination *pag)
 {
-	*list = _cmd_builtin_list;
-	return _cmd_builtin_list_len;
+	assert(VAL_IS_NULL_OR(list, pag) == 0);
+	if (pag->current_page == 0)
+		return -1;
+
+	CmdBuiltin *const tmp = malloc(sizeof(CmdBuiltin) * _cmd_builtin_list_len);
+	if (tmp == NULL)
+		return -1;
+
+	unsigned len = 0;
+	for (unsigned i = 0; i < _cmd_builtin_list_len; i++) {
+		const int flags = _cmd_builtin_list[i].flags;
+		if ((flags & MODEL_CMD_FLAG_NSFW) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0))
+			continue;
+		if ((flags & MODEL_CMD_FLAG_EXTRA) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0))
+			continue;
+		if ((flags & MODEL_CMD_FLAG_TEST) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_TEST) == 0))
+			continue;
+
+		tmp[len++] = _cmd_builtin_list[i];
+	}
+
+	const unsigned start = MIN(((pag->current_page * CFG_LIST_ITEMS_SIZE) - CFG_LIST_ITEMS_SIZE), len);
+	const unsigned end = MIN(len, (CFG_LIST_ITEMS_SIZE + start));
+	assert(start <= end);
+
+	*list = tmp;
+	*start_num = start;
+	pag->has_next_page = (end < len);
+	pag->total_page = (unsigned)ceil(((double)len) / ((double)CFG_LIST_ITEMS_SIZE));
+	pag->len = end;
+	pag->max_len = len;
+	return 0;
 }
 
 
@@ -137,7 +169,7 @@ cmd_builtin_is_exists(const char name[])
 static int
 _register_builtin(CstrMap *m)
 {
-	for (int i = 0; i < _cmd_builtin_list_len; i++) {
+	for (unsigned i = 0; i < _cmd_builtin_list_len; i++) {
 		const CmdBuiltin *const p = &_cmd_builtin_list[i];
 		if (cstr_is_empty(p->name) || (p->callback_fn == NULL))
 			goto rem0;
@@ -189,10 +221,10 @@ rem0:
 
 
 static void
-_remove_builtin(int *iter)
+_remove_builtin(unsigned *iter)
 {
-	int i = *iter;
-	const int len = (_cmd_builtin_list_len) - 1;
+	unsigned i = *iter;
+	const unsigned len = (_cmd_builtin_list_len) - 1;
 	_cmd_builtin_list[i] = _cmd_builtin_list[len];
 	memset(&_cmd_builtin_list[len], 0, sizeof(CmdBuiltin));
 
@@ -272,6 +304,12 @@ _verify(const Cmd *c, int chat_flags, int flags)
 		return 0;
 
 	if ((flags & MODEL_CMD_FLAG_NSFW) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0))
+		return 0;
+
+	if ((flags & MODEL_CMD_FLAG_EXTRA) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0))
+		return 0;
+
+	if ((flags & MODEL_CMD_FLAG_TEST) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_TEST) == 0))
 		return 0;
 
 	if ((flags & MODEL_CMD_FLAG_ADMIN) && (privileges_check(c->msg, c->id_owner) == 0))

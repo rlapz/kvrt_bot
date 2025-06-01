@@ -126,9 +126,6 @@ _handle_member_new(Update *u, const TgMessage *msg)
 	if (model_admin_get_privilegs(chat_id, u->id_bot) > 0) {
 		ModelParamChat prm;
 		const int ret = model_param_chat_get(&prm, chat_id, "opt_delete_on_join");
-		if (ret < 0)
-			return;
-
 		if ((ret > 0) && (cstr_casecmp(prm.param.value0_out, "true") == 0)) {
 			ModelSchedMessage schd = {
 				.chat_id = chat_id,

@@ -48,9 +48,9 @@ char *cstr_escape(const char escape[], char c, const char src[]);
 
 char *cstr_to_lower_n(char dest[], size_t len);
 
-int cstr_to_llong(const char cstr[], long long *ret);
-int cstr_to_llong_n(const char cstr[], size_t len, long long *ret);
-int cstr_to_ullong_n(const char cstr[], size_t len, unsigned long long *ret);
+int cstr_to_int64(const char cstr[], int64_t *ret);
+int cstr_to_int64_n(const char cstr[], size_t len, int64_t *ret);
+int cstr_to_uint64_n(const char cstr[], size_t len, uint64_t *ret);
 
 static inline int
 cstr_is_empty(const char cstr[])
@@ -60,6 +60,12 @@ cstr_is_empty(const char cstr[])
 
 int cstr_is_empty_and_n(size_t count, ...);
 int cstr_is_empty_or_n(size_t count, ...);
+
+static inline const char *
+cstr_empty_if_null(const char cstr[])
+{
+	return (cstr == NULL) ? "" : cstr;
+}
 
 
 /*

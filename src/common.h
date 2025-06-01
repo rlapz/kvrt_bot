@@ -66,22 +66,22 @@ typedef struct message_list_pagination {
 	int      has_next_page;
 	unsigned current_page;
 	unsigned total_page;
-	unsigned total;
+	unsigned len;
+	unsigned max_len;
 } MessageListPagination;
 
 typedef struct message_list {
-	const char            *id;
-	const TgMessage       *msg;
-	const char            *ctx;
-	const char            *title;
-	const char            *body;
-	const char            *udata;
-	MessageListPagination  pagination;
+	const char      *id;
+	const TgMessage *msg;
+	const char      *ctx;
+	const char      *title;
+	const char      *body;
+	const char      *udata;
+	int              is_edit;
 } MessageList;
 
-int message_list_paginate(const MessageList *l, int64_t *ret_id);
-int message_list_send(const MessageList *l, int64_t *ret_id);
-int message_list_check_expiration(const char id[], time_t prev);
+int message_list_send(const MessageList *l, const MessageListPagination *pag, int64_t *ret_id);
+int message_list_get_page(const char id[], const char args[], unsigned *page);
 
 
 #endif

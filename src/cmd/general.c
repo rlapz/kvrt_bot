@@ -9,7 +9,11 @@
 
 static const char *const _icon_admin  = "🅰️";
 static const char *const _icon_nsfw   = "🔞";
-static const char *const _icon_extern = "🗿";
+static const char *const _icon_extra  = "🎲";
+//static const char *const _icon_extern = "🗿";
+
+
+static char *_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len);
 
 
 /*
@@ -31,10 +35,54 @@ cmd_general_start(const Cmd *cmd)
 void
 cmd_general_help(const Cmd *cmd)
 {
-	(void)_icon_admin;
-	(void)_icon_nsfw;
-	(void)_icon_extern;
-	(void)cmd;
+	int is_err = 1;
+	int is_callback = cmd->is_callback;
+	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
+	if (cflags < 0) {
+		if (is_callback)
+			goto out0;
+
+		send_text_plain(cmd->msg, "Falied to get chat flags");
+		return;
+	}
+
+	unsigned page_num = 1;
+	if (is_callback && (message_list_get_page(cmd->callback->id, cmd->query.args, &page_num) < 0))
+		goto out0;
+
+	unsigned start;
+	CmdBuiltin *list = NULL;
+	MessageListPagination req_page = { .current_page = page_num };
+	if (cmd_builtin_get_list(&list, cflags, &start, &req_page) < 0)
+		goto out0;
+
+	char *const body = _builtin_list_body(list, start, req_page.len);
+	if (body == NULL)
+		goto out1;
+
+	char ctx[MODEL_CMD_NAME_SIZE];
+	cstr_copy_n2(ctx, LEN(ctx), cmd->bot_cmd.name, cmd->bot_cmd.name_len);
+
+	MessageList mlist = {
+		.ctx = ctx,
+		.msg = cmd->msg,
+		.title = "Builtin command list",
+		.body = body,
+		.is_edit = cmd->is_callback,
+	};
+
+	if (message_list_send(&mlist, &req_page, NULL) < 0)
+		goto out2;
+
+	is_err = 0;
+
+out2:
+	free(body);
+out1:
+	free(list);
+out0:
+	if (is_err && is_callback)
+		tg_api_answer_callback_query(cmd->callback->id, "Error!", NULL, 1);
 }
 
 
@@ -80,3 +128,47 @@ cmd_general_dump_admin(const Cmd *cmd)
 /*
  * Private
  */
+static char *
+_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
+{
+	const char *admin_only;
+	const char *nsfw;
+	const char *extra;
+	const char *res;
+
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return NULL;
+
+	for (unsigned i = num; i < len; i++) {
+		const CmdBuiltin *const cb = &list[i];
+		char *const name = tg_escape(cb->name);
+		if (name == NULL)
+			goto err0;
+
+		char *const desc = tg_escape(cb->description);
+		if (desc == NULL) {
+			free(name);
+			goto err0;
+		}
+
+		admin_only = (cb->flags & MODEL_CMD_FLAG_ADMIN)? _icon_admin : "";
+		nsfw = (cb->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
+		extra = (cb->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
+		res = str_append_fmt(&str, "%u\\. %s \\- %s %s%s%s\n", i + 1,
+				     name, desc, admin_only, nsfw, extra);
+
+		free(desc);
+		free(name);
+		if (res == NULL)
+			goto err0;
+	}
+
+	str_append_fmt(&str, "\n\\> %s: Admin only, %s: Extra, %s: NSFW \\<",
+		       _icon_admin, _icon_extra, _icon_nsfw);
+	return str.cstr;
+
+err0:
+	str_deinit(&str);
+	return NULL;
+}

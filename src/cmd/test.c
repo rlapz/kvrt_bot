@@ -21,7 +21,7 @@ cmd_test_sched(const Cmd *cmd)
 	int64_t timeout_s = 3;
 	SpaceTokenizer st_timeout;
 	if (space_tokenizer_next(&st_timeout, cmd->bot_cmd.args) != NULL)
-		cstr_to_llong_n(st_timeout.value, st_timeout.len, (long long *)&timeout_s);
+		cstr_to_int64_n(st_timeout.value, st_timeout.len, &timeout_s);
 
 	const TgMessage *const msg = cmd->msg;
 	ModelSchedMessage sch = {
@@ -31,7 +31,7 @@ cmd_test_sched(const Cmd *cmd)
 		.expire = 5,
 	};
 
-	if (model_sched_message_send(&sch, timeout_s) <= 0) {
+	if (model_sched_message_send(&sch, (int64_t)timeout_s) <= 0) {
 		send_text_plain(msg, "Failed to set sechedule message");
 		return;
 	}
@@ -39,7 +39,7 @@ cmd_test_sched(const Cmd *cmd)
 	Str str;
 	char buff[256];
 	str_init(&str, buff, LEN(buff));
-	const char *const ss = str_set_fmt(&str, "Success! Scheduled for %" PRIi64 "s.", timeout_s);
+	const char *const ss = str_set_fmt(&str, "Success! Scheduled for %lus.", timeout_s);
 
 	int64_t ret_id;
 	if (tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, ss, &ret_id) < 0)
@@ -87,9 +87,8 @@ cmd_test_list(const Cmd *cmd)
 	}
 
 
-	list.pagination.current_page = 1;
-
-	message_list_send(&list, NULL);
+	const MessageListPagination pag = { .current_page = 1, .total_page = 1 };
+	message_list_send(&list, &pag, NULL);
 }
 
 

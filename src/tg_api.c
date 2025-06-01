@@ -28,7 +28,6 @@ tg_api_init(const char base_api[])
 }
 
 
-/* TODO: error handler */
 int
 tg_api_send_text(int type, int64_t chat_id, const int64_t *reply_to, const char text[], int64_t *ret_id)
 {
@@ -39,36 +38,42 @@ tg_api_send_text(int type, int64_t chat_id, const int64_t *reply_to, const char 
 		return ret;
 
 	Str str;
-	str_init_alloc(&str, 0);
-	str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id);
+	if (str_init_alloc(&str, 1024) < 0)
+		return ret;
 
-	if (reply_to != NULL)
-		str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to);
+	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
+		goto out0;
+
+	if ((reply_to != NULL) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to) == NULL))
+		goto out0;
 
 	char *const new_text = curl_easy_escape(NULL, text, 0);
 	if (new_text == NULL)
 		goto out0;
 
+	const char *req = NULL;
 	switch (type) {
 	case TG_API_TEXT_TYPE_PLAIN:
-		str_append_fmt(&str, "&text=%s", new_text);
+		req = str_append_fmt(&str, "&text=%s", new_text);
 		break;
 	case TG_API_TEXT_TYPE_FORMAT:
-		str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s", new_text);
+		req = str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s", new_text);
 		break;
-	default:
-		goto out0;
 	}
 
-	char *const resp = http_send_get(str.cstr, "application/json");
+	if (req == NULL)
+		goto out1;
+
+	char *const resp = http_send_get(req, "application/json");
 	if (ret_id != NULL)
 		ret = _response_get_message_id(resp, ret_id);
 	else
 		ret = 0;
 
 	free(resp);
-out0:
+out1:
 	curl_free(new_text);
+out0:
 	str_deinit(&str);
 	return ret;
 }
@@ -84,20 +89,16 @@ tg_api_delete_message(int64_t chat_id, int64_t message_id)
 		return ret;
 
 	Str str;
-	if (str_init_alloc(&str, 0) < 0)
-		return -1;
+	if (str_init_alloc(&str, 1024) < 0)
+		return ret;
 
-	str_set_fmt(&str, "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64, _base_api,
-		    chat_id, message_id);
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if  (resp == NULL)
-		goto out0;
+	const char *const req = str_set_fmt(&str, "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64,
+					    _base_api, chat_id, message_id);
+	char *const resp = http_send_get(req, "application/json");
+	if (resp != NULL)
+		ret = 0;
 
 	free(resp);
-	ret = 0;
-
-out0:
 	str_deinit(&str);
 	return ret;
 }
@@ -105,7 +106,7 @@ out0:
 
 int
 tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char text[],
-			    const TgApiInlineKeyboard kbds[], size_t kbds_len,
+			    const TgApiInlineKeyboard kbds[], unsigned kbds_len,
 			    int64_t *ret_id)
 {
 	assert(_base_api != NULL);
@@ -115,7 +116,7 @@ tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char
 		return ret;
 
 	char *ret_str = NULL;
-	if (_build_inline_keyboard(kbds, (unsigned)kbds_len, &ret_str) < 0)
+	if (_build_inline_keyboard(kbds, kbds_len, &ret_str) < 0)
 		return -1;
 
 	char *const new_text = curl_easy_escape(NULL, text, 0);
@@ -123,13 +124,17 @@ tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char
 		goto out0;
 
 	Str str;
-	if (str_init_alloc(&str, 0) < 0)
+	if (str_init_alloc(&str, 1024) < 0)
 		goto out1;
 
-	str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id);
-	if (reply_to != NULL)
-		str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to);
-	str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s", new_text, ret_str);
+	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
+		goto out2;
+
+	if ((reply_to != NULL) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to) == NULL))
+		goto out2;
+
+	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s", new_text, ret_str) == NULL)
+		goto out2;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
 	if (ret_id != NULL)
@@ -138,8 +143,9 @@ tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char
 		ret = 0;
 
 	free(resp);
-	str_deinit(&str);
 
+out2:
+	str_deinit(&str);
 out1:
 	curl_free(new_text);
 out0:
@@ -150,7 +156,7 @@ out0:
 
 int
 tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
-			    const TgApiInlineKeyboard kbds[], size_t kbds_len,
+			    const TgApiInlineKeyboard kbds[], unsigned kbds_len,
 			    int64_t *ret_id)
 {
 	assert(_base_api != NULL);
@@ -160,7 +166,7 @@ tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
 		return ret;
 
 	char *ret_str = NULL;
-	if (_build_inline_keyboard(kbds, (unsigned)kbds_len, &ret_str) < 0)
+	if (_build_inline_keyboard(kbds, kbds_len, &ret_str) < 0)
 		return ret;
 
 	char *const new_text = curl_easy_escape(NULL, text, 0);
@@ -168,12 +174,15 @@ tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
 		goto out0;
 
 	Str str;
-	if (str_init_alloc(&str, 0) < 0)
+	if (str_init_alloc(&str, 1024) < 0)
 		goto out1;
 
-	str_set_fmt(&str, "%s/editMessageText?chat_id=%" PRIi64, _base_api, chat_id);
-	str_append_fmt(&str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2&text=%s", msg_id, new_text);
-	str_append_fmt(&str, "&reply_markup=%" PRIi64, ret_str);
+	if (str_set_fmt(&str, "%s/editMessageText?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
+		goto out2;
+	if (str_append_fmt(&str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2&text=%s", msg_id, new_text) == NULL)
+		goto out2;
+	if (str_append_fmt(&str, "&reply_markup=%s", ret_str) == NULL)
+		goto out2;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
 	if (ret_id != NULL)
@@ -182,8 +191,9 @@ tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
 		ret = 0;
 
 	free(resp);
-	str_deinit(&str);
 
+out2:
+	str_deinit(&str);
 out1:
 	curl_free(new_text);
 out0:
@@ -202,29 +212,36 @@ tg_api_answer_callback_query(const char id[], const char text[], const char url[
 		return ret;
 
 	Str str;
-	if (str_init_alloc(&str, 0) < 0)
+	if (str_init_alloc(&str, 1024) < 0)
 		return ret;
 
-	str_set_fmt(&str, "%s/answerCallbackQuery?callback_query_id=%s", _base_api, id);
+	if (str_set_fmt(&str, "%s/answerCallbackQuery?callback_query_id=%s", _base_api, id) == NULL)
+		goto out0;
+
 	if (text != NULL) {
 		char *const new_text = curl_easy_escape(NULL, text, 0);
 		if (new_text == NULL)
 			goto out0;
 
-		str_append_fmt(&str, "&text=%s", new_text);
+		const char *const _ret = str_append_fmt(&str, "&text=%s", new_text);
 		curl_free(new_text);
-	}
 
-	if (url != NULL) {
+		if (_ret == NULL)
+			goto out0;
+	} else if (url != NULL) {
 		char *const new_url = curl_easy_escape(NULL, url, 0);
 		if (new_url == NULL)
 			goto out0;
 
-		str_append_fmt(&str, "&url=%s", new_url);
+		const char *const _ret = str_append_fmt(&str, "&url=%s", new_url);
 		curl_free(new_url);
+
+		if (_ret == NULL)
+			goto out0;
 	}
 
-	str_append_fmt(&str, "&show_alert=%d", show_alert);
+	if (str_append_fmt(&str, "&show_alert=%d", show_alert) == NULL)
+		goto out0;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
 	free(resp);
@@ -242,35 +259,37 @@ tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_
 
 	int ret = -1;
 	Str str;
-	if (str_init_alloc(&str, 0) < 0)
+	if (str_init_alloc(&str, 1024) < 0)
 		return ret;
 
-	const char *const req = str_set_fmt(&str, "%s/getChatAdministrators?chat_id=%" PRIi64,
-					    _base_api, chat_id);
-	if (req == NULL)
+	if (str_set_fmt(&str, "%s/getChatAdministrators?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
 		goto out0;
 
-	char *const resp = http_send_get(req, "application/json");
+	char *const resp = http_send_get(str.cstr, "application/json");
 	if (resp == NULL)
 		goto out0;
 
 	json_object *const json = json_tokener_parse(resp);
+	if (json == NULL)
+		goto out1;
+
 	if (list != NULL) {
 		json_object *res;
 		if (_parse_response(json, &res) < 0)
-			goto out1;
+			goto out2;
 
 		if (tg_chat_admin_list_parse(list, res) < 0)
-			goto out1;
+			goto out2;
 	}
 
 	*res_obj = json;
 	ret = 0;
 
-out1:
+out2:
 	if (ret < 0)
 		json_object_put(json);
 
+out1:
 	free(resp);
 out0:
 	str_deinit(&str);
@@ -322,63 +341,83 @@ out0:
 static int
 _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char *ret_str[])
 {
+	int ret = -1;
 	Str str;
-	if (str_init_alloc(&str, 0) < 0)
-		return -1;
+	if (str_init_alloc(&str, 1024) < 0)
+		return ret;
 
-	str_set_fmt(&str, "{\"inline_keyboard\": [");
+	if (str_set_fmt(&str, "{\"inline_keyboard\": [") == NULL)
+		goto out0;
+
 	for (unsigned i = 0; i < kbds_len; i++) {
-		str_append_n(&str, "[", 1);
+		if (str_append_n(&str, "[", 1) == NULL)
+			goto out0;
 
 		const TgApiInlineKeyboard *const kbd = &kbds[i];
 		for (unsigned j = 0; j < kbd->len; j++) {
-			const TgApiInlineKeyboardButton *const btn = kbd[i].buttons;
-			str_append_fmt(&str, "{\"text\": \"%s\"", btn->text);
+			const TgApiInlineKeyboardButton *const btn = &kbd->buttons[j];
+			if (str_append_fmt(&str, "{\"text\": \"%s\"", btn->text) == NULL)
+				goto out0;
 
 			if (btn->data != NULL) {
-				str_append_fmt(&str, ", \"callback_data\": \"");
+				if (str_append_fmt(&str, ", \"callback_data\": \"") == NULL)
+					goto out0;
 
 				for (unsigned k = 0; k < btn->data_len; k++) {
+					const char *_ret = NULL;
 					const TgApiInlineKeyboardButtonData *const d = &btn->data[k];
 					switch (d->type) {
 					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT:
-						str_append_fmt(&str, "%" PRIi64 " ", d->int_);
+						_ret = str_append_fmt(&str, "%" PRIi64 " ", d->int_);
 						break;
 					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT:
-						str_append_fmt(&str, "%" PRIu64 " ", d->uint);
+						_ret = str_append_fmt(&str, "%" PRIu64 " ", d->uint);
 						break;
 					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
-						str_append_fmt(&str, "%s ", d->text);
+						_ret = str_append_fmt(&str, "%s ", cstr_empty_if_null(d->text));
 						break;
 					}
+
+					if (_ret == NULL)
+						goto out0;
 				}
 
 				if (btn->data_len > 0)
 					str_pop(&str, 1);
 
-				str_append_n(&str, "\"", 1);
+				if (str_append_n(&str, "\"", 1) == NULL)
+					goto out0;
 			} else if (btn->url != NULL) {
-				str_append_fmt(&str, ", \"url\": \"%s\"", btn->url);
+				if (str_append_fmt(&str, ", \"url\": \"%s\"", btn->url) == NULL)
+					goto out0;
 			}
 
-			str_append_n(&str, "}, ", 3);
+			if (str_append_n(&str, "}, ", 3) == NULL)
+				goto out0;
 		}
 
 		if (kbd->len > 0)
 			str_pop(&str, 2);
 
-		str_append_n(&str, "], ", 3);
+		if (str_append_n(&str, "], ", 3) == NULL)
+			goto out0;
 	}
 
 	if (kbds_len > 0)
 		str_pop(&str, 2);
 
-	str_append_n(&str, "]}", 2);
+	if (str_append_n(&str, "]}", 2) == NULL)
+		goto out0;
 
-	*ret_str = curl_easy_escape(NULL, str.cstr, (int)str.len);
+	char *const res = curl_easy_escape(NULL, str.cstr, (int)str.len);
+	if (res != NULL) {
+		*ret_str = res;
+		ret = 0;
+	}
+
+out0:
 	str_deinit(&str);
-
-	return 0;
+	return ret;
 }
 
 

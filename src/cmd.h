@@ -40,7 +40,8 @@ typedef struct cmd_builtin {
 	void       (*callback_fn)(const Cmd *);
 } CmdBuiltin;
 
-int cmd_builtin_get_list(const CmdBuiltin *list[]);
+int cmd_builtin_get_list(CmdBuiltin *list[], int chat_flags, unsigned *start_num,
+			 MessageListPagination *pag);
 int cmd_builtin_is_exists(const char name[]);
 
 
@@ -54,6 +55,8 @@ void cmd_general_start(const Cmd *cmd);
 void cmd_general_help(const Cmd *cmd);
 void cmd_general_dump(const Cmd *cmd);
 void cmd_general_dump_admin(const Cmd *cmd);
+
+void cmd_extra_anime_sched(const Cmd *cmd);
 
 
 #ifdef DEBUG
@@ -104,6 +107,15 @@ void cmd_test_list(const Cmd *cmd);
 	.description = "Set/unset CMD Message",					\
 	.callback_fn = cmd_admin_cmd_message,					\
 	.flags = MODEL_CMD_FLAG_ADMIN,						\
+}
+
+
+#define CMD_BUILTIN_LIST_EXTRA							\
+{										\
+	.name = "/anime_sched",							\
+	.description = "Get anime schedule list",				\
+	.callback_fn = cmd_extra_anime_sched,					\
+	.flags = MODEL_CMD_FLAG_EXTRA,						\
 }
 
 

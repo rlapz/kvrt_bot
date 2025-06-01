@@ -12,6 +12,7 @@
  * 	arg[3]: TELEGRAM API + TOKEN
  * 	arg[4]: TELEGRAM SECRET KEY
  *
+ * -----------------------------------------------------------------
  * API_TYPE_TEXT_* argument list:
  * 	arg[5]: Chat ID
  * 	arg[6]: Message ID	-> 0: no reply
@@ -130,10 +131,13 @@ _args_init(int argc1, const char *argv1[], Args *args)
 		return -1;
 	}
 
-	if (cstr_to_llong(argv1[_ARG_TYPE], (long long *)&args->api_type) < 0) {
+	int64_t api_type;
+	if (cstr_to_int64(argv1[_ARG_TYPE], &api_type) < 0) {
 		log_err(errno, "api: _args_init[%d]: ARG_TYPE: failed to parse", _ARG_TYPE);
 		return -1;
 	}
+
+	args->api_type = (int)api_type;
 
 	args->tg_api = argv1[_ARG_TG_API];
 	if (cstr_is_empty(args->tg_api)) {
@@ -185,13 +189,13 @@ _exec_send_text(const Args *args)
 	}
 
 	int64_t chat_id;
-	if (cstr_to_llong(args->user_data[0], (long long *)&chat_id) < 0) {
+	if (cstr_to_int64(args->user_data[0], &chat_id) < 0) {
 		log_err(EINVAL, "api: _exec_send_text: invalid \"Chat ID\" value");
 		return -1;
 	}
 
 	int64_t message_id;
-	if (cstr_to_llong(args->user_data[1], (long long *)&message_id) < 0) {
+	if (cstr_to_int64(args->user_data[1], &message_id) < 0) {
 		log_err(EINVAL, "api: _exec_send_text: invalid \"Message ID\" value");
 		return -1;
 	}
@@ -222,7 +226,7 @@ _exec_answer_callback(const Args *args)
 	}
 
 	int64_t is_text;
-	if ((cstr_to_llong(args->user_data[1], (long long *)&is_text) < 0) || (int64_is_bool(is_text) == 0)) {
+	if ((cstr_to_int64(args->user_data[1], &is_text) < 0) || (int64_is_bool(is_text) == 0)) {
 		log_err(EINVAL, "api: _exec_send_text: invalid \"Is Text\" value");
 		return -1;
 	}
@@ -234,7 +238,7 @@ _exec_answer_callback(const Args *args)
 	}
 
 	int64_t show_alert;
-	if ((cstr_to_llong(args->user_data[1], (long long *)&show_alert) < 0) || (int64_is_bool(show_alert) == 0)) {
+	if ((cstr_to_int64(args->user_data[1], &show_alert) < 0) || (int64_is_bool(show_alert) == 0)) {
 		log_err(EINVAL, "api: _exec_send_text: invalid \"Show Alert\" value");
 		return -1;
 	}
