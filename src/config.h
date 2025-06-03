@@ -15,6 +15,7 @@
 #define CFG_DEF_CMD_EXTERN_LOG_FILE "./extern/log.txt"
 #define CFG_DEF_DB_CONN_POOL_SIZE   (16)
 
+#define CFG_LOG_BUFFER_SIZE           (1024 * 1024)
 #define CFG_BUFFER_SIZE               (1024 * 512)
 #define CFG_EVENTS_SIZE               (128)
 #define CFG_HTTP_RESPONSE_OK          "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
@@ -28,8 +29,6 @@
 #define CFG_CHLD_ITEMS_SIZE           (256)
 #define CFG_CHLD_ENVP_SIZE            (128)
 #define CFG_CHLD_IMPORT_SYS_ENVP      (1)
-
-#define CFG_ITEM_LIST_SIZE (10)
 
 #define CFG_ENV_ROOT_DIR            "ROOT_DIR"
 #define CFG_ENV_TELEGRAM_API        "TG_API"

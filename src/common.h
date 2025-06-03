@@ -5,6 +5,7 @@
 #include <json.h>
 #include <stdint.h>
 #include <time.h>
+#include <math.h>
 
 #include "config.h"
 #include "tg.h"
@@ -64,10 +65,10 @@ char *tg_escape(const char src[]);
  */
 typedef struct message_list_pagination {
 	int      has_next_page;
-	unsigned current_page;
-	unsigned total_page;
-	unsigned len;
-	unsigned max_len;
+	unsigned page_count;
+	unsigned page_size;
+	unsigned items_count;
+	unsigned items_size;
 } MessageListPagination;
 
 typedef struct message_list {
@@ -81,7 +82,7 @@ typedef struct message_list {
 } MessageList;
 
 int message_list_send(const MessageList *l, const MessageListPagination *pag, int64_t *ret_id);
-int message_list_get_page(const char id[], const char args[], unsigned *page);
+int message_list_get_args(const char id[], const char args[], unsigned *page, const char *udata[]);
 
 
 #endif

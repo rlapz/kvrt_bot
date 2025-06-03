@@ -339,6 +339,39 @@ out0:
 }
 
 
+char *
+cstr_concat(const char cstr[], ...)
+{
+	va_list va;
+	size_t len = 0;
+	const char *first = cstr;
+	if (first == NULL)
+		return NULL;
+
+	va_start(va, cstr);
+	while (first != NULL) {
+		len += strlen(first);
+		first = va_arg(va, const char *);
+	}
+	va_end(va);
+
+	char *const ret = malloc(len + 1);
+	if (ret == NULL)
+		return NULL;
+
+	va_start(va, cstr);
+	first = cstr;
+	size_t offt = 0;
+	while (first != NULL) {
+		offt += cstr_copy(ret + offt, first);
+		first = va_arg(va, const char *);
+	}
+	va_end(va);
+
+	return ret;
+}
+
+
 /*
  * ArrayPtr
  */

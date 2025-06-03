@@ -119,7 +119,7 @@ int
 cmd_builtin_get_list(CmdBuiltin *list[], int chat_flags, unsigned *start_num, MessageListPagination *pag)
 {
 	assert(VAL_IS_NULL_OR(list, pag) == 0);
-	if (pag->current_page == 0)
+	if (pag->page_count == 0)
 		return -1;
 
 	CmdBuiltin *const tmp = malloc(sizeof(CmdBuiltin) * _cmd_builtin_list_len);
@@ -139,16 +139,16 @@ cmd_builtin_get_list(CmdBuiltin *list[], int chat_flags, unsigned *start_num, Me
 		tmp[len++] = _cmd_builtin_list[i];
 	}
 
-	const unsigned start = MIN(((pag->current_page * CFG_LIST_ITEMS_SIZE) - CFG_LIST_ITEMS_SIZE), len);
+	const unsigned start = MIN(((pag->page_count * CFG_LIST_ITEMS_SIZE) - CFG_LIST_ITEMS_SIZE), len);
 	const unsigned end = MIN(len, (CFG_LIST_ITEMS_SIZE + start));
 	assert(start <= end);
 
 	*list = tmp;
 	*start_num = start;
 	pag->has_next_page = (end < len);
-	pag->total_page = (unsigned)ceil(((double)len) / ((double)CFG_LIST_ITEMS_SIZE));
-	pag->len = end;
-	pag->max_len = len;
+	pag->page_size = (unsigned)ceil(((double)len) / ((double)CFG_LIST_ITEMS_SIZE));
+	pag->items_count = end;
+	pag->items_size = len;
 	return 0;
 }
 
