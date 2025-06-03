@@ -105,13 +105,7 @@ cmd_exec(const Cmd *c)
 	if ((c->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (c->bot_cmd.has_username == 0))
 		return;
 
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return;
-
-	const char *const rep = str_set_fmt(&str, "\"%s\": Invalid command!", name);
-	send_text_plain(c->msg, (rep != NULL) ? rep : "Invalid command!");
-	str_deinit(&str);
+	send_text_plain(c->msg, "Invalid command!");
 }
 
 

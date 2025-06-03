@@ -97,7 +97,7 @@ cmd_extra_anime_sched(const Cmd *cmd)
 	char ctx[MODEL_CMD_NAME_SIZE];
 	cstr_copy_n2(ctx, LEN(ctx), cmd->bot_cmd.name, cmd->bot_cmd.name_len);
 
-	char *const title = cstr_concat("Anime Schedule: ", "\\(", filter, "\\)", NULL);
+	char *const title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)");
 	MessageList mlist = {
 		.ctx = ctx,
 		.msg = cmd->msg,
@@ -161,7 +161,7 @@ _anime_sched_get_list(const char filter[], unsigned limit, unsigned page, int sh
 	if (req == NULL)
 		goto out0;
 
-	char  *const result = http_send_get(req, "application/json");
+	char *const result = http_send_get(req, "application/json");
 	if (result == NULL)
 		goto out0;
 

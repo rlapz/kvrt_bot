@@ -89,14 +89,10 @@ out0:
 void
 cmd_general_dump(const Cmd *cmd)
 {
-	Str str;
-	if (str_init_alloc(&str, 0) < 0)
-		return;
-
 	const char *const json_str = json_object_to_json_string_ext(cmd->json, JSON_C_TO_STRING_PRETTY);
-	send_text_format(cmd->msg, str_set_fmt(&str, "```json\n%s```", json_str));
-
-	str_deinit(&str);
+	char *const resp = CSTR_CONCAT("```json\n", json_str, "```");
+	send_text_format(cmd->msg, resp);
+	free(resp);
 }
 
 
