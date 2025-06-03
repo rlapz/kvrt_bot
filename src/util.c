@@ -75,38 +75,6 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 }
 
 
-size_t
-cstr_dup_n(char *dest[], const char src[], size_t len)
-{
-	const size_t new_cstr_size = len + 1;
-	char *const new_cstr = malloc(new_cstr_size);
-	if (new_cstr == NULL) {
-		*dest = NULL;
-		return 0;
-	}
-
-	*dest = new_cstr;
-	return cstr_copy_n2(new_cstr, new_cstr_size, src, len);
-}
-
-
-int
-cstr_cmp_n(const char a[], const char b[], size_t b_len)
-{
-	if ((a == NULL) && (b == NULL))
-		return 1;
-
-	const size_t a_len = strlen(a);
-	if (a_len != b_len)
-		return 0;
-
-	if (strncmp(a, b, b_len) != 0)
-		return 0;
-
-	return 1;
-}
-
-
 int
 cstr_cmp_n2(const char a[], size_t a_len, const char b[], size_t b_len)
 {
@@ -183,27 +151,6 @@ cstr_trim_l(char dest[])
 	}
 
 	return ret;
-}
-
-
-char *
-cstr_trim_r(char dest[])
-{
-	assert(dest != NULL);
-
-	char *ptr = dest;
-	if (*ptr == '\0')
-		return ptr;
-
-	ptr += (strlen(ptr) - 1);
-	while ((*ptr != '\0') && (ptr > dest)) {
-		if (isspace(*ptr) == 0)
-			break;
-
-		*(ptr--) = '\0';
-	}
-
-	return dest;
 }
 
 
@@ -372,39 +319,6 @@ cstr_concat_n(size_t count, ...)
 	va_end(va);
 
 	return ret;
-}
-
-
-/*
- * ArrayPtr
- */
-void
-array_ptr_init(ArrayPtr *a)
-{
-	a->len = 0;
-	a->items = NULL;
-}
-
-
-void
-array_ptr_deinit(ArrayPtr *a)
-{
-	free(a->items);
-}
-
-
-int
-array_ptr_append(ArrayPtr *a, void *item)
-{
-	const size_t new_len = a->len + 1;
-	void **const items = realloc(a->items, (sizeof(void *) * new_len));
-	if (items == NULL)
-		return -errno;
-
-	items[a->len] = item;
-	a->len = new_len;
-	a->items = items;
-	return 0;
 }
 
 
@@ -620,29 +534,6 @@ str_append_c(Str *s, char c)
 
 
 char *
-str_set_n(Str *s, const char cstr[], size_t len)
-{
-	if (len == 0) {
-		if (s->cstr != NULL)
-			s->cstr[0] = '\0';
-
-		s->len = 0;
-		return s->cstr;
-	}
-
-	if (_str_resize(s, len) < 0) {
-		errno = ENOMEM;
-		return NULL;
-	}
-
-	memcpy(s->cstr, cstr, len);
-	s->len = len;
-	s->cstr[len] = '\0';
-	return s->cstr;
-}
-
-
-char *
 str_set_fmt(Str *s, const char fmt[], ...)
 {
 	int ret;
@@ -732,20 +623,6 @@ str_pop(Str *s, size_t count)
 	s->len -= count;
 	s->cstr[s->len] = '\0';
 	return s->cstr;
-}
-
-
-int
-str_reset(Str *s, size_t offt)
-{
-	if (offt >= s->len) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	s->cstr[offt] = '\0';
-	s->len = offt;
-	return 0;
 }
 
 

@@ -28,17 +28,13 @@ size_t cstr_copy(char dest[], const char src[]);
 size_t cstr_copy_n(char dest[], size_t size, const char src[]);
 size_t cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
 
-size_t cstr_dup_n(char *dest[], const char src[], size_t len);
-
 /* ret: ~0: equals */
-int cstr_cmp_n(const char a[], const char b[], size_t b_len);
 int cstr_cmp_n2(const char a[], size_t a_len, const char b[], size_t b_len);
 int cstr_casecmp(const char a[], const char b[]);
 int cstr_casecmp_n(const char a[], const char b[], size_t b_len);
 int cstr_casecmp_n2(const char a[], size_t a_len, const char b[], size_t b_len);
 
 char *cstr_trim_l(char dest[]);
-char *cstr_trim_r(char dest[]);
 char *cstr_escape(const char escape[], char c, const char src[]);
 
 char *cstr_to_lower_n(char dest[], size_t len);
@@ -68,19 +64,6 @@ cstr_empty_if_null(const char cstr[])
 char *cstr_concat_n(size_t count, ...);
 
 #define CSTR_CONCAT(...) cstr_concat_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
-
-
-/*
- * ArrayPtr
- */
-typedef struct array_ptr {
-	size_t   len;
-	void   **items;
-} ArrayPtr;
-
-void array_ptr_init(ArrayPtr *a);
-void array_ptr_deinit(ArrayPtr *a);
-int  array_ptr_append(ArrayPtr *a, void *item);
 
 
 /*
@@ -130,11 +113,9 @@ int   str_init_alloc(Str *s, size_t size);
 void  str_deinit(Str *s);
 char *str_append_n(Str *s, const char cstr[], size_t len);
 char *str_append_c(Str *s, char c);
-char *str_set_n(Str *s, const char cstr[], size_t len);
 char *str_set_fmt(Str *s, const char fmt[], ...);
 char *str_append_fmt(Str *s, const char fmt[], ...);
 char *str_pop(Str *s, size_t count);
-int   str_reset(Str *s, size_t offt);
 char *str_dup(Str *s);
 
 
