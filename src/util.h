@@ -13,14 +13,9 @@
 
 
 #define ARGS_COUNT(...)                 (sizeof((const void *[]){__VA_ARGS__}) / sizeof(const void *))
-#define CSTR_IS_EMPTY(...)              cstr_is_empty_and_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
-#define CSTR_IS_EMPTY_OR(...)           cstr_is_empty_or_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
-#define VAL_IS_NULL(...)                val_is_null_and_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
-#define VAL_IS_NULL_OR(...)             val_is_null_or_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 #define FIELD_PARENT_PTR(T, FIELD, PTR) ((T *)(((char *)(PTR)) - offsetof(T, FIELD)))
 #define MIN(a, b)                       (((a) < (b)) ? (a) : (b))
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
-
 
 #define INT64_DIGITS_LEN  (24)
 #define UINT64_DIGITS_LEN (24)
@@ -61,14 +56,18 @@ cstr_is_empty(const char cstr[])
 int cstr_is_empty_and_n(size_t count, ...);
 int cstr_is_empty_or_n(size_t count, ...);
 
+#define CSTR_IS_EMPTY(...)    cstr_is_empty_and_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
+#define CSTR_IS_EMPTY_OR(...) cstr_is_empty_or_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
+
 static inline const char *
 cstr_empty_if_null(const char cstr[])
 {
 	return (cstr == NULL) ? "" : cstr;
 }
 
-/* MUST add NULL at the of the argument! */
-char *cstr_concat(const char cstr[], ...);
+char *cstr_concat_n(size_t count, ...);
+
+#define CSTR_CONCAT(...) cstr_concat_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 
 /*
@@ -173,6 +172,9 @@ int64_is_bool(int64_t val)
  */
 int val_is_null_and_n(size_t count, ...);
 int val_is_null_or_n(size_t count, ...);
+
+#define VAL_IS_NULL(...)    val_is_null_and_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
+#define VAL_IS_NULL_OR(...) val_is_null_or_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 int  args_parse(char *args[], unsigned size, unsigned *out_len, const char src[]);
 void args_free(char *args[], unsigned len);

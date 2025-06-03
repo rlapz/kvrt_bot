@@ -339,19 +339,20 @@ out0:
 }
 
 
+/* TODO: optimize */
 char *
-cstr_concat(const char cstr[], ...)
+cstr_concat_n(size_t count, ...)
 {
 	va_list va;
 	size_t len = 0;
-	const char *first = cstr;
-	if (first == NULL)
-		return NULL;
 
-	va_start(va, cstr);
-	while (first != NULL) {
-		len += strlen(first);
-		first = va_arg(va, const char *);
+	va_start(va, count);
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void *);
+		if (curr == NULL)
+			continue;
+
+		len += strlen((const char *)curr);
 	}
 	va_end(va);
 
@@ -359,12 +360,14 @@ cstr_concat(const char cstr[], ...)
 	if (ret == NULL)
 		return NULL;
 
-	va_start(va, cstr);
-	first = cstr;
+	va_start(va, count);
 	size_t offt = 0;
-	while (first != NULL) {
-		offt += cstr_copy(ret + offt, first);
-		first = va_arg(va, const char *);
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void *);
+		if (curr == NULL)
+			continue;
+
+		offt += cstr_copy(ret + offt, (const char *)curr);
 	}
 	va_end(va);
 
@@ -938,20 +941,12 @@ chld_add_env_kv(const char key[], const char val[])
 		return -1;
 	}
 
-	Str str;
-	if (str_init_alloc(&str, 4096) < 0)
+	char *const kv = CSTR_CONCAT(key, "=", val);
+	if (kv == NULL)
 		return -1;
-
-	char *const env = str_set_fmt(&str, "%s=%s", key, val);
-	if (env == NULL) {
-		const int err = errno;
-		str_deinit(&str);
-		errno = err;
-		return -1;
-	}
 
 	log_debug("chld: chld_add_env_kv: \"%s=%s\"", key, val);
-	c->envp[c->envp_len++] = env;
+	c->envp[c->envp_len++] = kv;
 	return 0;
 }
 
@@ -1307,24 +1302,18 @@ http_send_get(const char url[], const char content_type[])
 
 	struct curl_slist *slist = NULL;
 	if (cstr_is_empty(content_type) == 0) {
-		Str ctp;
-		str_init_alloc(&ctp, 0);
-		const char *ctp_s = str_set_fmt(&ctp, "Content-Type: %s", content_type);
-		if (ctp_s == NULL)
+		char *const ctp = CSTR_CONCAT("Content-Type: ", content_type);
+		if (ctp == NULL)
 			goto out1;
 
-		slist = curl_slist_append(NULL, ctp_s);
-		if (slist == NULL) {
-			str_deinit(&ctp);
-			goto out1;
-		}
+		slist = curl_slist_append(NULL, ctp);
+		free(ctp);
 
-		if (curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist) != CURLE_OK) {
-			str_deinit(&ctp);
+		if (slist == NULL)
+			goto out1;
+
+		if (curl_easy_setopt(handle, CURLOPT_HTTPHEADER, slist) != CURLE_OK)
 			goto out2;
-		}
-
-		str_deinit(&ctp);
 	}
 
 	if (curl_easy_perform(handle) != CURLE_OK)

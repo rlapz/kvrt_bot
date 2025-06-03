@@ -440,14 +440,12 @@ _client_resp_prep(Client *c)
 static int
 _server_init(Server *s, const Config *cfg)
 {
-	Str api;
-	dlist_init(&s->clients);
-
-	str_init_alloc(&api, 0);
-	if (str_set_fmt(&api, "%s%s",CFG_TELEGRAM_API, cfg->api.token) == NULL)
+	char *const base_api = CSTR_CONCAT(CFG_TELEGRAM_API, cfg->api.token);
+	if (base_api == NULL)
 		return -1;
 
-	s->base_api = api.cstr;
+	dlist_init(&s->clients);
+	s->base_api = base_api;
 	s->cfg = cfg;
 	return 0;
 }
