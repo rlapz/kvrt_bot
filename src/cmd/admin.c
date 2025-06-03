@@ -161,3 +161,10 @@ cmd_admin_cmd_message(const Cmd *cmd)
 out0:
 	send_text_plain(msg, resp);
 }
+
+
+void
+cmd_admin_params(const Cmd *cmd)
+{
+	send_text_plain(cmd->msg, "TODO");
+}
