@@ -50,6 +50,7 @@ int cmd_builtin_is_exists(const char name[]);
  */
 void cmd_admin_reload(const Cmd *cmd);
 void cmd_admin_cmd_message(const Cmd *cmd);
+void cmd_admin_params(const Cmd *cmd);
 
 void cmd_general_start(const Cmd *cmd);
 void cmd_general_help(const Cmd *cmd);
@@ -107,8 +108,13 @@ void cmd_test_list(const Cmd *cmd);
 	.description = "Set/unset CMD Message",					\
 	.callback_fn = cmd_admin_cmd_message,					\
 	.flags = MODEL_CMD_FLAG_ADMIN,						\
+},										\
+{										\
+	.name = "/params",							\
+	.description = "Set/unset bot parameters",				\
+	.callback_fn = cmd_admin_params,					\
+	.flags = MODEL_CMD_FLAG_ADMIN | MODEL_CMD_FLAG_CALLBACK,		\
 }
-
 
 #define CMD_BUILTIN_LIST_EXTRA							\
 {										\
