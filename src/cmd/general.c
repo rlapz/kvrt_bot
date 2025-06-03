@@ -36,7 +36,7 @@ void
 cmd_general_help(const Cmd *cmd)
 {
 	int is_err = 1;
-	int is_callback = cmd->is_callback;
+	const int is_callback = cmd->is_callback;
 	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
 	if (cflags < 0) {
 		if (is_callback)
@@ -47,16 +47,16 @@ cmd_general_help(const Cmd *cmd)
 	}
 
 	unsigned page_num = 1;
-	if (is_callback && (message_list_get_page(cmd->callback->id, cmd->query.args, &page_num) < 0))
+	if (is_callback && (message_list_get_args(cmd->callback->id, cmd->query.args, &page_num, NULL) < 0))
 		goto out0;
 
 	unsigned start;
 	CmdBuiltin *list = NULL;
-	MessageListPagination req_page = { .current_page = page_num };
+	MessageListPagination req_page = { .page_count = page_num };
 	if (cmd_builtin_get_list(&list, cflags, &start, &req_page) < 0)
 		goto out0;
 
-	char *const body = _builtin_list_body(list, start, req_page.len);
+	char *const body = _builtin_list_body(list, start, req_page.items_count);
 	if (body == NULL)
 		goto out1;
 
@@ -164,7 +164,7 @@ _builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
 			goto err0;
 	}
 
-	str_append_fmt(&str, "\n\\-\\> %s: Admin only, %s: Extra, %s: NSFW, %s: Extern \\<\\-",
+	str_append_fmt(&str, "\n\\-\\> %s: Admin only, %s: Extra, %s: NSFW, %s: Extern \\<\\-\n",
 		       _icon_admin, _icon_extra, _icon_nsfw, _icon_extern);
 	return str.cstr;
 

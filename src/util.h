@@ -67,6 +67,9 @@ cstr_empty_if_null(const char cstr[])
 	return (cstr == NULL) ? "" : cstr;
 }
 
+/* MUST add NULL at the of the argument! */
+char *cstr_concat(const char cstr[], ...);
+
 
 /*
  * ArrayPtr

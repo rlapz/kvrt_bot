@@ -828,7 +828,7 @@ int
 main(int argc, char *argv[], char *envp[])
 {
 	int ret = EXIT_FAILURE;
-	if (log_init(4096) < 0) {
+	if (log_init(CFG_LOG_BUFFER_SIZE) < 0) {
 		fprintf(stderr, "main: log_init: failed\n");
 		return ret;
 	}

@@ -115,7 +115,7 @@ void cmd_test_list(const Cmd *cmd);
 	.name = "/anime_sched",							\
 	.description = "Get anime schedule list",				\
 	.callback_fn = cmd_extra_anime_sched,					\
-	.flags = MODEL_CMD_FLAG_EXTRA,						\
+	.flags = MODEL_CMD_FLAG_EXTRA | MODEL_CMD_FLAG_CALLBACK,		\
 }
 
 

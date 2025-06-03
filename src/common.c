@@ -104,8 +104,8 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 	if (str_init_alloc(&str, 1024) < 0)
 		return NULL;
 
-	return str_append_fmt(&str, "*%s*\n%s\n\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
-			      l->title, l->body, pag->current_page, pag->total_page, pag->max_len);
+	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
+			      l->title, l->body, pag->page_count, pag->page_size, pag->items_size);
 }
 
 
@@ -117,7 +117,7 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 		return ret;
 
 	const time_t now = time(NULL);
-	const unsigned page = pag->current_page;
+	const unsigned page = pag->page_count;
 	const TgApiInlineKeyboardButton btns[] = {
 		{
 			.text = "Prev",
@@ -167,16 +167,21 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 
 
 int
-message_list_get_page(const char id[], const char args[], unsigned *page)
+message_list_get_args(const char id[], const char args[], unsigned *page, const char *udata[])
 {
 	SpaceTokenizer st_num;
-	const char *const next = space_tokenizer_next(&st_num, args);
+	const char *next = space_tokenizer_next(&st_num, args);
 	if (next == NULL)
 		return -1;
 
 	SpaceTokenizer st_timer;
-	if (space_tokenizer_next(&st_timer, next) == NULL)
+	next = space_tokenizer_next(&st_timer, next);
+	if (next == NULL)
 		return -1;
+
+	SpaceTokenizer st_udata;
+	if ((udata != NULL) && (space_tokenizer_next(&st_udata, next) != NULL))
+		*udata = st_udata.value;
 
 	uint64_t page_num;
 	if (cstr_to_uint64_n(st_num.value, st_num.len, &page_num) < 0)
