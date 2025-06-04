@@ -10,34 +10,30 @@
 #include "util.h"
 
 
-typedef struct cmd {
-	int              is_callback;
-	int64_t          id_bot;
-	int64_t          id_owner;
-	const char      *username;
-	const TgMessage *msg;
-	union {
-		struct {
-			BotCmd       bot_cmd;
-			json_object *json;
-		};
-		struct {
-			CallbackQuery          query;
-			const TgCallbackQuery *callback;
-		};
-	};
-} Cmd;
+typedef struct cmd_param {
+	int64_t                id_bot;
+	int64_t                id_owner;
+	const char            *username;
+	const TgMessage       *msg;
+	json_object           *json;
+	const TgCallbackQuery *callback;	/* NULL = not a callback */
+
+	/* filled by cmd_exec() */
+	int         has_username;
+	char        name[MODEL_CMD_NAME_SIZE];
+	const char *args;
+} CmdParam;
 
 int  cmd_init(void);
 void cmd_deinit(void);
-void cmd_exec(const Cmd *c);
+void cmd_exec(CmdParam *cmd, const char req[]);
 
 
 typedef struct cmd_builtin {
 	int         flags;		/* model.h: MODEL_CMD_FLAG_* */
 	const char *name;
 	const char *description;
-	void       (*callback_fn)(const Cmd *);
+	void       (*callback_fn)(const CmdParam *);
 } CmdBuiltin;
 
 int cmd_builtin_get_list(CmdBuiltin *list[], int chat_flags, unsigned *start_num,
@@ -48,24 +44,24 @@ int cmd_builtin_is_exists(const char name[]);
 /*
  * Handlers
  */
-void cmd_admin_reload(const Cmd *cmd);
-void cmd_admin_cmd_message(const Cmd *cmd);
-void cmd_admin_params(const Cmd *cmd);
+void cmd_admin_reload(const CmdParam *cmd);
+void cmd_admin_cmd_message(const CmdParam *cmd);
+void cmd_admin_params(const CmdParam *cmd);
 
-void cmd_general_start(const Cmd *cmd);
-void cmd_general_help(const Cmd *cmd);
-void cmd_general_dump(const Cmd *cmd);
-void cmd_general_dump_admin(const Cmd *cmd);
+void cmd_general_start(const CmdParam *cmd);
+void cmd_general_help(const CmdParam *cmd);
+void cmd_general_dump(const CmdParam *cmd);
+void cmd_general_dump_admin(const CmdParam *cmd);
 
-void cmd_extra_anime_sched(const Cmd *cmd);
+void cmd_extra_anime_sched(const CmdParam *cmd);
 
 
 #ifdef DEBUG
-void cmd_test_echo(const Cmd *cmd);
-void cmd_test_sched(const Cmd *cmd);
-void cmd_test_nsfw(const Cmd *cmd);
-void cmd_test_admin(const Cmd *cmd);
-void cmd_test_list(const Cmd *cmd);
+void cmd_test_echo(const CmdParam *cmd);
+void cmd_test_sched(const CmdParam *cmd);
+void cmd_test_nsfw(const CmdParam *cmd);
+void cmd_test_admin(const CmdParam *cmd);
+void cmd_test_list(const CmdParam *cmd);
 #endif
 
 

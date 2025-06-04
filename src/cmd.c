@@ -45,11 +45,13 @@ static CstrMap  _map;
 
 static int  _register_builtin(CstrMap *m);
 static void _remove_builtin(unsigned *iter);
-static int  _exec_builtin(const Cmd *c, const char name[], int chat_flags);
-static int  _exec_extern(const Cmd *c, const char name[], int chat_flags);
-static int  _exec_cmd_message(const Cmd *c, const char name[]);
-static int  _verify(const Cmd *c, int chat_flags, int flags);
-static int  _spawn_child_process(const Cmd *c, const char file_name[]);
+static int  _exec_builtin(const CmdParam *c, int chat_flags);
+static int  _exec_extern(const CmdParam *c, int chat_flags);
+static int  _exec_cmd_message(const CmdParam *c);
+static int  _verify(const CmdParam *c, int chat_flags, int flags);
+static int  _spawn_child_process(const CmdParam *c, const char file_name[]);
+static int  _parse_cmd(CmdParam *param, const char req[]);
+static int  _parse_callback(CmdParam *param, const char req[]);
 
 
 /*
@@ -81,31 +83,32 @@ cmd_deinit(void)
 
 
 void
-cmd_exec(const Cmd *c)
+cmd_exec(CmdParam *cmd, const char req[])
 {
-	char buff[1024];
-	const size_t len = cstr_copy_n2(buff, LEN(buff), c->bot_cmd.name, c->bot_cmd.name_len);
-
-	const char *const name = cstr_to_lower_n(buff, len);
-	if (_exec_cmd_message(c, name))
+	const int is_cb = (cmd->callback != NULL);
+	const int ret = (is_cb)? _parse_callback(cmd, req) : _parse_cmd(cmd, req);
+	if (ret < 0)
 		return;
 
-	const int cflags = model_chat_get_flags(c->msg->chat.id);
+	if ((is_cb == 0) && _exec_cmd_message(cmd))
+		return;
+
+	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
 	if (cflags < 0) {
-		send_text_plain(c->msg, "Falied to get chat flags");
+		send_text_plain(cmd->msg, "Falied to get chat flags");
 		return;
 	}
 
-	if (_exec_builtin(c, name, cflags))
+	if (_exec_builtin(cmd, cflags))
 		return;
 
-	if (_exec_extern(c, name, cflags))
+	if (_exec_extern(cmd, cflags))
 		return;
 
-	if ((c->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (c->bot_cmd.has_username == 0))
+	if ((cmd->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (cmd->has_username == 0))
 		return;
 
-	send_text_plain(c->msg, "Invalid command!");
+	send_text_plain(cmd->msg, "Invalid command!");
 }
 
 
@@ -228,9 +231,9 @@ _remove_builtin(unsigned *iter)
 
 
 static int
-_exec_builtin(const Cmd *c, const char name[], int chat_flags)
+_exec_builtin(const CmdParam *c, int chat_flags)
 {
-	const CmdBuiltin *const handler = cstr_map_get(&_map, name);
+	const CmdBuiltin *const handler = cstr_map_get(&_map, c->name);
 	if (handler == NULL)
 		return 0;
 
@@ -246,13 +249,13 @@ _exec_builtin(const Cmd *c, const char name[], int chat_flags)
 
 
 static int
-_exec_extern(const Cmd *c, const char name[], int chat_flags)
+_exec_extern(const CmdParam *c, int chat_flags)
 {
 	ModelCmdExtern ce;
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
 		return 1;
 
-	const int ret = model_cmd_extern_get_one(&ce, c->msg->chat.id, name);
+	const int ret = model_cmd_extern_get_one(&ce, c->msg->chat.id, c->name);
 	if (ret < 0)
 		return 1;
 
@@ -272,10 +275,10 @@ _exec_extern(const Cmd *c, const char name[], int chat_flags)
 
 
 static int
-_exec_cmd_message(const Cmd *c, const char name[])
+_exec_cmd_message(const CmdParam *c)
 {
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
-	const int ret = model_cmd_message_get_value(c->msg->chat.id, name, value, LEN(value));
+	const int ret = model_cmd_message_get_value(c->msg->chat.id, c->name, value, LEN(value));
 	if (ret < 0)
 		return 1;
 
@@ -284,7 +287,7 @@ _exec_cmd_message(const Cmd *c, const char name[])
 
 	const int64_t from_id = (c->msg->from)? c->msg->from->id : -1;
 	log_info("cmd: _exec_cmd_message: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
-		 c->msg->chat.id, from_id, c->msg->id, name);
+		 c->msg->chat.id, from_id, c->msg->id, c->name);
 
 	send_text_format(c->msg, value);
 	return 1;
@@ -292,9 +295,9 @@ _exec_cmd_message(const Cmd *c, const char name[])
 
 
 static int
-_verify(const Cmd *c, int chat_flags, int flags)
+_verify(const CmdParam *c, int chat_flags, int flags)
 {
-	if (c->is_callback && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
+	if ((c->callback != NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
 		return 0;
 
 	if ((flags & MODEL_CMD_FLAG_NSFW) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0))
@@ -314,16 +317,16 @@ _verify(const Cmd *c, int chat_flags, int flags)
 
 
 static int
-_spawn_child_process(const Cmd *c, const char file_name[])
+_spawn_child_process(const CmdParam *c, const char file_name[])
 {
 	/* +3 = (executable file + flag(CMD/CALLBACK) + NULL) */
 	char *argv[_CMD_EXTERN_ARGS_SIZE + 3] = {
 		[0] = (char *)file_name,
-		[1] = (c->is_callback)? "callback" : "cmd",
+		[1] = (c->callback != NULL)? "callback" : "cmd",
 	};
 
 	int i = 2;
-	if (c->is_callback)
+	if (c->callback != NULL)
 		argv[i++] = (char *)c->callback->id;
 
 	char chat_id[24];
@@ -338,7 +341,7 @@ _spawn_child_process(const Cmd *c, const char file_name[])
 	snprintf(message_id, LEN(message_id), "%" PRIi64, c->msg->id);
 	argv[i++] = message_id;
 
-	if (c->is_callback) {
+	if (c->callback != NULL) {
 		argv[i] = (char *)c->callback->data;
 	} else {
 		argv[i++] = (char *)c->msg->text.cstr;
@@ -346,4 +349,43 @@ _spawn_child_process(const Cmd *c, const char file_name[])
 	}
 
 	return chld_spawn(file_name, argv);
+}
+
+
+static int
+_parse_cmd(CmdParam *c, const char req[])
+{
+	SpaceTokenizer st;
+	const char *const next = space_tokenizer_next(&st, req);
+	unsigned name_len = st.len;
+
+	/* verify username & skip username */
+	const char *const _uname = strchr(st.value, '@');
+	const char *const _uname_end = st.value + st.len;
+	if ((_uname != NULL) && (_uname < _uname_end)) {
+		if (cstr_casecmp_n(c->username, _uname, (size_t)(_uname_end - _uname)) == 0)
+			return -1;
+
+		name_len = (unsigned)(_uname - st.value);
+		c->has_username = 1;
+	} else {
+		c->has_username = 0;
+	};
+
+	const size_t len = cstr_copy_n2(c->name, LEN(c->name), st.value, name_len);
+	cstr_to_lower_n(c->name, len);
+	c->args = next;
+	return 0;
+}
+
+
+static int
+_parse_callback(CmdParam *c, const char req[])
+{
+	SpaceTokenizer st;
+	const char *const next = space_tokenizer_next(&st, req);
+	const size_t len = cstr_copy_n2(c->name, LEN(c->name), st.value, st.len);
+	cstr_to_lower_n(c->name, len);
+	c->args = next;
+	return 0;
 }

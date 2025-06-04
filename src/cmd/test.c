@@ -9,18 +9,18 @@
  * Public
  */
 void
-cmd_test_echo(const Cmd *cmd)
+cmd_test_echo(const CmdParam *cmd)
 {
 	send_text_plain(cmd->msg, "Ok");
 }
 
 
 void
-cmd_test_sched(const Cmd *cmd)
+cmd_test_sched(const CmdParam *cmd)
 {
 	int64_t timeout_s = 3;
 	SpaceTokenizer st_timeout;
-	if (space_tokenizer_next(&st_timeout, cmd->bot_cmd.args) != NULL)
+	if (space_tokenizer_next(&st_timeout, cmd->args) != NULL)
 		cstr_to_int64_n(st_timeout.value, st_timeout.len, &timeout_s);
 
 	const TgMessage *const msg = cmd->msg;
@@ -56,21 +56,21 @@ cmd_test_sched(const Cmd *cmd)
 
 
 void
-cmd_test_nsfw(const Cmd *cmd)
+cmd_test_nsfw(const CmdParam *cmd)
 {
 	send_text_plain(cmd->msg, "😏");
 }
 
 
 void
-cmd_test_admin(const Cmd *cmd)
+cmd_test_admin(const CmdParam *cmd)
 {
 	send_text_plain(cmd->msg, "Pass");
 }
 
 
 void
-cmd_test_list(const Cmd *cmd)
+cmd_test_list(const CmdParam *cmd)
 {
 	MessageList list = {
 		.id = "",
@@ -81,7 +81,7 @@ cmd_test_list(const Cmd *cmd)
 		.udata = "",
 	};
 
-	if (cmd->is_callback) {
+	if (cmd->callback != NULL) {
 		tg_api_answer_callback_query(cmd->callback->id, "ok", NULL, 1);
 		return;
 	}

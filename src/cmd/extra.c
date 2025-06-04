@@ -61,12 +61,11 @@ static int  _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[]);
  * Public
  */
 void
-cmd_extra_anime_sched(const Cmd *cmd)
+cmd_extra_anime_sched(const CmdParam *cmd)
 {
-	const int is_callback = cmd->is_callback;
 	unsigned page_num = 1;
-	const char *udata = cmd->bot_cmd.args;
-	if (is_callback && (message_list_get_args(cmd->callback->id, cmd->query.args, &page_num, &udata) < 0))
+	const char *udata = cmd->args;
+	if ((cmd->callback != NULL) && (message_list_get_args(cmd->callback->id, cmd->args, &page_num, &udata) < 0))
 		return;
 
 	const char *filter;
@@ -94,17 +93,14 @@ cmd_extra_anime_sched(const Cmd *cmd)
 	if (_anime_sched_build_body(&anime, start, &body) < 0)
 		goto out0;
 
-	char ctx[MODEL_CMD_NAME_SIZE];
-	cstr_copy_n2(ctx, LEN(ctx), cmd->bot_cmd.name, cmd->bot_cmd.name_len);
-
 	char *const title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)");
 	MessageList mlist = {
-		.ctx = ctx,
+		.ctx = cmd->name,
 		.msg = cmd->msg,
 		.title = (title != NULL)? title : "Anime Schedule",
 		.body = body,
 		.udata = filter,
-		.is_edit = cmd->is_callback,
+		.is_edit = (cmd->callback != NULL),
 	};
 
 	message_list_send(&mlist, &anime.pagination, NULL);

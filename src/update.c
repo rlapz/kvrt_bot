@@ -9,7 +9,7 @@
 
 
 static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
-static void _handle_callback(Update *u, const TgCallbackQuery *cb);
+static void _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json);
 static void _handle_message_command(Update *u, const TgMessage *msg, json_object *json);
 static void _handle_member_new(Update *u, const TgMessage *msg);
 static void _handle_member_leave(Update *u, const TgMessage *msg);
@@ -33,7 +33,7 @@ update_handle(Update *u, json_object *json)
 		_handle_message(u, &tgu.message, json);
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
-		_handle_callback(u, &tgu.callback_query);
+		_handle_callback(u, &tgu.callback_query, json);
 		break;
 	}
 
@@ -68,25 +68,22 @@ _handle_message(Update *u, const TgMessage *msg, json_object *json)
 
 
 static void
-_handle_callback(Update *u, const TgCallbackQuery *cb)
+_handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 {
 	log_debug("update: _handle_callback");
 	if (VAL_IS_NULL_OR(cb->message, cb->data))
 		return;
 
-	Cmd cmd = {
-		.is_callback = 1,
+	CmdParam param = {
 		.id_bot = u->id_bot,
 		.id_owner = u->id_owner,
 		.username = u->username,
 		.msg = cb->message,
 		.callback = cb,
+		.json = json,
 	};
 
-	if (callback_query_parse(&cmd.query, cb->data) < 0)
-		return;
-
-	cmd_exec(&cmd);
+	cmd_exec(&param, cb->data);
 }
 
 
@@ -94,8 +91,10 @@ static void
 _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 {
 	log_debug("update: _handle_message_command");
+	if (cstr_is_empty(msg->text.cstr))
+		return;
 
-	Cmd cmd = {
+	CmdParam param = {
 		.id_bot = u->id_bot,
 		.id_owner = u->id_owner,
 		.username = u->username,
@@ -103,10 +102,7 @@ _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 		.json = json,
 	};
 
-	if (bot_cmd_parse(&cmd.bot_cmd, u->username, msg->text.cstr) < 0)
-		return;
-
-	cmd_exec(&cmd);
+	cmd_exec(&param, msg->text.cstr);
 }
 
 

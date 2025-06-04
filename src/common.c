@@ -12,53 +12,6 @@
 
 
 /*
- * BotCmd
- */
-int
-bot_cmd_parse(BotCmd *b, const char uname[], const char src[])
-{
-	SpaceTokenizer st;
-	const char *next = space_tokenizer_next(&st, src);
-
-	/* verify username & skip username */
-	const char *const _uname = strchr(st.value, '@');
-	const char *const _uname_end = st.value + st.len;
-	if ((_uname != NULL) && (_uname < _uname_end)) {
-		if (cstr_casecmp_n(uname, _uname, (size_t)(_uname_end - _uname)) == 0)
-			return -1;
-
-		b->name_len = (unsigned)(_uname - st.value);
-		b->has_username = 1;
-	} else {
-		b->name_len = st.len;
-		b->has_username = 0;
-	};
-
-	b->name = st.value;
-	b->args = next;
-	return 0;
-}
-
-
-/*
- * CallbackQuery
- */
-int
-callback_query_parse(CallbackQuery *c, const char src[])
-{
-	SpaceTokenizer st;
-	const char *next = space_tokenizer_next(&st, src);
-	if (st.len == 0)
-		return -1;
-
-	c->ctx = st.value;
-	c->ctx_len = st.len;
-	c->args = next;
-	return 0;
-}
-
-
-/*
  * misc
  */
 int

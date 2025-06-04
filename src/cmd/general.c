@@ -20,7 +20,7 @@ static char *_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned 
  * Public
  */
 void
-cmd_general_start(const Cmd *cmd)
+cmd_general_start(const CmdParam *cmd)
 {
 	ModelParam param;
 	if (model_param_get(&param, "msg_start") <= 0) {
@@ -33,10 +33,10 @@ cmd_general_start(const Cmd *cmd)
 
 
 void
-cmd_general_help(const Cmd *cmd)
+cmd_general_help(const CmdParam *cmd)
 {
 	int is_err = 1;
-	const int is_callback = cmd->is_callback;
+	const int is_callback = (cmd->callback != NULL);
 	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
 	if (cflags < 0) {
 		if (is_callback)
@@ -47,7 +47,7 @@ cmd_general_help(const Cmd *cmd)
 	}
 
 	unsigned page_num = 1;
-	if (is_callback && (message_list_get_args(cmd->callback->id, cmd->query.args, &page_num, NULL) < 0))
+	if (is_callback && (message_list_get_args(cmd->callback->id, cmd->args, &page_num, NULL) < 0))
 		goto out0;
 
 	unsigned start;
@@ -60,15 +60,12 @@ cmd_general_help(const Cmd *cmd)
 	if (body == NULL)
 		goto out1;
 
-	char ctx[MODEL_CMD_NAME_SIZE];
-	cstr_copy_n2(ctx, LEN(ctx), cmd->bot_cmd.name, cmd->bot_cmd.name_len);
-
 	MessageList mlist = {
-		.ctx = ctx,
+		.ctx = cmd->name,
 		.msg = cmd->msg,
 		.title = "Builtin command list",
 		.body = body,
-		.is_edit = cmd->is_callback,
+		.is_edit = (cmd->callback != NULL),
 	};
 
 	if (message_list_send(&mlist, &req_page, NULL) < 0)
@@ -87,7 +84,7 @@ out0:
 
 
 void
-cmd_general_dump(const Cmd *cmd)
+cmd_general_dump(const CmdParam *cmd)
 {
 	const char *const json_str = json_object_to_json_string_ext(cmd->json, JSON_C_TO_STRING_PRETTY);
 	char *const resp = CSTR_CONCAT("```json\n", json_str, "```");
@@ -97,7 +94,7 @@ cmd_general_dump(const Cmd *cmd)
 
 
 void
-cmd_general_dump_admin(const Cmd *cmd)
+cmd_general_dump_admin(const CmdParam *cmd)
 {
 	const TgMessage *msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
@@ -111,7 +108,7 @@ cmd_general_dump_admin(const Cmd *cmd)
 		return;
 	}
 
-	Cmd _cmd = {
+	CmdParam _cmd = {
 		.msg = msg,
 		.json = json,
 	};

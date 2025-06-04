@@ -13,31 +13,6 @@
 
 
 /*
- * BotCmd
- */
-typedef struct bot_cmd {
-	const char *name;
-	unsigned    name_len;
-	const char *args;
-	int         has_username;
-} BotCmd;
-
-int bot_cmd_parse(BotCmd *b, const char uname[], const char src[]);
-
-
-/*
- * CallbackQuery
- */
-typedef struct callback_query {
-	const char *ctx;
-	unsigned    ctx_len;
-	const char *args;
-} CallbackQuery;
-
-int callback_query_parse(CallbackQuery *c, const char src[]);
-
-
-/*
  * tg_api wrappers
  */
 static inline void

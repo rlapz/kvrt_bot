@@ -10,7 +10,7 @@
 
 
 void
-cmd_admin_reload(const Cmd *cmd)
+cmd_admin_reload(const CmdParam *cmd)
 {
 	const char *resp = "Unknown error!";
 	const TgMessage *const msg = cmd->msg;
@@ -75,7 +75,7 @@ out0:
 
 
 void
-cmd_admin_cmd_message(const Cmd *cmd)
+cmd_admin_cmd_message(const CmdParam *cmd)
 {
 	const char *resp;
 	const TgMessage *const msg = cmd->msg;
@@ -85,7 +85,7 @@ cmd_admin_cmd_message(const Cmd *cmd)
 	}
 
 	SpaceTokenizer st_name;
-	const char *const next = space_tokenizer_next(&st_name, cmd->bot_cmd.args);
+	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
 		resp = "Invalid argument!\nSet: [command_name] message ...\nUnset: [command_name] [EMPTY]";
 		goto out0;
@@ -164,7 +164,7 @@ out0:
 
 
 void
-cmd_admin_params(const Cmd *cmd)
+cmd_admin_params(const CmdParam *cmd)
 {
 	send_text_plain(cmd->msg, "TODO");
 }
