@@ -58,4 +58,6 @@ db.sql
 db.sqlite
 config.json
 
+vgcore.*
+
 .vscode/settings.json
