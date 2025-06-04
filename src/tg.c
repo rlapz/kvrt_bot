@@ -377,6 +377,8 @@ tg_update_free(TgUpdate *u)
 		free(u->callback_query.from);
 		if (u->callback_query.message != NULL)
 			_free_message(u->callback_query.message);
+
+		free(u->callback_query.message);
 		break;
 	}
 }
