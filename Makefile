@@ -11,7 +11,7 @@ TARGET := kvrt_bot
 IS_DEBUG ?= 0
 PREFIX   := /usr
 CC       := cc
-CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_GNU_SOURCE
+CFLAGS   := -std=c11 -Wall -Wextra -Wpedantic -pedantic -march=native -I/usr/include/json-c -D_GNU_SOURCE
 LFLAGS   := -lcurl -ljson-c -lsqlite3 -lm
 
 SRC := src/cmd.c src/common.c src/config.c src/db.c src/ev.c src/main.c src/model.c \
@@ -22,7 +22,7 @@ OBJ := $(SRC:.c=.o)
 
 ifeq ($(IS_DEBUG), 1)
 	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
-	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined -fsanitize=leak
+	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined -fsanitize=leak -Werror
 else
 	CFLAGS := $(CFLAGS) -O2
 endif
