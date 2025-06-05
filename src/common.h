@@ -31,7 +31,7 @@ send_text_format(const TgMessage *msg, const char text[])
 /*
  * misc
  */
-int   privileges_check(const TgMessage *msg, int64_t owner_id);
+int   privileges_check(const TgMessage *msg, int64_t owner_id, int show_alert);
 char *tg_escape(const char src[]);
 
 
@@ -47,17 +47,16 @@ typedef struct message_list_pagination {
 } MessageListPagination;
 
 typedef struct message_list {
-	const char      *id;
-	const TgMessage *msg;
-	const char      *ctx;
-	const char      *title;
-	const char      *body;
-	const char      *udata;
-	int              is_edit;
+	const char            *ctx;
+	const char            *title;
+	const char            *body;
+	const TgMessage       *msg;
+	const TgCallbackQuery *cbq;		/* NULL: not a callback 	 */
+	const char            *udata;		/* filled by message_list_prep() */
+	unsigned               page;
 } MessageList;
 
-int message_list_prep(int64_t chat_id, int64_t msg_id, const char cb_id[], const char args[],
-		      unsigned *page, const char *udata[]);
+int message_list_prep(MessageList *l, const char args[]);
 int message_list_send(const MessageList *l, const MessageListPagination *pag, int64_t *ret_id);
 
 

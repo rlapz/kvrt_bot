@@ -15,7 +15,7 @@
  * misc
  */
 int
-privileges_check(const TgMessage *msg, int64_t owner_id)
+privileges_check(const TgMessage *msg, int64_t owner_id, int show_alert)
 {
 	const char *resp;
 	if (msg->from->id == owner_id)
@@ -35,7 +35,8 @@ privileges_check(const TgMessage *msg, int64_t owner_id)
 	return 1;
 
 out0:
-	send_text_plain(msg, resp);
+	if (show_alert)
+		send_text_plain(msg, resp);
 	return 0;
 }
 
@@ -58,18 +59,20 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 		return NULL;
 
 	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
-			      l->title, l->body, pag->page_count, pag->page_size, pag->items_size);
+			      cstr_empty_if_null(l->title), cstr_empty_if_null(l->body),
+			      pag->page_count, pag->page_size, pag->items_size);
 }
 
 
 int
-message_list_prep(int64_t chat_id, int64_t msg_id, const char cb_id[], const char args[],
-		  unsigned *page, const char *udata[])
+message_list_prep(MessageList *l, const char args[])
 {
-	if (cstr_is_empty(cb_id)) {
-		*page = 1;
-		if (udata != NULL)
-			*udata = args;
+	if (l->msg == NULL)
+		return -1;
+
+	if (l->cbq == NULL) {
+		l->page = 1;
+		l->udata = args;
 		return 0;
 	}
 
@@ -84,8 +87,8 @@ message_list_prep(int64_t chat_id, int64_t msg_id, const char cb_id[], const cha
 		return -1;
 
 	SpaceTokenizer st_udata;
-	if ((udata != NULL) && (space_tokenizer_next(&st_udata, next) != NULL))
-		*udata = st_udata.value;
+	if (space_tokenizer_next(&st_udata, next) != NULL)
+		l->udata = st_udata.value;
 
 	uint64_t page_num;
 	if (cstr_to_uint64_n(st_num.value, st_num.len, &page_num) < 0)
@@ -96,18 +99,18 @@ message_list_prep(int64_t chat_id, int64_t msg_id, const char cb_id[], const cha
 		return -1;
 
 	if (timer == 0) {
-		tg_api_answer_callback_query(cb_id, "Deleted", NULL, 0);
-		tg_api_delete_message(chat_id, msg_id);
-		return -1;
+		tg_api_answer_callback_query(l->cbq->id, "Deleted", NULL, 0);
+		tg_api_delete_message(l->msg->chat.id, l->msg->id);
+		return -2;
 	}
 
 	const time_t diff = time(NULL) - timer;
 	if (diff >= CFG_LIST_TIMEOUT_S) {
-		tg_api_answer_callback_query(cb_id, "Expired!", NULL, 1);
+		tg_api_answer_callback_query(l->cbq->id, "Expired!", NULL, 1);
 		return -1;
 	}
 
-	*page = (unsigned)page_num;
+	l->page = (unsigned)page_num;
 	return 0;
 }
 
@@ -170,7 +173,7 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 	if (body_list == NULL)
 		return ret;
 
-	if (l->is_edit)
+	if (l->cbq != NULL)
 		ret = tg_api_edit_inline_keyboard(l->msg->chat.id, l->msg->id, body_list, &kbds, 1, ret_id);
 	else
 		ret = tg_api_send_inline_keyboard(l->msg->chat.id, &l->msg->id, body_list, &kbds, 1, ret_id);

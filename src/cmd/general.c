@@ -36,52 +36,42 @@ void
 cmd_general_help(const CmdParam *cmd)
 {
 	int is_err = 1;
-	const int is_callback = (cmd->callback != NULL);
+	MessageList list = {
+		.ctx = cmd->name,
+		.msg = cmd->msg,
+		.cbq = cmd->callback,
+	};
+
+	const char *const cb_id = (cmd->callback != NULL)? cmd->callback->id : NULL;
+	if (message_list_prep(&list, cmd->args) < 0)
+		goto out0;
+
 	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
 	if (cflags < 0) {
-		if (is_callback)
+		if (cb_id != NULL)
 			goto out0;
 
 		send_text_plain(cmd->msg, "Falied to get chat flags");
 		return;
 	}
 
-	unsigned page_num;
-	const TgMessage *const msg = cmd->msg;
-	const char *const cb_id = (is_callback)? cmd->callback->id : NULL;
-	if (message_list_prep(msg->chat.id, msg->id, cb_id, cmd->args, &page_num, NULL) < 0)
-		return;
-
 	unsigned start;
-	CmdBuiltin *list = NULL;
-	MessageListPagination req_page = { .page_count = page_num };
-	if (cmd_builtin_get_list(&list, cflags, &start, &req_page) < 0)
+	CmdBuiltin *builtins = NULL;
+	MessageListPagination pagination = { .page_count = list.page };
+	if (cmd_builtin_get_list(&builtins, cflags, &start, &pagination) < 0)
 		goto out0;
 
-	char *const body = _builtin_list_body(list, start, req_page.items_count);
-	if (body == NULL)
-		goto out1;
+	list.title = "Command list";
+	list.body = _builtin_list_body(builtins, start, pagination.items_count);
+	is_err = message_list_send(&list, &pagination, NULL);
 
-	MessageList mlist = {
-		.ctx = cmd->name,
-		.msg = cmd->msg,
-		.title = "Builtin command list",
-		.body = body,
-		.is_edit = (cmd->callback != NULL),
-	};
+	free((char *)list.body);
 
-	if (message_list_send(&mlist, &req_page, NULL) < 0)
-		goto out2;
-
-	is_err = 0;
-
-out2:
-	free(body);
-out1:
-	free(list);
 out0:
-	if (is_err && is_callback)
-		tg_api_answer_callback_query(cmd->callback->id, "Error!", NULL, 1);
+	if (is_err == 0)
+		return;
+
+	tg_api_answer_callback_query(cb_id, "Error!", NULL, 1);
 }
 
 
@@ -159,7 +149,7 @@ _builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
 			goto err0;
 	}
 
-	str_append_fmt(&str, "\n\\-\\> %s: Admin only, %s: Extra, %s: NSFW, %s: Extern \\<\\-\n",
+	str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW, %s: Extern```",
 		       _icon_admin, _icon_extra, _icon_nsfw, _icon_extern);
 	return str.cstr;
 

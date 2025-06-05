@@ -63,17 +63,20 @@ static int  _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[]);
 void
 cmd_extra_anime_sched(const CmdParam *cmd)
 {
-	unsigned page_num;
-	const char *udata;
-	const TgMessage *const msg = cmd->msg;
-	const char *const cb_id = (cmd->callback != NULL)? cmd->callback->id : NULL;
-	if (message_list_prep(msg->chat.id, msg->id, cb_id, cmd->args, &page_num, &udata) < 0)
-		return;
+	int is_err = 1;
+	MessageList list = {
+		.ctx = cmd->name,
+		.msg = cmd->msg,
+		.cbq = cmd->callback,
+	};
+
+	if (message_list_prep(&list, cmd->args) < 0)
+		goto out0;
 
 	const char *filter;
-	if (_anime_sched_prep_filter(udata, &filter) < 0) {
+	if (_anime_sched_prep_filter(list.udata, &filter) < 0) {
 		send_text_plain(cmd->msg, "Invalid argument!\n"
-					  "  Allowed: [sunday, monday, tuesday, wednesday, thursday, "
+					  "Allowed: [sunday, monday, tuesday, wednesday, thursday, "
 					  "friday, saturday, unknown, other]");
 		return;
 	}
@@ -81,36 +84,31 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
 	const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
 	const unsigned limit = MIN(_ANIME_SCHED_LIMIT_SIZE, CFG_LIST_ITEMS_SIZE);
-
 	json_object *obj;
-	if (_anime_sched_get_list(filter, limit, page_num, show_nsfw, &obj) < 0)
-		return;
+	if (_anime_sched_get_list(filter, limit, list.page, show_nsfw, &obj) < 0)
+		goto out0;
 
 	AnimeSched anime;
 	if (_anime_sched_parse(&anime, obj) < 0)
-		goto out0;
+		goto out1;
 
-	char *body;
-	const unsigned start = MIN(((page_num * limit) - limit), anime.pagination.items_size);
-	if (_anime_sched_build_body(&anime, start, &body) < 0)
-		goto out0;
+	const unsigned start = MIN(((list.page * limit) - limit), anime.pagination.items_size);
+	if (_anime_sched_build_body(&anime, start, (char **)&list.body) < 0)
+		goto out1;
 
-	char *const title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)");
-	MessageList mlist = {
-		.ctx = cmd->name,
-		.msg = cmd->msg,
-		.title = (title != NULL)? title : "Anime Schedule",
-		.body = body,
-		.udata = filter,
-		.is_edit = (cmd->callback != NULL),
-	};
+	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)");
+	is_err = message_list_send(&list, &anime.pagination, NULL);
 
-	message_list_send(&mlist, &anime.pagination, NULL);
-	free(body);
-	free(title);
+	free((char *)list.title);
+	free((char *)list.body);
 
-out0:
+out1:
 	json_object_put(obj);
+out0:
+	if ((is_err == 0) || (cmd->callback == NULL))
+		return;
+
+	tg_api_answer_callback_query(cmd->callback->id, "Error!", NULL, 1);
 }
 
 

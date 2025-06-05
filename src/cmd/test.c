@@ -73,7 +73,6 @@ void
 cmd_test_list(const CmdParam *cmd)
 {
 	MessageList list = {
-		.id = "",
 		.body = "test",
 		.ctx = "/test_list",
 		.msg = cmd->msg,

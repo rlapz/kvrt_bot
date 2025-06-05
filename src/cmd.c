@@ -309,7 +309,7 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_TEST) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_TEST) == 0))
 		return 0;
 
-	if ((flags & MODEL_CMD_FLAG_ADMIN) && (privileges_check(c->msg, c->id_owner) == 0))
+	if ((flags & MODEL_CMD_FLAG_ADMIN) && (privileges_check(c->msg, c->id_owner, 1) == 0))
 		return 0;
 
 	return 1;
