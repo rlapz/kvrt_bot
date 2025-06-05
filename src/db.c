@@ -135,6 +135,7 @@ db_conn_put(DbConn *conn)
 	Db *const d = &_instance;
 	if (conn->in_pool == 0) {
 		sqlite3_close(conn->sql);
+		free(conn);
 		return;
 	}
 
