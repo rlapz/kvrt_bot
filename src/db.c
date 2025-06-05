@@ -10,6 +10,7 @@
 
 
 typedef struct db_conn {
+	int        in_pool;
 	sqlite3   *sql;
 	DListNode  node;
 } DbConn;
@@ -25,6 +26,7 @@ typedef struct db {
 static Db _instance;
 
 
+static int  _open_sql(const char path[], DbConn **conn);
 static void _pool_cleanup(Db *d);
 static int  _create_tables(void);
 static int  _exec_set_args(sqlite3_stmt *s, const DbArg args[], int args_len);
@@ -41,24 +43,13 @@ db_init(const char path[], int conn_pool_size)
 	Db *const d = &_instance;
 	dlist_init(&d->sql_pool);
 
+	DbConn *new_conn;
 	for (int i = 0; i < conn_pool_size; i++) {
-		DbConn *const conn = malloc(sizeof(DbConn));
-		if (conn == NULL) {
-			log_err(errno, "db: db_init: malloc");
+		if (_open_sql(path, &new_conn) < 0)
 			goto err0;
-		}
 
-		const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
-		const int ret = sqlite3_open_v2(path, &conn->sql, flags, NULL);
-		if (ret != SQLITE_OK) {
-			log_err(0, "db: db_init: sqlite3_open_v2: failed to open: \"%s\": %s",
-				path, sqlite3_errstr(ret));
-
-			free(conn);
-			goto err0;
-		}
-
-		dlist_append(&d->sql_pool, &conn->node);
+		new_conn->in_pool = 1;
+		dlist_append(&d->sql_pool, &new_conn->node);
 	}
 
 	if (mtx_init(&d->mutex, mtx_plain) != thrd_success) {
@@ -126,10 +117,27 @@ db_conn_get(void)
 }
 
 
+DbConn *
+db_conn_get_no_wait(void)
+{
+	DbConn *ret;
+	if (_open_sql(_instance.db_path, &ret) < 0)
+		return NULL;
+
+	ret->in_pool = 0;
+	return ret;
+}
+
+
 void
 db_conn_put(DbConn *conn)
 {
 	Db *const d = &_instance;
+	if (conn->in_pool == 0) {
+		sqlite3_close(conn->sql);
+		return;
+	}
+
 	mtx_lock(&d->mutex);
 
 	dlist_append(&d->sql_pool, &conn->node);
@@ -230,6 +238,30 @@ db_conn_busy_timeout(DbConn *conn, int timeout_s)
 /*
  * Private
  */
+static int
+_open_sql(const char path[], DbConn **conn)
+{
+	DbConn *const new_conn = malloc(sizeof(DbConn));
+	if (new_conn == NULL) {
+		log_err(errno, "db: _open_sql: malloc");
+		return -1;
+	}
+
+	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
+	const int ret = sqlite3_open_v2(path, &new_conn->sql, flags, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "db: _open_sql: sqlite3_open_v2: failed to open: \"%s\": %s",
+			path, sqlite3_errstr(ret));
+
+		free(new_conn);
+		return -1;
+	}
+
+	*conn = new_conn;
+	return 0;
+}
+
+
 static void
 _pool_cleanup(Db *d)
 {

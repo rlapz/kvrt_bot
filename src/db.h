@@ -64,6 +64,7 @@ typedef struct db_conn DbConn;
 int     db_init(const char path[], int conn_pool_size);
 void    db_deinit(void);
 DbConn *db_conn_get(void);
+DbConn *db_conn_get_no_wait(void);
 void    db_conn_put(DbConn *conn);
 int     db_conn_tran_begin(DbConn *conn);
 int     db_conn_tran_end(DbConn *conn, int is_ok);
