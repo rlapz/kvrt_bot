@@ -56,8 +56,9 @@ typedef struct message_list {
 	int              is_edit;
 } MessageList;
 
+int message_list_prep(int64_t chat_id, int64_t msg_id, const char cb_id[], const char args[],
+		      unsigned *page, const char *udata[]);
 int message_list_send(const MessageList *l, const MessageListPagination *pag, int64_t *ret_id);
-int message_list_get_args(const char id[], const char args[], unsigned *page, const char *udata[]);
 
 
 #endif

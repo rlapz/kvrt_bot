@@ -46,9 +46,11 @@ cmd_general_help(const CmdParam *cmd)
 		return;
 	}
 
-	unsigned page_num = 1;
-	if (is_callback && (message_list_get_args(cmd->callback->id, cmd->args, &page_num, NULL) < 0))
-		goto out0;
+	unsigned page_num;
+	const TgMessage *const msg = cmd->msg;
+	const char *const cb_id = (is_callback)? cmd->callback->id : NULL;
+	if (message_list_prep(msg->chat.id, msg->id, cb_id, cmd->args, &page_num, NULL) < 0)
+		return;
 
 	unsigned start;
 	CmdBuiltin *list = NULL;

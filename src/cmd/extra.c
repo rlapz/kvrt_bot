@@ -63,9 +63,11 @@ static int  _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[]);
 void
 cmd_extra_anime_sched(const CmdParam *cmd)
 {
-	unsigned page_num = 1;
-	const char *udata = cmd->args;
-	if ((cmd->callback != NULL) && (message_list_get_args(cmd->callback->id, cmd->args, &page_num, &udata) < 0))
+	unsigned page_num;
+	const char *udata;
+	const TgMessage *const msg = cmd->msg;
+	const char *const cb_id = (cmd->callback != NULL)? cmd->callback->id : NULL;
+	if (message_list_prep(msg->chat.id, msg->id, cb_id, cmd->args, &page_num, &udata) < 0)
 		return;
 
 	const char *filter;

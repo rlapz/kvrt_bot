@@ -63,6 +63,56 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 
 
 int
+message_list_prep(int64_t chat_id, int64_t msg_id, const char cb_id[], const char args[],
+		  unsigned *page, const char *udata[])
+{
+	if (cstr_is_empty(cb_id)) {
+		*page = 1;
+		if (udata != NULL)
+			*udata = args;
+		return 0;
+	}
+
+	SpaceTokenizer st_num;
+	const char *next = space_tokenizer_next(&st_num, args);
+	if (next == NULL)
+		return -1;
+
+	SpaceTokenizer st_timer;
+	next = space_tokenizer_next(&st_timer, next);
+	if (next == NULL)
+		return -1;
+
+	SpaceTokenizer st_udata;
+	if ((udata != NULL) && (space_tokenizer_next(&st_udata, next) != NULL))
+		*udata = st_udata.value;
+
+	uint64_t page_num;
+	if (cstr_to_uint64_n(st_num.value, st_num.len, &page_num) < 0)
+		return -1;
+
+	uint64_t timer;
+	if (cstr_to_uint64_n(st_timer.value, st_timer.len, &timer) < 0)
+		return -1;
+
+	if (timer == 0) {
+		tg_api_answer_callback_query(cb_id, "Deleted", NULL, 0);
+		tg_api_delete_message(chat_id, msg_id);
+		return -1;
+	}
+
+	const time_t diff = time(NULL) - timer;
+	if (diff >= CFG_LIST_TIMEOUT_S) {
+		tg_api_answer_callback_query(cb_id, "Expired!", NULL, 1);
+		return -1;
+	}
+
+	*page = (unsigned)page_num;
+	return 0;
+}
+
+
+int
 message_list_send(const MessageList *l, const MessageListPagination *pag, int64_t *ret_id)
 {
 	int ret = -1;
@@ -92,18 +142,29 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 			},
 			.data_len = 4,
 		},
+		{
+			.text = "Delete",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = 0 },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
+			},
+			.data_len = 4,
+		},
 	};
 
-	TgApiInlineKeyboard kbds = { 0 };
-	if (pag->has_next_page) {
-		kbds.len++;
-		kbds.buttons = &btns[1];
-	}
 
-	if (page > 1) {
-		kbds.len++;
-		kbds.buttons = btns;
-	}
+	TgApiInlineKeyboardButton btns_r[LEN(btns)];
+	unsigned count = 0;
+	if (pag->has_next_page)
+		btns_r[count++] = btns[1];
+
+	if (page > 1)
+		btns_r[count++] = btns[0];
+
+	btns_r[count++] = btns[2];
+	TgApiInlineKeyboard kbds = { .len = count, .buttons = btns_r };
 
 	char *const body_list = _message_list_add_template(l, pag);
 	if (body_list == NULL)
@@ -117,40 +178,3 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 	free(body_list);
 	return ret;
 }
-
-
-int
-message_list_get_args(const char id[], const char args[], unsigned *page, const char *udata[])
-{
-	SpaceTokenizer st_num;
-	const char *next = space_tokenizer_next(&st_num, args);
-	if (next == NULL)
-		return -1;
-
-	SpaceTokenizer st_timer;
-	next = space_tokenizer_next(&st_timer, next);
-	if (next == NULL)
-		return -1;
-
-	SpaceTokenizer st_udata;
-	if ((udata != NULL) && (space_tokenizer_next(&st_udata, next) != NULL))
-		*udata = st_udata.value;
-
-	uint64_t page_num;
-	if (cstr_to_uint64_n(st_num.value, st_num.len, &page_num) < 0)
-		return -1;
-
-	uint64_t timer;
-	if (cstr_to_uint64_n(st_timer.value, st_timer.len, &timer) < 0)
-		return -1;
-
-	const time_t diff = time(NULL) - timer;
-	if (diff >= CFG_LIST_TIMEOUT_S) {
-		tg_api_answer_callback_query(id, "Expired!", NULL, 1);
-		return -1;
-	}
-
-	*page = (unsigned)page_num;
-	return 0;
-}
-

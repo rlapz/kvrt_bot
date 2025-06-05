@@ -14,11 +14,6 @@ cmd_admin_reload(const CmdParam *cmd)
 {
 	const char *resp = "Unknown error!";
 	const TgMessage *const msg = cmd->msg;
-
-	Str str;
-	if (str_init_alloc(&str, 256) < 0)
-		goto out1;
-
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
 		resp = "There are no administrators in the private chat!";
 		goto out0;
@@ -63,6 +58,9 @@ cmd_admin_reload(const CmdParam *cmd)
 		goto out1;
 	}
 
+	Str str;
+	char buff[1024];
+	str_init(&str, buff, LEN(buff));
 	resp = str_set_fmt(&str, "Done! %d admin(s) loaded", db_admin_list_len);
 
 out1:
@@ -70,7 +68,6 @@ out1:
 	tg_chat_admin_list_free(&admin_list);
 out0:
 	send_text_plain(msg, resp);
-	str_deinit(&str);
 }
 
 
