@@ -374,7 +374,6 @@ tg_update_free(TgUpdate *u)
 		_free_message(&u->message);
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
-		free(u->callback_query.from);
 		if (u->callback_query.message != NULL)
 			_free_message(u->callback_query.message);
 
@@ -907,7 +906,7 @@ _parse_callback_query(TgCallbackQuery *c, json_object *callback_query_obj)
 
 	c->id = json_object_get_string(id_obj);
 	c->chat_instance = json_object_get_string(chat_instance_obj);
-	return _parse_user_alloc(&c->from, from_obj);
+	return tg_user_parse(&c->from, from_obj);
 }
 
 

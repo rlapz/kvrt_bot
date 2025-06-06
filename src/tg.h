@@ -265,7 +265,7 @@ const char *tg_message_type_str(int type);
  */
 typedef struct tg_callback_query {
 	const char *id;
-	TgUser     *from;
+	TgUser      from;
 	TgMessage  *message;
 	const char *inline_id;
 	const char *chat_instance;

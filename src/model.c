@@ -375,7 +375,7 @@ model_admin_get_privilegs(int64_t chat_id, int64_t user_id)
 		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
 	};
 
-	int privs;
+	int privs = 0;
 	const DbOut out = {
 		.len = 1,
 		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &privs },

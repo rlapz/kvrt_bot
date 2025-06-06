@@ -11,12 +11,14 @@
 
 
 typedef struct cmd_param {
-	int64_t                id_bot;
-	int64_t                id_owner;
-	const char            *username;
-	const TgMessage       *msg;
-	json_object           *json;
-	const TgCallbackQuery *callback;	/* NULL = not a callback */
+	int64_t          id_bot;
+	int64_t          id_owner;
+	int64_t          id_user;
+	int64_t          id_chat;
+	const char      *id_callback;	/* NULL: not a callback */
+	const char      *bot_username;
+	const TgMessage *msg;
+	json_object     *json;
 
 	/* filled by cmd_exec() */
 	int         has_username;

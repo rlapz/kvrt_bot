@@ -85,7 +85,10 @@ cmd_deinit(void)
 void
 cmd_exec(CmdParam *cmd, const char req[])
 {
-	const int is_cb = (cmd->callback != NULL);
+	log_debug("cmd_exec: chat_id: %lld, user_id: %lld, owner_id: %lld, bot_id: %lld",
+		  cmd->id_chat, cmd->id_user, cmd->id_owner, cmd->id_bot);
+
+	const int is_cb = (cmd->id_callback != NULL);
 	const int ret = (is_cb)? _parse_callback(cmd, req) : _parse_cmd(cmd, req);
 	if (ret < 0)
 		return;
@@ -95,7 +98,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
 	if (cflags < 0) {
-		send_text_plain(cmd->msg, "Falied to get chat flags");
+		send_text_plain(cmd->msg, "Failed to get chat flags");
 		return;
 	}
 
@@ -297,7 +300,7 @@ _exec_cmd_message(const CmdParam *c)
 static int
 _verify(const CmdParam *c, int chat_flags, int flags)
 {
-	if ((c->callback != NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
+	if ((c->id_callback == NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
 		return 0;
 
 	if ((flags & MODEL_CMD_FLAG_NSFW) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0))
@@ -309,7 +312,7 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_TEST) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_TEST) == 0))
 		return 0;
 
-	if ((flags & MODEL_CMD_FLAG_ADMIN) && (privileges_check(c->msg, c->id_owner, 1) == 0))
+	if ((flags & MODEL_CMD_FLAG_ADMIN) && (privileges_check(c->msg, c->id_owner) == 0))
 		return 0;
 
 	return 1;
@@ -319,30 +322,32 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 static int
 _spawn_child_process(const CmdParam *c, const char file_name[])
 {
+	const int is_callback = (c->id_callback != NULL);
+
 	/* +3 = (executable file + flag(CMD/CALLBACK) + NULL) */
 	char *argv[_CMD_EXTERN_ARGS_SIZE + 3] = {
 		[0] = (char *)file_name,
-		[1] = (c->callback != NULL)? "callback" : "cmd",
+		[1] = (is_callback)? "callback" : "cmd",
 	};
 
 	int i = 2;
-	if (c->callback != NULL)
-		argv[i++] = (char *)c->callback->id;
+	if (is_callback)
+		argv[i++] = (char *)c->id_callback;
 
 	char chat_id[24];
-	snprintf(chat_id, LEN(chat_id), "%" PRIi64, c->msg->chat.id);
+	snprintf(chat_id, LEN(chat_id), "%" PRIi64, c->id_chat);
 	argv[i++] = chat_id;
 
 	char user_id[24];
-	snprintf(user_id, LEN(user_id), "%" PRIi64, c->msg->from->id);
+	snprintf(user_id, LEN(user_id), "%" PRIi64, c->id_chat);
 	argv[i++] = user_id;
 
 	char message_id[24];
 	snprintf(message_id, LEN(message_id), "%" PRIi64, c->msg->id);
 	argv[i++] = message_id;
 
-	if (c->callback != NULL) {
-		argv[i] = (char *)c->callback->data;
+	if (is_callback) {
+		argv[i] = (char *)c->args;
 	} else {
 		argv[i++] = (char *)c->msg->text.cstr;
 		argv[i] = (char *)json_object_to_json_string(c->json);
@@ -363,7 +368,7 @@ _parse_cmd(CmdParam *c, const char req[])
 	const char *const _uname = strchr(st.value, '@');
 	const char *const _uname_end = st.value + st.len;
 	if ((_uname != NULL) && (_uname < _uname_end)) {
-		if (cstr_casecmp_n(c->username, _uname, (size_t)(_uname_end - _uname)) == 0)
+		if (cstr_casecmp_n(c->bot_username, _uname, (size_t)(_uname_end - _uname)) == 0)
 			return -1;
 
 		name_len = (unsigned)(_uname - st.value);

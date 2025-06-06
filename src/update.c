@@ -77,9 +77,11 @@ _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 	CmdParam param = {
 		.id_bot = u->id_bot,
 		.id_owner = u->id_owner,
-		.username = u->username,
+		.id_user = cb->from.id,
+		.id_chat = cb->message->chat.id,
+		.id_callback = cb->id,
+		.bot_username = u->username,
 		.msg = cb->message,
-		.callback = cb,
 		.json = json,
 	};
 
@@ -97,7 +99,9 @@ _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 	CmdParam param = {
 		.id_bot = u->id_bot,
 		.id_owner = u->id_owner,
-		.username = u->username,
+		.id_user = msg->from->id,
+		.id_chat = msg->chat.id,
+		.bot_username = u->username,
 		.msg = msg,
 		.json = json,
 	};

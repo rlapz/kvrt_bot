@@ -37,18 +37,20 @@ cmd_general_help(const CmdParam *cmd)
 {
 	int is_err = 1;
 	MessageList list = {
+		.id_user = cmd->id_user,
+		.id_owner = cmd->id_owner,
+		.id_callback = cmd->id_callback,
 		.ctx = cmd->name,
 		.msg = cmd->msg,
-		.cbq = cmd->callback,
+		.title = "Command list",
 	};
 
-	const char *const cb_id = (cmd->callback != NULL)? cmd->callback->id : NULL;
-	if (message_list_prep(&list, cmd->args) < 0)
+	if (message_list_init(&list, cmd->args) < 0)
 		goto out0;
 
-	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
+	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		if (cb_id != NULL)
+		if (cstr_is_empty(list.id_callback) == 0)
 			goto out0;
 
 		send_text_plain(cmd->msg, "Falied to get chat flags");
@@ -61,7 +63,6 @@ cmd_general_help(const CmdParam *cmd)
 	if (cmd_builtin_get_list(&builtins, cflags, &start, &pagination) < 0)
 		goto out0;
 
-	list.title = "Command list";
 	list.body = _builtin_list_body(builtins, start, pagination.items_count);
 	is_err = message_list_send(&list, &pagination, NULL);
 
@@ -71,7 +72,7 @@ out0:
 	if (is_err == 0)
 		return;
 
-	tg_api_answer_callback_query(cb_id, "Error!", NULL, 1);
+	tg_api_answer_callback_query(list.id_callback, "Error!", NULL, 1);
 }
 
 
@@ -95,7 +96,7 @@ cmd_general_dump_admin(const CmdParam *cmd)
 	}
 
 	json_object *json;
-	if (tg_api_get_admin_list(msg->chat.id, NULL, &json) < 0) {
+	if (tg_api_get_admin_list(cmd->id_chat, NULL, &json) < 0) {
 		send_text_plain(msg, "Failed to get admin list");
 		return;
 	}

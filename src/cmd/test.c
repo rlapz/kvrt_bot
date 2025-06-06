@@ -80,8 +80,8 @@ cmd_test_list(const CmdParam *cmd)
 		.udata = "",
 	};
 
-	if (cmd->callback != NULL) {
-		tg_api_answer_callback_query(cmd->callback->id, "ok", NULL, 1);
+	if (cstr_is_empty(list.id_callback) == 0) {
+		tg_api_answer_callback_query(list.id_callback, "ok", NULL, 1);
 		return;
 	}
 

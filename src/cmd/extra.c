@@ -67,21 +67,23 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	MessageList list = {
 		.ctx = cmd->name,
 		.msg = cmd->msg,
-		.cbq = cmd->callback,
+		.id_user = cmd->id_user,
+		.id_owner = cmd->id_owner,
+		.id_callback = cmd->id_callback,
 	};
 
-	if (message_list_prep(&list, cmd->args) < 0)
+	if (message_list_init(&list, cmd->args) < 0)
 		goto out0;
 
 	const char *filter;
 	if (_anime_sched_prep_filter(list.udata, &filter) < 0) {
-		send_text_plain(cmd->msg, "Invalid argument!\n"
-					  "Allowed: [sunday, monday, tuesday, wednesday, thursday, "
-					  "friday, saturday, unknown, other]");
+		send_text_format(cmd->msg, "Invalid argument\\!\n"
+					   "```Allowed:\n[sunday, monday, tuesday, wednesday, thursday, "
+					   "friday, saturday, unknown, other]```");
 		return;
 	}
 
-	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
+	const int cflags = model_chat_get_flags(cmd->id_chat);
 	const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
 	const unsigned limit = MIN(_ANIME_SCHED_LIMIT_SIZE, CFG_LIST_ITEMS_SIZE);
 	json_object *obj;
@@ -105,10 +107,10 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 out1:
 	json_object_put(obj);
 out0:
-	if ((is_err == 0) || (cmd->callback == NULL))
+	if (is_err == 0)
 		return;
 
-	tg_api_answer_callback_query(cmd->callback->id, "Error!", NULL, 1);
+	tg_api_answer_callback_query(cmd->id_callback, "Error!", NULL, 1);
 }
 
 
@@ -318,7 +320,6 @@ _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
 
 		const char *const *tmp = item->genres;
 		if (*tmp != NULL) {
-			log_debug("%s", *tmp);
 			str_append_fmt(&str, "Genres   : ");
 			while (*tmp != NULL)
 				str_append_fmt(&str, "%s, ", (*tmp++));
