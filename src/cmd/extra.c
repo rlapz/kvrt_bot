@@ -73,7 +73,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	};
 
 	if (message_list_init(&list, cmd->args) < 0)
-		goto out0;
+		return;
 
 	const char *filter;
 	if (_anime_sched_prep_filter(list.udata, &filter) < 0) {

@@ -49,7 +49,7 @@ cmd_general_help(const CmdParam *cmd)
 	};
 
 	if (message_list_init(&list, cmd->args) < 0)
-		goto out0;
+		return;
 
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
