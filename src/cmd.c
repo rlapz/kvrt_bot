@@ -300,7 +300,7 @@ _exec_cmd_message(const CmdParam *c)
 static int
 _verify(const CmdParam *c, int chat_flags, int flags)
 {
-	if ((c->id_callback == NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
+	if ((c->id_callback != NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
 		return 0;
 
 	if ((flags & MODEL_CMD_FLAG_NSFW) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0))
