@@ -36,9 +36,9 @@ privileges_check(const TgMessage *msg, int64_t owner_id)
 
 
 int
-is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
+is_admin(int64_t user_id, int64_t chat_id, const int64_t *owner_id)
 {
-	if (user_id == owner_id)
+	if ((owner_id != NULL) && (user_id == *owner_id))
 		return 1;
 
 	const int privs = model_admin_get_privilegs(chat_id, user_id);
@@ -125,7 +125,7 @@ message_list_init(MessageList *l, const char args[])
 		if (l->id_user == from_id)
 			should_delete = 1;
 		else
-			should_delete = is_admin(l->id_user, l->msg->chat.id, l->id_owner);
+			should_delete = is_admin(l->id_user, l->msg->chat.id, &l->id_owner);
 
 		if (should_delete) {
 			tg_api_answer_callback_query(l->id_callback, "Deleted", NULL, 0);

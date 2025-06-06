@@ -71,8 +71,10 @@ static void
 _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 {
 	log_debug("update: _handle_callback");
-	if (VAL_IS_NULL_OR(cb->message, cb->data))
+	if (VAL_IS_NULL_OR(cb->message, cb->data)) {
+		log_err(0, "update: _handle_callback: (TgMessage or CallbackData) == NULL");
 		return;
+	}
 
 	CmdParam param = {
 		.id_bot = u->id_bot,
@@ -93,8 +95,10 @@ static void
 _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 {
 	log_debug("update: _handle_message_command");
-	if (cstr_is_empty(msg->text.cstr))
+	if (cstr_is_empty(msg->text.cstr)) {
+		log_err(0, "update: _handle_message_command: Text is empty/NULL");
 		return;
+	}
 
 	CmdParam param = {
 		.id_bot = u->id_bot,
@@ -138,7 +142,7 @@ _handle_member_new(Update *u, const TgMessage *msg)
 		}
 	}
 
-	if ((msg->from == NULL) || user->is_bot)
+	if (user->is_bot)
 		return;
 
 	ModelParamChat welcome_msg;
@@ -164,13 +168,11 @@ _handle_member_new(Update *u, const TgMessage *msg)
 	if (fname_e == NULL)
 		goto out1;
 
-	const char *const text = str_append_fmt(&str, "[%s](tg://user?id=%" PRIi64 ")",
-						fname_e, user->id);
-	if (text == NULL)
+	if (str_append_fmt(&str, "[%s](tg://user?id=%" PRIi64 ")", fname_e, user->id) == NULL)
 		goto out2;
 
 	int64_t ret_id;
-	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, NULL, text, &ret_id) < 0)
+	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, NULL, str.cstr, &ret_id) < 0)
 		goto out2;
 
 	const ModelSchedMessage schd = { .chat_id = chat_id, .message_id = ret_id, .expire = 5 };

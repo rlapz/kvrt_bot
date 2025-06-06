@@ -32,6 +32,9 @@ cmd_general_start(const CmdParam *cmd)
 }
 
 
+/*
+ * TODO: merge builtin and external command list
+ */
 void
 cmd_general_help(const CmdParam *cmd)
 {
