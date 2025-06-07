@@ -9,9 +9,10 @@
 TARGET := kvrt_bot
 
 IS_DEBUG ?= 0
+VALGRIND ?= 0
 PREFIX   := /usr
 CC       := cc
-CFLAGS   := -std=c11 -Wall -Wextra -Wpedantic -pedantic -march=native -I/usr/include/json-c -D_GNU_SOURCE
+CFLAGS   := -std=c11 -Wall -Wextra -Wpedantic -pedantic -I/usr/include/json-c -D_GNU_SOURCE
 LFLAGS   := -lcurl -ljson-c -lsqlite3 -lm
 
 SRC := src/cmd.c src/common.c src/config.c src/db.c src/ev.c src/main.c src/model.c \
@@ -23,8 +24,10 @@ OBJ := $(SRC:.c=.o)
 ifeq ($(IS_DEBUG), 1)
 	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
 	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined -fsanitize=leak -Werror
+else ifeq ($(VALGRIND), 1)
+	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
 else
-	CFLAGS := $(CFLAGS) -O2
+	CFLAGS := $(CFLAGS) -march=native -O2
 endif
 
 
@@ -35,7 +38,11 @@ cmd: options $(TARGET)
 	rm -f src/cmd.o
 
 run: cmd $(TARGET)
-	./$(TARGET)
+	@if [ "$(VALGRIND)" -eq 1 ]; then				\
+		valgrind --leak-check=full ./$(TARGET);		\
+	else											\
+		./$(TARGET);								\
+	fi
 
 $(TARGET).o:
 	$(CC) $(CFLAGS) -c -o $(@) $(<)
