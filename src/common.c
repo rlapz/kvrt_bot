@@ -121,10 +121,8 @@ message_list_init(MessageList *l, const char args[])
 		goto err0;
 
 	if (timer == 0) {
-		int should_delete;
-		if (l->id_user == from_id)
-			should_delete = 1;
-		else
+		int should_delete = 1;
+		if (l->id_user != from_id)
 			should_delete = is_admin(l->id_user, l->msg->chat.id, &l->id_owner);
 
 		if (should_delete) {
