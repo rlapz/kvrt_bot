@@ -115,25 +115,29 @@ _handler(void *ctx, void *udata)
 {
 	Sched *const s = (Sched *)ctx;
 	const time_t now = time(NULL);
-	ModelSchedMessage **msg_list = NULL;
-	const int list_len = model_sched_message_get_list(now, &msg_list);
+	ModelSchedMessage *msg_list[32];
+	int32_t id_list[LEN(msg_list)];
+
+	const int list_len = model_sched_message_get_list(msg_list, LEN(msg_list), now);
 	if (list_len <= 0)
 		goto out0;
 
-	int i = 0;
-	for (; i < list_len; i++) {
-		if (thrd_pool_add_job(_run_task, msg_list[i], NULL) < 0)
+	/* backup the id (to be deleted) */
+	for (int i = 0; i < list_len; i++)
+		id_list[i] = msg_list[i]->id;
+
+	int count = 0;
+	for (; count < list_len; count++) {
+		if (thrd_pool_add_job(_run_task, msg_list[count], NULL) < 0)
 			goto out1;
 	}
 
-	model_sched_message_del_all(now);
-	i = 0;
+	model_sched_message_del(id_list, list_len, now);
+	count = 0;
 
 out1:
-	for (int j = 0; j < i; j++)
+	for (int j = 0; j < count; j++)
 		free(msg_list[j]);
-
-	free(msg_list);
 out0:
 	atomic_store(&s->is_ready, true);
 	(void)udata;

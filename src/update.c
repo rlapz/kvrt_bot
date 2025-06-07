@@ -128,32 +128,20 @@ _handle_member_new(Update *u, const TgMessage *msg)
 	}
 
 	if (model_admin_get_privilegs(chat_id, u->id_bot) > 0) {
-		ModelParamChat prm;
-		const int ret = model_param_chat_get(&prm, chat_id, "opt_delete_on_join");
-		if ((ret > 0) && (cstr_casecmp(prm.param.value0_out, "true") == 0)) {
-			ModelSchedMessage schd = {
-				.chat_id = chat_id,
-				.message_id = msg->id,
-				.expire = 5,
-			};
+		ModelSchedMessage schd = {
+			.chat_id = chat_id,
+			.message_id = msg->id,
+			.expire = 5,
+		};
 
-			if (model_sched_message_delete(&schd, 3) <= 0)
-				tg_api_delete_message(chat_id, msg->id);
-		}
+		if (model_sched_message_delete(&schd, 3) <= 0)
+			tg_api_delete_message(chat_id, msg->id);
 	}
 
 	if (user->is_bot)
 		return;
 
-	ModelParamChat welcome_msg;
-	if (model_param_chat_get(&welcome_msg, chat_id, "msg_welcome") <= 0)
-		return;
-
-	const char *const message = welcome_msg.param.value0_out;
-	if (cstr_is_empty(message))
-		return;
-
-	char *const message_e = tg_escape(message);
+	char *const message_e = tg_escape("hello");
 	if (message_e == NULL)
 		return;
 
@@ -195,11 +183,6 @@ _handle_member_leave(Update *u, const TgMessage *msg)
 		return;
 
 	if (model_admin_get_privilegs(msg->chat.id, u->id_bot) <= 0)
-		return;
-
-	ModelParamChat prm;
-	const int ret = model_param_chat_get(&prm, msg->chat.id, "opt_delete_on_leave");
-	if ((ret <= 0) || (cstr_casecmp(prm.param.value0_out, "true") == 0))
 		return;
 
 	const ModelSchedMessage schd = { .chat_id = msg->chat.id, .message_id = msg->id, .expire = 5 };

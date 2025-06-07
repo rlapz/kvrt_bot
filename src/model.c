@@ -3,159 +3,64 @@
 
 #include "model.h"
 
-#include "db.h"
 #include "ev.h"
+#include "sqlite_pool.h"
 #include "util.h"
 
 
+static const char *_chat_query(Str *str);
+static const char *_admin_query(Str *str);
+static const char *_sched_message_query(Str *str);
+static const char *_cmd_extern_query(Str *str);
+static const char *_cmd_extern_disabled_query(Str *str);
+static const char *_cmd_message_query(Str *str);
+static int         _sqlite_step_one(sqlite3_stmt *stmt);
+
+
 /*
- * Queries
+ * Public
  */
-const char *
-model_chat_query(Str *str)
+int
+model_init(void)
 {
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Chat(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	chat_id		BIGINT NOT Null,\n"
-		"	flags		INTEGER NOT Null,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
-		"	created_by	BIGINT NOT Null\n"
-		");"
-	);
-}
+	Str str;
+	int ret = str_init_alloc(&str, 0);
+	if (ret < 0) {
+		log_err(ret, "model: model_init: str_init_alloc");
+		return -1;
+	}
 
+	char *err_msg;
+	struct {
+		const char *table_name;
+		const char *(*func)(Str *);
+	} params[] = {
+		{ "Chat", _chat_query },
+		{ "Admin", _admin_query },
+		{ "Sched_Message", _sched_message_query },
+		{ "Cmd_Extern", _cmd_extern_query },
+		{ "Cmd_Extern_Disabled", _cmd_extern_disabled_query },
+		{ "Cmd_Message", _cmd_message_query },
+	};
 
-const char *
-model_param_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Param(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	key		VARCHAR(%d) NOT Null,\n"
-		"	value0		VARCHAR(%d),\n"
-		"	value1		VARCHAR(%d),\n"
-		"	value2		VARCHAR(%d),\n"
-		"	is_active	BOOLEAN NOT Null,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
-		"	updated_at	TIMESTAMP\n"
-		");",
-		MODEL_PARAM_KEY_SIZE, MODEL_PARAM_VALUE_SIZE, MODEL_PARAM_VALUE_SIZE, MODEL_PARAM_VALUE_SIZE
-	);
-}
+	DbConn *const conn = sqlite_pool_get();
+	for (size_t i = 0; i < LEN(params); i++) {
+		const char *const query = params[i].func(&str);
+		ret = sqlite3_exec(conn->sql, query, NULL, NULL, &err_msg);
+		if (ret != SQLITE_OK) {
+			const char *const table_name = params[i].table_name;
+			log_err(0, "model: model_init: sqlite3_exec: %s: %s", table_name, err_msg);
+			ret = -ret;
+			goto out0;
+		}
+	}
 
+	ret = 0;
 
-const char *
-model_param_chat_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Param_Chat(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	param_id	INTEGER NOT Null,\n"
-		"	chat_id		BIGINT NOT Null\n"
-		");"
-	);
-}
-
-
-const char *
-model_admin_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Admin(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	chat_id		BIGINT NOT Null,\n"
-		"	user_id		BIGINT NOT Null,\n"
-		"	is_anonymous	BOOLEAN NOT Null,\n"
-		"	privileges	INTEGER NOT NUll,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null\n"
-		");"
-	);
-}
-
-
-const char *
-model_sched_message_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Sched_Message("
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	type		INTEGER NOT Null,\n"
-		"	chat_id		BIGINT NOT Null,\n"
-		"	message_id	BIGINT,\n"
-		"	value		VARCHAR(%d),\n"
-		"	next_run	TIMESTAMP NOT Null,\n"
-		"	expire		TIMESTAMP NOT Null\n"
-		");",
-		MODEL_SCHED_MESSAGE_VALUE_SIZE
-	);
-}
-
-
-const char *
-model_block_list_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Block_List(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	user_id		BIGINT NOT Null,\n"
-		"	chat_id		BIGINT,\n"
-		"	reason		VARCHAR(%d) NOT Null,\n"
-		"	is_blocked	BOOLEAN NOT Null\n"
-		");",
-		MODEL_BLOCK_LIST_REASON_SIZE
-	);
-}
-
-
-const char *
-model_cmd_extern_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Cmd_Extern(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	is_enable	BOOLEAN NOT Null,\n"
-		"	flags		INTEGER NOT Null,\n"
-		"	args		INTEGER NOT Null,\n"
-		"	name		VARCHAR(%d) NOT Null,\n"
-		"	file_name	VARCHAR(%d) NOT Null,\n"
-		"	description	VARCHAR(%d) NOT Null\n"
-		");",
-		MODEL_CMD_NAME_SIZE, MODEL_CMD_EXTERN_FILENAME_SIZE, MODEL_CMD_DESC_SIZE
-	);
-}
-
-
-const char *
-model_cmd_extern_disabled_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Cmd_Extern_Disabled(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	chat_id		BIGINT NOT Null,\n"
-		"	name		VARCHAR(%d) NOT Null,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null\n"
-		");",
-		MODEL_CMD_NAME_SIZE
-	);
-}
-
-
-const char *
-model_cmd_message_query(Str *str)
-{
-	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Cmd_Message(\n"
-		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
-		"	chat_id		BIGINT NOT Null,\n"
-		"	name		VARCHAR(%d) NOT Null,\n"
-		"	value		VARCHAR(%d),\n"
-		"	created_by	BIGINT NOT Null,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
-		"	updated_by	BIGINT,\n"
-		"	updated_at	BIGINT\n"
-		");"
-	);
+out0:
+	sqlite_pool_put(conn);
+	str_deinit(&str);
+	return ret;
 }
 
 
@@ -165,156 +70,78 @@ model_cmd_message_query(Str *str)
 int
 model_chat_get_flags(int64_t chat_id)
 {
-	const char *const query = "SELECT flags FROM Chat WHERE (chat_id = ?);";
-	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-
 	int flags = 0;
-	const DbOut out = {
-		.len = 1,
-		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &flags },
-	};
+	sqlite3_stmt *stmt;
 
-	DbConn *const conn = db_conn_get();
-	if (db_conn_exec(conn, query, &arg, 1, &out, 1) < 0)
-		flags = -1;
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
 
-	db_conn_put(conn);
+	const char *const query = "SELECT flags FROM Chat WHERE (chat_id = ?);";
+	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "model: model_chat_get_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	if (_sqlite_step_one(stmt) <= 0)
+		goto out1;
+
+	flags = sqlite3_column_int(stmt, 0);
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
 	return flags;
-}
-
-
-/*
- * ModelParam
- */
-int
-model_param_get(ModelParam *p, const char key[])
-{
-	const char *const query =
-		"SELECT id, is_active, key, value0, value1, value2, created_at, updated_at "
-		"FROM Param "
-		"WHERE (key = ?) AND (is_active = True) "
-		"ORDER BY id DESC "
-		"LIMIT 1;";
-
-	const DbArg arg = { .type = DB_DATA_TYPE_TEXT, .text = key };
-	const DbOut out = {
-		.len = 8,
-		.fields = (DbOutField[]) {
-			{ .type = DB_DATA_TYPE_INT, .int_ = &p->id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &p->is_active },
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->key_out,
-				.size = sizeof(p->key_out),
-			}},
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->value0_out,
-				.size = sizeof(p->value0_out),
-			}},
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->value1_out,
-				.size = sizeof(p->value1_out),
-			}},
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->value2_out,
-				.size = sizeof(p->value2_out),
-			}},
-			{ .type = DB_DATA_TYPE_INT64, .int64 = &p->created_at },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = &p->updated_at },
-		},
-	};
-
-	DbConn *const conn = db_conn_get();
-	const int ret = db_conn_exec(conn, query, &arg, 1, &out, 1);
-
-	db_conn_put(conn);
-	return ret;
-}
-
-
-/*
- * ModelParamChat
- */
-int
-model_param_chat_get(ModelParamChat *p, int64_t chat_id, const char key[])
-{
-	const char *const query =
-		"SELECT a.id, a.chat_id, b.id, b.is_active, b.key, b.value0, b.value1, b.value2, "
-			"b.created_at, b.updated_at "
-		"FROM Param_Chat as a "
-		"JOIN Param as b on (b.param_id = a.id) "
-		"WHERE (a.chat_id = ?) AND (b.key = ?) AND (b.is_active = True) "
-		"ORDER BY a.id DESC "
-		"LIMIT 1;";
-
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = key },
-	};
-
-	const DbOut out = {
-		.len = 10,
-		.fields = (DbOutField[]) {
-			{ .type = DB_DATA_TYPE_INT, .int_ = &p->id },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = &p->chat_id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &p->param.id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &p->param.is_active },
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->param.key_out,
-				.size = sizeof(p->param.key_out),
-			}},
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->param.value0_out,
-				.size = sizeof(p->param.value0_out),
-			}},
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->param.value1_out,
-				.size = sizeof(p->param.value1_out),
-			}},
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = p->param.value2_out,
-				.size = sizeof(p->param.value2_out),
-			}},
-			{ .type = DB_DATA_TYPE_INT64, .int64 = &p->param.created_at },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = &p->param.updated_at },
-		},
-	};
-
-	DbConn *const conn = db_conn_get();
-	const int ret = db_conn_exec(conn, query, args, LEN(args), &out, 1);
-
-	db_conn_put(conn);
-	return ret;
 }
 
 
 /*
  * ModelAdmin
  */
-/* TODO: optimize: only call db_conn_exec() once */
 static int
 _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 {
-	const char *const query =
-		"INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges) "
-		"VALUES(?, ?, ?, ?);";
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return -1;
 
-	int ret = 0;
+	int ret = -1;
+	if (str_set_fmt(&str, "INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges) VALUES ") == NULL)
+		goto out0;
+
 	for (int i = 0; i < len; i++) {
-		const ModelAdmin *admin = &list[i];
-		const DbArg args[] = {
-			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->chat_id },
-			{ .type = DB_DATA_TYPE_INT64, .int64 = admin->user_id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = admin->is_anonymous },
-			{ .type = DB_DATA_TYPE_INT, .int_ = admin->privileges },
-		};
-
-		ret = db_conn_exec(conn, query, args, LEN(args), NULL, 0);
-		if (ret < 0)
-			return -1;
-
-		ret += db_conn_changes(conn);
+		if (str_append_fmt(&str, "(?, ?, ?, ?), ") == NULL)
+			goto out0;
 	}
 
+	str_pop(&str, 2);
+
+	sqlite3_stmt *stmt;
+	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: _admin_add: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out0;
+	}
+
+	for (int i = 0, j = 1; i < len; i++) {
+		sqlite3_bind_int64(stmt, j++, list[i].chat_id);
+		sqlite3_bind_int64(stmt, j++, list[i].user_id);
+		sqlite3_bind_int(stmt, j++, list[i].is_anonymous);
+		sqlite3_bind_int(stmt, j++, list[i].privileges);
+	}
+
+	if (_sqlite_step_one(stmt) < 0)
+		goto out1;
+
+	ret = sqlite3_changes(conn->sql);
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	str_deinit(&str);
 	return ret;
 }
 
@@ -322,29 +149,38 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 static int
 _admin_clear(DbConn *conn, int64_t chat_id)
 {
-	const char *const query = "DELETE FROM Admin WHERE (chat_id = ?);";
-	const DbArg arg = { .type = DB_DATA_TYPE_INT64, .int64 = chat_id };
-	if (db_conn_exec(conn, query, &arg, 1, NULL, 0) < 0)
-		return -1;
+	int ret = -1;
+	sqlite3_stmt *stmt;
 
-	return db_conn_changes(conn);
+	const char *const query = "DELETE FROM Admin WHERE (chat_id = ?);";
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: _admin_clear: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out0;
+	}
+
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	ret = _sqlite_step_one(stmt);
+
+out0:
+	sqlite3_finalize(stmt);
+	return ret;
 }
 
 
 int
 model_admin_reload(const ModelAdmin list[], int len)
 {
-	if (len <= 0)
-		return 0;
-
+	int ret = -1;
 	int is_ok = 0;
-	DbConn *const conn = db_conn_get();
-	int ret = db_conn_tran_begin(conn);
-	if (ret < 0)
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
+	if (sqlite_pool_tran_begin(conn) < 0)
 		goto out0;
 
-	ret = _admin_clear(conn, list[0].chat_id);
-	if (ret < 0)
+	if (_admin_clear(conn, list[0].chat_id) < 0)
 		goto out1;
 
 	ret = _admin_add(conn, list, len);
@@ -354,9 +190,9 @@ model_admin_reload(const ModelAdmin list[], int len)
 	is_ok = 1;
 
 out1:
-	db_conn_tran_end(conn, is_ok);
+	sqlite_pool_tran_end(conn, is_ok);
 out0:
-	db_conn_put(conn);
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -364,28 +200,36 @@ out0:
 int
 model_admin_get_privilegs(int64_t chat_id, int64_t user_id)
 {
+	int privs = 0;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query =
 		"SELECT privileges "
 		"FROM Admin "
 		"WHERE (chat_id = ?) AND (user_id = ?) "
 		"ORDER BY id DESC LIMIT 1;";
 
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = user_id },
-	};
+	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "model: model_chat_get_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
 
-	int privs = 0;
-	const DbOut out = {
-		.len = 1,
-		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &privs },
-	};
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	sqlite3_bind_int64(stmt, 2, user_id);
+	if (_sqlite_step_one(stmt) <= 0)
+		goto out1;
 
-	DbConn *const conn = db_conn_get();
-	if (db_conn_exec(conn, query, args, LEN(args), &out, 1) < 0)
-		privs = -1;
+	privs = sqlite3_column_int(stmt, 0);
 
-	db_conn_put(conn);
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
 	return privs;
 }
 
@@ -393,132 +237,119 @@ model_admin_get_privilegs(int64_t chat_id, int64_t user_id)
 /*
  * ModelSchedMessage
  */
-/* TODO: simplify & optimize */
 int
-model_sched_message_get_list(int64_t now, ModelSchedMessage **ret_list[])
+model_sched_message_get_list(ModelSchedMessage *list[], int len, int64_t now)
 {
 	int ret = -1;
-	const char *const query_len =
-		"SELECT COUNT(*) "
-		"FROM Sched_Message "
-		"WHERE (? >= next_run) AND (? < (next_run + expire));";
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query =
 		"SELECT id, type, chat_id, message_id, value, next_run, expire "
 		"FROM Sched_Message "
-		"WHERE (? >= next_run) AND (? < (next_run + expire));";
+		"WHERE (? >= next_run) AND (? < (next_run + expire)) "
+		"LIMIT ?";
 
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = now },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = now },
-	};
-
-	int list_len = 0;
-	const DbOut out_list_len = {
-		.len = 1,
-		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &list_len },
-	};
-
-	DbConn *const conn = db_conn_get();
-	if (db_conn_exec(conn, query_len, args, LEN(args), &out_list_len, 1) < 0)
-		goto out0;
-
-	if (list_len == 0) {
-		ret = 0;
+	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_sched_message_get_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
-	int iter = 0;
-	DbOut *const out_list = malloc(sizeof(DbOut) * (size_t)list_len);
-	if (out_list == NULL) {
-		log_err(errno, "model: model_sched_message_get_list: malloc: DbOut");
-		goto out0;
+	sqlite3_bind_int64(stmt, 1, now);
+	sqlite3_bind_int64(stmt, 2, now);
+	sqlite3_bind_int(stmt, 3, len);
+
+	int count = 0;
+	for (; count < len; count++) {
+		res = sqlite3_step(stmt);
+		if (res == SQLITE_DONE)
+			break;
+
+		if (res != SQLITE_ROW) {
+			log_err(0, "model: model_sched_message_get_list: sqlite3_step: %s", sqlite3_errstr(res));
+			goto out1;
+		}
+
+		ModelSchedMessage *const it = malloc(sizeof(ModelSchedMessage));
+		if (it == NULL)
+			goto out1;
+
+		it->id = sqlite3_column_int(stmt, 0);
+		it->type = sqlite3_column_int(stmt, 1);
+		it->chat_id = sqlite3_column_int64(stmt, 2);
+		it->message_id = sqlite3_column_int64(stmt, 3);
+		cstr_copy_n(it->value_out, sizeof(it->value_out), (const char *)sqlite3_column_text(stmt, 4));
+		it->next_run = sqlite3_column_int64(stmt, 5);
+		it->expire = sqlite3_column_int64(stmt, 6);
+
+		list[count] = it;
 	}
 
-	ModelSchedMessage **const ptr_list = malloc(sizeof(ModelSchedMessage *) * (size_t)list_len);
-	if (ptr_list == NULL) {
-		log_err(errno, "model: model_sched_message_get_list: malloc: SchedMessage *");
-		goto out1;
-	}
+	ret = count;
 
-	const int fields_len = 7;
-	DbOutField *const fields = malloc(sizeof(DbOutField) * (size_t)(fields_len * list_len));
-	if (fields == NULL) {
-		log_err(errno, "model: model_sched_message_get_list: malloc: DbOutField *");
-		goto out2;
-	}
-
-	/* remapping */
-	for (int j = 0; iter < list_len; iter++) {
-		ModelSchedMessage *const sm = malloc(sizeof(ModelSchedMessage));
-		if (sm == NULL)
-			goto out3;
-
-		out_list[iter].fields = &fields[j];
-		out_list[iter].len = fields_len;
-
-		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &sm->id };
-		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &sm->type };
-		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &sm->chat_id };
-		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &sm->message_id };
-		fields[j++] = (DbOutField) {
-			.type = DB_DATA_TYPE_TEXT,
-			.text = (DbOutFieldText) { .cstr = sm->value_out, .size = sizeof(sm->value_out) },
-		};
-		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &sm->next_run };
-		fields[j++] = (DbOutField) { .type = DB_DATA_TYPE_INT64, .int64 = &sm->expire };
-
-		ptr_list[iter] = sm;
-	}
-
-	if (db_conn_exec(conn, query, args, LEN(args), out_list, list_len) < 0)
-		goto out3;
-
-	*ret_list = ptr_list;
-	ret = list_len;
-
-out3:
-	free(fields);
-out2:
-	if (ret < 0) {
-		for (int i = 0; i < iter; i++)
-			free(ptr_list[i]);
-	}
-
-	if (ret < 0)
-		free(ptr_list);
 out1:
-	free(out_list);
+	sqlite3_finalize(stmt);
+	for (int i = 0; (i < count) && (ret < 0); i++)
+		free(list[i]);
 out0:
-	db_conn_put(conn);
+	sqlite_pool_put(conn);
 	return ret;
 }
 
 
 int
-model_sched_message_del_all(int64_t now)
+model_sched_message_del(int32_t list[], int len, int64_t now)
 {
-	int ret;
-	const char *const query = "DELETE FROM Sched_Message WHERE (? >= next_run);";
-	const DbArg args = { .type = DB_DATA_TYPE_INT64, .int64 = now };
+	int ret = -1;
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return -1;
 
-	DbConn *const conn = db_conn_get();
-	while (ev_is_alive()) {
-		ret = db_conn_exec(conn, query, &args, 1, NULL, 0);
-		if (ret == DB_RET_BUSY) {
-			db_conn_busy_timeout(conn, 3);
-			continue;
-		}
+	if (str_set_fmt(&str, "DELETE FROM Sched_Message WHERE (? >= next_run) AND id IN (") == NULL)
+		goto out0;
 
-		if (ret < 0)
+	for (int i = 0; i < len; i++) {
+		if (str_append_n(&str, "?, ", 3) == NULL)
 			goto out0;
-
-		break;
 	}
 
-	ret = db_conn_changes(conn);
+	str_pop(&str, 2);
+	if (str_append_n(&str, ");", 2) == NULL)
+		goto out0;
 
+	log_debug("%s", str.cstr);
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		goto out0;
+
+	sqlite3_stmt *stmt;
+	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_sched_message_del: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out1;
+	}
+
+	int param_count = 1;
+	sqlite3_bind_int64(stmt, param_count++, now);
+	for (int i = 0; i < len; i++)
+		sqlite3_bind_int(stmt, param_count++, list[i]);
+
+	if (_sqlite_step_one(stmt) < 0)
+		goto out2;
+
+	ret = sqlite3_changes(conn->sql);
+
+out2:
+	sqlite3_finalize(stmt);
+out1:
+	sqlite_pool_put(conn);
 out0:
-	db_conn_put(conn);
+	str_deinit(&str);
 	return ret;
 }
 
@@ -541,29 +372,40 @@ model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s)
 		return -1;
 	}
 
+	int ret = -1;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query =
 		"INSERT INTO Sched_Message(type, chat_id, message_id, value, next_run, expire) "
 		"VALUES(?, ?, ?, ?, ?, ?);";
 
-	const int64_t now = time(NULL);
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT, .int_ = MODEL_SCHED_MESSAGE_TYPE_SEND },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = s->chat_id },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = s->message_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = s->value_in },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = now + interval_s },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = s->expire },
-	};
-
-	int ret = -1;
-	DbConn *const conn = db_conn_get();
-	if (db_conn_exec(conn, query, args, LEN(args), NULL, 0) < 0)
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_sched_message_send: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
+	}
 
-	ret = db_conn_changes(conn);
+	int i = 1;
+	sqlite3_bind_int(stmt, i++, MODEL_SCHED_MESSAGE_TYPE_SEND);
+	sqlite3_bind_int64(stmt, i++, s->chat_id);
+	sqlite3_bind_int64(stmt, i++, s->message_id);
+	sqlite3_bind_text(stmt, i++, s->value_in, -1, NULL);
+	sqlite3_bind_int64(stmt, i++, time(NULL) + interval_s);
+	sqlite3_bind_int64(stmt, i, s->expire);
 
+	if (_sqlite_step_one(stmt) < 0)
+		goto out1;
+
+	ret = sqlite3_changes(conn->sql);
+
+out1:
+	sqlite3_finalize(stmt);
 out0:
-	db_conn_put(conn);
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -581,28 +423,39 @@ model_sched_message_delete(const ModelSchedMessage *s, int64_t interval_s)
 		return -1;
 	}
 
+	int ret = -1;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query =
 		"INSERT INTO Sched_Message(type, chat_id, message_id, next_run, expire) "
 		"VALUES(?, ?, ?, ?, ?);";
 
-	const int64_t now = time(NULL);
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT, .int_ = MODEL_SCHED_MESSAGE_TYPE_DELETE },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = s->chat_id },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = s->message_id },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = now + interval_s },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = s->expire },
-	};
-
-	int ret = -1;
-	DbConn *const conn = db_conn_get();
-	if (db_conn_exec(conn, query, args, LEN(args), NULL, 0) < 0)
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_sched_message_delete: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
+	}
 
-	ret = db_conn_changes(conn);
+	int i = 1;
+	sqlite3_bind_int(stmt, i++, MODEL_SCHED_MESSAGE_TYPE_DELETE);
+	sqlite3_bind_int64(stmt, i++, s->chat_id);
+	sqlite3_bind_int64(stmt, i++, s->message_id);
+	sqlite3_bind_int64(stmt, i++, time(NULL) + interval_s);
+	sqlite3_bind_int64(stmt, i, s->expire);
 
+	if (_sqlite_step_one(stmt) < 0)
+		goto out1;
+
+	ret = sqlite3_changes(conn->sql);
+
+out1:
+	sqlite3_finalize(stmt);
 out0:
-	db_conn_put(conn);
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -613,6 +466,13 @@ out0:
 int
 model_cmd_extern_get_one(ModelCmdExtern *c, int64_t chat_id, const char name[])
 {
+	int ret = -1;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query =
 		"SELECT id, is_enable, flags, name, file_name, description "
 		"FROM Cmd_Extern "
@@ -622,33 +482,29 @@ model_cmd_extern_get_one(ModelCmdExtern *c, int64_t chat_id, const char name[])
 		"	WHERE (chat_id = ?) "
 		"));";
 
-	const DbArg db_args[] = {
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-	};
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_extern_get_one: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out0;
+	}
 
-	const DbOut out = {
-		.len = 6,
-		.fields = (DbOutField[]) {
-			{ .type = DB_DATA_TYPE_INT, .int_ = &c->id },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &c->is_enable },
-			{ .type = DB_DATA_TYPE_INT, .int_ = &c->flags },
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = c->name_out, .size = sizeof(c->name_out),
-			} },
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = c->file_name_out, .size = sizeof(c->file_name_out),
-			} },
-			{ .type = DB_DATA_TYPE_TEXT, .text = (DbOutFieldText) {
-				.cstr = c->description_out, .size = sizeof(c->description_out),
-			} },
-		},
-	};
+	sqlite3_bind_text(stmt, 1, name, -1, NULL);
+	sqlite3_bind_int64(stmt, 2, chat_id);
+	if (_sqlite_step_one(stmt) <= 0)
+		goto out1;
 
-	DbConn *const conn = db_conn_get();
-	const int ret = db_conn_exec(conn, query, db_args, LEN(db_args), &out, 1);
+	c->id = sqlite3_column_int(stmt, 0);
+	c->is_enable = sqlite3_column_int(stmt, 1);
+	c->flags = sqlite3_column_int(stmt, 2);
+	cstr_copy_n(c->name_out, sizeof(c->name_out), (const char *)sqlite3_column_text(stmt, 3));
+	cstr_copy_n(c->description_out, sizeof(c->description_out), (const char *)sqlite3_column_text(stmt, 4));
 
-	db_conn_put(conn);
+	ret = 0;
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -666,17 +522,31 @@ model_cmd_extern_get_list(ModelCmdExtern **ret_list[], int start, int len)
 int
 model_cmd_extern_is_exists(const char name[])
 {
+	int is_exists = 0;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query = "SELECT 1 FROM Cmd_Extern WHERE (name = ?);";
-	DbArg arg = { .type = DB_DATA_TYPE_TEXT, .text = name };
+	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "model: model_cmd_extern_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
 
-	int res;
-	DbOut out = { .len = 1, .fields = &(DbOutField) { .int_ = &res } };
+	sqlite3_bind_text(stmt, 1, name, -1, NULL);
+	if (_sqlite_step_one(stmt) <= 0)
+		goto out1;
 
-	DbConn *const conn = db_conn_get();
-	const int ret = db_conn_exec(conn, query, &arg, 1, &out, 1);
+	is_exists = sqlite3_column_int(stmt, 0);
 
-	db_conn_put(conn);
-	return ret;
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return is_exists;
 }
 
 
@@ -686,20 +556,30 @@ model_cmd_extern_is_exists(const char name[])
 int
 model_cmd_extern_disabled_setup(int64_t chat_id)
 {
-	const char *query = "SELECT 1 FROM Cmd_Extern_Disabled WHERE (chat_id = ?);";
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_INT, .int_ = MODEL_CMD_FLAG_NSFW },
-	};
+	int ret = -1;
+	sqlite3_stmt *stmt;
 
-	DbConn *const conn = db_conn_get();
-	int ret = db_conn_exec(conn, query, args, 1, NULL, 0);
-	if (ret < 0)
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
+	const char *query = "SELECT 1 FROM Cmd_Extern_Disabled WHERE (chat_id = ?);";
+	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_extern_disabled_setup: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
+	}
+
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out1;
 
 	/* already registered  */
 	if (ret > 0)
-		goto out0;
+		goto out1;
+
+	sqlite3_finalize(stmt);
 
 	/* disable all NSFW Cmd(s) */
 	query = "INSERT INTO Cmd_Extern_Disabled(name, chat_id) "
@@ -707,14 +587,23 @@ model_cmd_extern_disabled_setup(int64_t chat_id)
 		"FROM Cmd_Extern "
 		"WHERE ((flags & ?) != 0);";
 
-	ret = db_conn_exec(conn, query, args, LEN(args), NULL, 0);
-	if (ret < 0)
+	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_extern_disabled_setup: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
+	}
 
-	ret = db_conn_changes(conn);
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out1;
 
+	ret = sqlite3_changes(conn->sql);
+
+out1:
+	sqlite3_finalize(stmt);
 out0:
-	db_conn_put(conn);
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -725,47 +614,65 @@ out0:
 int
 model_cmd_message_set(const ModelCmdMessage *c)
 {
+	int ret = -1;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *query = "SELECT 1 FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
-	DbArg args[] = {
-		{ .type = DB_DATA_TYPE_TEXT, .text = c->value_in },
-		{ .type = DB_DATA_TYPE_INT64, .int64 = c->created_by }, /* or updated by */
-		{ .type = DB_DATA_TYPE_INT64, .int64 = c->chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = c->name_in },
-	};
-
-	int is_exists = 0;
-	DbOut out = {
-		.len = 1,
-		.fields = &(DbOutField) { .type = DB_DATA_TYPE_INT, .int_ = &is_exists },
-	};
-
-	DbConn *const conn = db_conn_get();
-	int ret = db_conn_exec(conn, query, &args[2], 2, &out, 1);
-	if (ret < 0)
+	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_message_set: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
+	}
+
+	sqlite3_bind_int64(stmt, 1, c->chat_id);
+	sqlite3_bind_text(stmt, 2, c->name_in, -1, NULL);
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out1;
+
+	if ((ret == 0) && (c->value_in == NULL))
+		goto out1;
+
+	sqlite3_finalize(stmt);
 
 	if (ret == 0) {
-		if (c->value_in == NULL)
-			goto out0;
-
-		query = "INSERT INTO Cmd_Message(value, created_by, chat_id, name) VALUES(?, ?, ?, ?);";
+		query = "INSERT INTO Cmd_Message(value, created_by, chat_id, name) "
+			"VALUES(?, ?, ?, ?);";
 	} else {
 		query = "UPDATE Cmd_Message "
 			"	SET value = ?, updated_at = UNIXEPOCH(), "
 			"	    updated_by = ? "
 			"WHERE (chat_id = ?) and (name = ?);";
-
-		args[1].int64 = c->updated_by;
 	}
 
-	ret = db_conn_exec(conn, query, args, LEN(args), NULL, 0);
-	if (ret < 0)
+	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_message_set: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
+	}
 
-	ret = db_conn_changes(conn);
+	sqlite3_bind_text(stmt, 1, c->value_in, -1, NULL);
+	if (ret == 0)
+		sqlite3_bind_int64(stmt, 2, c->created_by);
+	else
+		sqlite3_bind_int64(stmt, 2, c->updated_by);
 
+	sqlite3_bind_int64(stmt, 3, c->chat_id);
+	sqlite3_bind_text(stmt, 4, c->name_in, -1, NULL);
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out1;
+
+	ret = sqlite3_changes(conn->sql);
+
+out1:
+	sqlite3_finalize(stmt);
 out0:
-	db_conn_put(conn);
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -773,29 +680,32 @@ out0:
 int
 model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], size_t value_len)
 {
-	const char *const query =
-		"SELECT value FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
+	int ret = -1;
+	sqlite3_stmt *stmt;
 
-	const DbArg args[] = {
-		{ .type = DB_DATA_TYPE_INT64, .int64 = chat_id },
-		{ .type = DB_DATA_TYPE_TEXT, .text = name },
-	};
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
 
-	const DbOut out = {
-		.len = 1,
-		.fields = &(DbOutField) {
-			.type = DB_DATA_TYPE_TEXT,
-			.text = (DbOutFieldText) {
-				.cstr = value,
-				.size = value_len,
-			},
-		},
-	};
+	const char *const query = "SELECT value FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_message_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out0;
+	}
 
-	DbConn *const conn = db_conn_get();
-	const int ret = db_conn_exec(conn, query, args, LEN(args), &out, 1);
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	sqlite3_bind_text(stmt, 2, name, -1, NULL);
+	ret = _sqlite_step_one(stmt);
+	if (ret <= 0)
+		goto out1;
 
-	db_conn_put(conn);
+	cstr_copy_n(value, value_len, (const char *)sqlite3_column_text(stmt, 0));
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
 	return ret;
 }
 
@@ -803,15 +713,148 @@ model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], si
 int
 model_cmd_message_is_exists(const char name[])
 {
+	int is_exists = 0;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
 	const char *const query = "SELECT 1 FROM Cmd_Message WHERE (name = ?);";
-	DbArg arg = { .type = DB_DATA_TYPE_TEXT, .text = name };
+	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		log_err(0, "model: model_cmd_message_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
 
-	int res;
-	DbOut out = { .len = 1, .fields = &(DbOutField) { .int_ = &res } };
+	sqlite3_bind_text(stmt, 1, name, -1, NULL);
+	if (_sqlite_step_one(stmt) <= 0)
+		goto out1;
 
-	DbConn *const conn = db_conn_get();
-	const int ret = db_conn_exec(conn, query, &arg, 1, &out, 1);
+	is_exists = sqlite3_column_int(stmt, 0);
 
-	db_conn_put(conn);
-	return ret;
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return is_exists;
+}
+
+
+/*
+ * Private
+ */
+static const char *
+_chat_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Chat(\n"
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	chat_id		BIGINT NOT Null,\n"
+		"	flags		INTEGER NOT Null,\n"
+		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
+		"	created_by	BIGINT NOT Null\n"
+		");"
+	);
+}
+
+
+static const char *
+_admin_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Admin(\n"
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	chat_id		BIGINT NOT Null,\n"
+		"	user_id		BIGINT NOT Null,\n"
+		"	is_anonymous	BOOLEAN NOT Null,\n"
+		"	privileges	INTEGER NOT NUll,\n"
+		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null\n"
+		");"
+	);
+}
+
+
+static const char *
+_sched_message_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Sched_Message("
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	type		INTEGER NOT Null,\n"
+		"	chat_id		BIGINT NOT Null,\n"
+		"	message_id	BIGINT,\n"
+		"	value		VARCHAR(%d),\n"
+		"	next_run	TIMESTAMP NOT Null,\n"
+		"	expire		TIMESTAMP NOT Null\n"
+		");",
+		MODEL_SCHED_MESSAGE_VALUE_SIZE
+	);
+}
+
+
+static const char *
+_cmd_extern_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Cmd_Extern(\n"
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	is_enable	BOOLEAN NOT Null,\n"
+		"	flags		INTEGER NOT Null,\n"
+		"	args		INTEGER NOT Null,\n"
+		"	name		VARCHAR(%d) NOT Null,\n"
+		"	file_name	VARCHAR(%d) NOT Null,\n"
+		"	description	VARCHAR(%d) NOT Null\n"
+		");",
+		MODEL_CMD_NAME_SIZE, MODEL_CMD_EXTERN_FILENAME_SIZE, MODEL_CMD_DESC_SIZE
+	);
+}
+
+
+static const char *
+_cmd_extern_disabled_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Cmd_Extern_Disabled(\n"
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	chat_id		BIGINT NOT Null,\n"
+		"	name		VARCHAR(%d) NOT Null,\n"
+		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null\n"
+		");",
+		MODEL_CMD_NAME_SIZE
+	);
+}
+
+
+static const char *
+_cmd_message_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Cmd_Message(\n"
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	chat_id		BIGINT NOT Null,\n"
+		"	name		VARCHAR(%d) NOT Null,\n"
+		"	value		VARCHAR(%d),\n"
+		"	created_by	BIGINT NOT Null,\n"
+		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
+		"	updated_by	BIGINT,\n"
+		"	updated_at	BIGINT\n"
+		");"
+	);
+}
+
+
+static int
+_sqlite_step_one(sqlite3_stmt *stmt)
+{
+	int ret = sqlite3_step(stmt);
+	if (ret == SQLITE_DONE)
+		return 0;
+
+	if (ret != SQLITE_ROW) {
+		log_err(0, "model: _sqlite_step_one: sqlite3_step: %s", sqlite3_errstr(ret));
+		return -1;
+	}
+
+	return 1;
 }

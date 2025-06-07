@@ -15,7 +15,7 @@ CC       := cc
 CFLAGS   := -std=c11 -Wall -Wextra -Wpedantic -pedantic -I/usr/include/json-c -D_GNU_SOURCE
 LFLAGS   := -lcurl -ljson-c -lsqlite3 -lm
 
-SRC := src/cmd.c src/common.c src/config.c src/db.c src/ev.c src/main.c src/model.c \
+SRC := src/cmd.c src/common.c src/config.c src/sqlite_pool.c src/ev.c src/main.c src/model.c \
 	   src/picohttpparser.c src/sched.c src/tg_api.c src/tg.c src/thrd_pool.c \
 	   src/update.c src/util.c src/webhook.c \
 	   src/cmd/admin.c src/cmd/general.c src/cmd/extra.c src/cmd/test.c

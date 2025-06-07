@@ -22,13 +22,7 @@ static char *_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned 
 void
 cmd_general_start(const CmdParam *cmd)
 {
-	ModelParam param;
-	if (model_param_get(&param, "msg_start") <= 0) {
-		send_text_format(cmd->msg, "Hello \\:3");
-		return;
-	}
-
-	send_text_format(cmd->msg, param.value0_out);
+	send_text_plain(cmd->msg, "hello");
 }
 
 

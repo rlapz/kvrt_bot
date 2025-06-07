@@ -12,10 +12,11 @@
 
 #include "config.h"
 #include "cmd.h"
-#include "db.h"
 #include "ev.h"
+#include "model.h"
 #include "picohttpparser.h"
 #include "sched.h"
+#include "sqlite_pool.h"
 #include "tg_api.h"
 #include "thrd_pool.h"
 #include "update.h"
@@ -542,9 +543,12 @@ _server_run(Server *s, char *envp[])
 	config_dump(cfg);
 	tg_api_init(s->base_api);
 
-	int ret = db_init(cfg->sys.db_file, cfg->sys.db_pool_conn_size);
+	int ret = sqlite_pool_init(cfg->sys.db_file, cfg->sys.db_pool_conn_size);
 	if (ret < 0)
 		return ret;
+
+	if (model_init() < 0)
+		goto out0;
 
 	ret = ev_init();
 	if (ret < 0) {
@@ -627,7 +631,7 @@ out2:
 out1:
 	ev_deinit();
 out0:
-	db_deinit();
+	sqlite_pool_deinit();
 	return ret;
 }
 

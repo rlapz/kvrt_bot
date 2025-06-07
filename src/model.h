@@ -7,6 +7,9 @@
 #include "util.h"
 
 
+int model_init(void);
+
+
 /*
  * Cmd
  */
@@ -40,55 +43,7 @@ typedef struct model_chat {
 	int64_t created_by;
 } ModelChat;
 
-const char *model_chat_query(Str *str);
-int         model_chat_get_flags(int64_t chat_id);
-
-
-/*
- * ModelParam
- */
-#define MODEL_PARAM_KEY_SIZE   (68)
-#define MODEL_PARAM_VALUE_SIZE (256)
-
-typedef struct model_param {
-	int32_t id;
-	int     is_active;
-	union {
-		const char *key_in;
-		char        key_out[MODEL_PARAM_KEY_SIZE];
-	};
-	union {
-		const char *value0_in;
-		char        value0_out[MODEL_PARAM_VALUE_SIZE];
-	};
-	union {
-		const char *value1_in;
-		char        value1_out[MODEL_PARAM_VALUE_SIZE];
-	};
-	union {
-		const char *value2_in;
-		char        value2_out[MODEL_PARAM_VALUE_SIZE];
-	};
-	int64_t created_at;
-	int64_t updated_at;
-} ModelParam;
-
-const char *model_param_query(Str *str);
-int         model_param_get(ModelParam *p, const char key[]);
-
-
-/*
- * ModelParamChat
- */
-typedef struct model_param_chat {
-	int32_t    id;
-	int64_t    chat_id;
-	ModelParam param;
-} ModelParamChat;
-
-const char *model_param_chat_query(Str *str);
-int         model_param_chat_get(ModelParamChat *p, int64_t chat_id, const char key[]);
-
+int model_chat_get_flags(int64_t chat_id);
 
 
 /*
@@ -103,9 +58,8 @@ typedef struct model_admin {
 	int64_t created_at;
 } ModelAdmin;
 
-const char *model_admin_query(Str *str);
-int         model_admin_reload(const ModelAdmin list[], int len);
-int         model_admin_get_privilegs(int64_t chat_id, int64_t user_id);
+int model_admin_reload(const ModelAdmin list[], int len);
+int model_admin_get_privilegs(int64_t chat_id, int64_t user_id);
 
 
 /*
@@ -131,31 +85,10 @@ typedef struct model_sched_message {
 	int64_t expire;
 } ModelSchedMessage;
 
-const char *model_sched_message_query(Str *str);
-int         model_sched_message_get_list(int64_t now, ModelSchedMessage **ret_list[]);
-int         model_sched_message_del_all(int64_t now);
-int         model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s);
-int         model_sched_message_delete(const ModelSchedMessage *s, int64_t interval_s);
-
-
-
-/*
- * ModelBlockList
- */
-#define MODEL_BLOCK_LIST_REASON_SIZE (256)
-
-typedef struct model_block_list {
-	int32_t id;
-	int64_t user_id;
-	int64_t chat_id;	/* 0: global */
-	union {
-		const char *reason_in;
-		char        reason_out[MODEL_BLOCK_LIST_REASON_SIZE];
-	};
-	int is_blocked;
-} ModelBlockList;
-
-const char *model_block_list_query(Str *str);
+int model_sched_message_get_list(ModelSchedMessage *list[], int len, int64_t now);
+int model_sched_message_del(int32_t list[], int len, int64_t now);
+int model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s);
+int model_sched_message_delete(const ModelSchedMessage *s, int64_t interval_s);
 
 
 /*
@@ -181,10 +114,9 @@ typedef struct model_cmd_extern {
 	};
 } ModelCmdExtern;
 
-const char *model_cmd_extern_query(Str *str);
-int         model_cmd_extern_get_one(ModelCmdExtern *c, int64_t chat_id, const char name[]);
-int         model_cmd_extern_get_list(ModelCmdExtern **ret_list[], int start, int len);
-int         model_cmd_extern_is_exists(const char name[]);
+int model_cmd_extern_get_one(ModelCmdExtern *c, int64_t chat_id, const char name[]);
+int model_cmd_extern_get_list(ModelCmdExtern **ret_list[], int start, int len);
+int model_cmd_extern_is_exists(const char name[]);
 
 
 /*
@@ -200,8 +132,7 @@ typedef struct model_cmd_extern_disabled {
 	int64_t created_at;
 } ModelCmdExternDisabled;
 
-const char *model_cmd_extern_disabled_query(Str *str);
-int         model_cmd_extern_disabled_setup(int64_t chat_id);
+int model_cmd_extern_disabled_setup(int64_t chat_id);
 
 
 /*
@@ -227,10 +158,9 @@ typedef struct model_cmd_message {
 	};
 } ModelCmdMessage;
 
-const char *model_cmd_message_query(Str *str);
-int         model_cmd_message_set(const ModelCmdMessage *c);
-int         model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], size_t value_len);
-int         model_cmd_message_is_exists(const char name[]);
+int model_cmd_message_set(const ModelCmdMessage *c);
+int model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], size_t value_len);
+int model_cmd_message_is_exists(const char name[]);
 
 
 #endif
