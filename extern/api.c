@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <stdint.h>
 
 #include "api.h"
 
@@ -11,21 +12,29 @@
  * 	arg[2]: API_TYPE_*
  * 	arg[3]: TELEGRAM API + TOKEN
  * 	arg[4]: TELEGRAM SECRET KEY
+ * 	arg[5]: Bot ID
+ * 	arg[6]: Owner ID
  *
  * -----------------------------------------------------------------
- * API_TYPE_TEXT_* argument list:
- * 	arg[5]: Chat ID
- * 	arg[6]: Message ID	-> 0: no reply
- * 	arg[7]: Text
+ * API_TYPE_TEXT_*:
+ * 	arg[7]: Chat ID
+ * 	arg[8]: Message ID	-> 0: no reply
+ * 	arg[9]: Text
  *
  * API_TYPE_LIST:
- * 	TODO
+ * 	arg[7]: Chat ID
+ * 	arg[8]: User ID
+ * 	arg[9]: Message ID
+ * 	arg[10]: Callback ID	-> "empty string: Not a callback"
+ * 	arg[11]: Context name
+ * 	arg[12]: Title
+ * 	arg[13]: Body
  *
  * API_TYPE_CALLBACK_ANSWER:
- *	arg[5]: Callback ID
- *	arg[6]: Is Text?	-> 0: URL, 1: Text
- *	arg[7]: Text/URL
- *	arg[8]: Show alert?	-> 0: True, 1: False
+ *	arg[7]: Callback ID
+ *	arg[8]: Is Text?	-> 0: URL, 1: Text
+ *	arg[9]: Text/URL
+ *	arg[10]: Show alert?	-> 0: True, 1: False
  */
 
 
@@ -34,6 +43,8 @@ enum {
 	_ARG_TYPE,
 	_ARG_TG_API,
 	_ARG_TG_API_SECRET_KEY,
+	_ARG_TG_BOT_ID,
+	_ARG_TG_OWNER_ID,
 
 	__ARG_END,
 };
@@ -44,6 +55,8 @@ typedef struct {
 	int          api_type;
 	const char  *tg_api;
 	const char  *tg_api_secret_key;
+	int64_t      tg_tg_bot_id;
+	int64_t      tg_tg_owner_id;
 	int          user_data_len;
 	const char **user_data;
 } Args;
@@ -53,6 +66,7 @@ static int _args_init(int argc1, const char *argv1[], Args *args);
 static int _exec(const Args *args);
 static int _exec_send_text(const Args *args);
 static int _exec_answer_callback(const Args *args);
+static int _exec_send_list(const Args *args);
 
 
 /*
@@ -65,8 +79,30 @@ main(int argc, char *argv[])
 
 	Args args;
 	int ret = _args_init(argc + 1, (const char **)&argv[1], &args);
-	if (ret < 0)
+	if (ret < 0) {
+		if (ret == -1) {
+			log_info("api:\nMandatory argument list:\n"
+				 " [1]  : CMD Name\n"
+				 " [2]  : Api Type: {\n"
+				 "           0: Send text plain\n"
+				 "           1: Send text format\n"
+				 "           2: Send list\n"
+				 "           3: Callback answer\n"
+				 "        }\n"
+				 " [3]  : Telegram API + Token\n"
+				 " [4]  : Telegram Secret Key\n"
+				 " [5]  : Bot ID\n"
+				 " [6]  : Owner ID\n"
+				 " [n..]: User Data\n"
+				 "\n-----\n"
+				 "Example:\n"
+				 "  ./api '/test' 0 'telegram_api:token' 'secret_key' bot_id owner_id "
+					"chat_id message_id 'text_xxxx'\n"
+			);
+		}
+
 		goto out0;
+	}
 
 	ret = _exec(&args);
 
@@ -128,13 +164,13 @@ _args_init(int argc1, const char *argv1[], Args *args)
 	args->cmd_name = argv1[_ARG_CMD_NAME];
 	if (cstr_is_empty(args->cmd_name)) {
 		log_err(EINVAL, "api: _args_init[%d]: CMD_NAME is empty", _ARG_CMD_NAME);
-		return -1;
+		return -2;
 	}
 
 	int64_t api_type;
 	if (cstr_to_int64(argv1[_ARG_TYPE], &api_type) < 0) {
 		log_err(errno, "api: _args_init[%d]: ARG_TYPE: failed to parse", _ARG_TYPE);
-		return -1;
+		return -2;
 	}
 
 	args->api_type = (int)api_type;
@@ -142,13 +178,35 @@ _args_init(int argc1, const char *argv1[], Args *args)
 	args->tg_api = argv1[_ARG_TG_API];
 	if (cstr_is_empty(args->tg_api)) {
 		log_err(EINVAL, "api: _args_init[%d]: TG_API is empty", _ARG_TG_API);
-		return -1;
+		return -2;
 	}
 
 	args->tg_api_secret_key = argv1[_ARG_TG_API_SECRET_KEY];
 	if (cstr_is_empty(args->tg_api_secret_key)) {
 		log_err(EINVAL, "api: _args_init[%d]: TG_API_SECRET_KEY is empty", _ARG_TG_API_SECRET_KEY);
-		return -1;
+		return -2;
+	}
+
+	const char *const bot_id = argv1[_ARG_TG_BOT_ID];
+	if (cstr_is_empty(bot_id)) {
+		log_err(EINVAL, "api: _args_init[%d]: TG_BOT_ID is empty", _ARG_TG_BOT_ID);
+		return -2;
+	}
+
+	const char *const owner_id = argv1[_ARG_TG_OWNER_ID];
+	if (cstr_is_empty(owner_id)) {
+		log_err(EINVAL, "api: _args_init[%d]: TG_OWNER_ID is empty", _ARG_TG_OWNER_ID);
+		return -2;
+	}
+
+	if (cstr_to_int64(bot_id, &args->tg_tg_bot_id) < 0) {
+		log_err(EINVAL, "api: _args_init[%d]: TG_BOT_ID: failed to parse", _ARG_TG_BOT_ID);
+		return -2;
+	}
+
+	if (cstr_to_int64(owner_id, &args->tg_tg_owner_id) < 0) {
+		log_err(EINVAL, "api: _args_init[%d]: TG_OWNER_ID: failed to parse", _ARG_TG_OWNER_ID);
+		return -2;
 	}
 
 	args->user_data = &argv1[__ARG_END];
@@ -170,7 +228,7 @@ _exec(const Args *args)
 	case API_TYPE_TEXT_FORMAT:
 		return _exec_send_text(args);
 	case API_TYPE_LIST:
-		return 0;
+		return _exec_send_list(args);
 	case API_TYPE_CALLBACK_ANSWER:
 		return _exec_answer_callback(args);
 	}
@@ -248,4 +306,17 @@ _exec_answer_callback(const Args *args)
 		return api_answer_callback(callback_id, text_url, NULL, (int)show_alert);
 
 	return api_answer_callback(callback_id, NULL, text_url, (int)show_alert);
+}
+
+
+static int
+_exec_send_list(const Args *args)
+{
+	log_debug("cmd name     : %s", args->cmd_name);
+	log_debug("api type     : %d", args->api_type);
+	log_debug("tg api       : %s", args->tg_api);
+	log_debug("tg api secret: %s", args->tg_api_secret_key);
+	log_debug("bot id       : %" PRIi64, args->tg_tg_bot_id);
+	log_debug("owner id     : %" PRIi64, args->tg_tg_owner_id);
+	return 0;
 }

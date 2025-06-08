@@ -495,9 +495,10 @@ model_cmd_extern_get_one(ModelCmdExtern *c, int64_t chat_id, const char name[])
 	c->is_enable = sqlite3_column_int(stmt, 1);
 	c->flags = sqlite3_column_int(stmt, 2);
 	cstr_copy_n(c->name_out, sizeof(c->name_out), (const char *)sqlite3_column_text(stmt, 3));
-	cstr_copy_n(c->description_out, sizeof(c->description_out), (const char *)sqlite3_column_text(stmt, 4));
+	cstr_copy_n(c->file_name_out, sizeof(c->file_name_out), (const char *)sqlite3_column_text(stmt, 4));
+	cstr_copy_n(c->description_out, sizeof(c->description_out), (const char *)sqlite3_column_text(stmt, 5));
 
-	ret = 0;
+	ret = 1;
 
 out1:
 	sqlite3_finalize(stmt);

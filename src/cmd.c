@@ -262,6 +262,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	if (ret < 0)
 		return 1;
 
+	log_debug("extern");
 	if (ret == 0)
 		return 0;
 
