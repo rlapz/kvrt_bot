@@ -109,7 +109,7 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 		return -1;
 
 	int ret = -1;
-	if (str_set_fmt(&str, "INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges) VALUES ") == NULL)
+	if (str_set(&str, "INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges) VALUES ") == NULL)
 		goto out0;
 
 	for (int i = 0; i < len; i++) {
@@ -309,7 +309,7 @@ model_sched_message_del(int32_t list[], int len, int64_t now)
 	if (str_init_alloc(&str, 1024) < 0)
 		return -1;
 
-	if (str_set_fmt(&str, "DELETE FROM Sched_Message WHERE (? >= next_run) AND id IN (") == NULL)
+	if (str_set(&str, "DELETE FROM Sched_Message WHERE (? >= next_run) AND id IN (") == NULL)
 		goto out0;
 
 	for (int i = 0; i < len; i++) {
@@ -320,8 +320,6 @@ model_sched_message_del(int32_t list[], int len, int64_t now)
 	str_pop(&str, 2);
 	if (str_append_n(&str, ");", 2) == NULL)
 		goto out0;
-
-	log_debug("%s", str.cstr);
 
 	DbConn *const conn = sqlite_pool_get();
 	if (conn == NULL)
@@ -747,7 +745,7 @@ out0:
 static const char *
 _chat_query(Str *str)
 {
-	return str_set_fmt(str,
+	return str_set(str,
 		"CREATE TABLE IF NOT EXISTS Chat(\n"
 		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
 		"	chat_id		BIGINT NOT Null,\n"
@@ -762,7 +760,7 @@ _chat_query(Str *str)
 static const char *
 _admin_query(Str *str)
 {
-	return str_set_fmt(str,
+	return str_set(str,
 		"CREATE TABLE IF NOT EXISTS Admin(\n"
 		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
 		"	chat_id		BIGINT NOT Null,\n"
@@ -839,7 +837,8 @@ _cmd_message_query(Str *str)
 		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
 		"	updated_by	BIGINT,\n"
 		"	updated_at	BIGINT\n"
-		");"
+		");",
+		MODEL_CMD_MESSAGE_NAME_SIZE, MODEL_CMD_MESSAGE_VALUE_SIZE
 	);
 }
 

@@ -65,6 +65,12 @@ char *cstr_concat_n(size_t count, ...);
 
 #define CSTR_CONCAT(...) cstr_concat_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 
+static inline const char *
+cstr_from_bool(int cond)
+{
+	return (cond != 0)? "true" : "false";
+}
+
 
 /*
  * SpaceTokenizer
@@ -111,6 +117,9 @@ typedef struct str {
 int   str_init(Str *s, char buffer[], size_t size);
 int   str_init_alloc(Str *s, size_t size);
 void  str_deinit(Str *s);
+char *str_set(Str *s, const char cstr[]);
+char *str_set_n(Str *s, const char cstr[], size_t len);
+char *str_append(Str *s, const char cstr[]);
 char *str_append_n(Str *s, const char cstr[], size_t len);
 char *str_append_c(Str *s, char c);
 char *str_set_fmt(Str *s, const char fmt[], ...);
@@ -139,16 +148,6 @@ void *cstr_map_get(CstrMap *c, const char key[]);
 
 
 /*
- * int
- */
-static inline int
-int64_is_bool(int64_t val)
-{
-	return ((val == 0) || (val == 1));
-}
-
-
-/*
  * misc
  */
 int val_is_null_and_n(size_t count, ...);
@@ -159,6 +158,12 @@ int val_is_null_or_n(size_t count, ...);
 
 int  args_parse(char *args[], unsigned size, unsigned *out_len, const char src[]);
 void args_free(char *args[], unsigned len);
+
+static inline int
+int64_is_bool(int64_t val)
+{
+	return ((val == 0) || (val == 1));
+}
 
 
 /*

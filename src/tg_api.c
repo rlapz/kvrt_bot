@@ -346,7 +346,7 @@ _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char
 	if (str_init_alloc(&str, 1024) < 0)
 		return ret;
 
-	if (str_set_fmt(&str, "{\"inline_keyboard\": [") == NULL)
+	if (str_set_n(&str, "{\"inline_keyboard\": [", 21) == NULL)
 		goto out0;
 
 	for (unsigned i = 0; i < kbds_len; i++) {
@@ -360,7 +360,7 @@ _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char
 				goto out0;
 
 			if (btn->data != NULL) {
-				if (str_append_fmt(&str, ", \"callback_data\": \"") == NULL)
+				if (str_append_n(&str, ", \"callback_data\": \"", 20) == NULL)
 					goto out0;
 
 				for (unsigned k = 0; k < btn->data_len; k++) {
@@ -385,7 +385,7 @@ _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char
 				if (btn->data_len > 0)
 					str_pop(&str, 1);
 
-				if (str_append_n(&str, "\"", 1) == NULL)
+				if (str_append_c(&str, '"') == NULL)
 					goto out0;
 			} else if (btn->url != NULL) {
 				if (str_append_fmt(&str, ", \"url\": \"%s\"", btn->url) == NULL)

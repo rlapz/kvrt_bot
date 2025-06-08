@@ -286,7 +286,6 @@ out0:
 }
 
 
-/* TODO: optimize */
 char *
 cstr_concat_n(size_t count, ...)
 {
@@ -440,8 +439,10 @@ _str_resize(Str *s, size_t slen)
 	if (slen < remn_size)
 		return 0;
 
-	if (s->is_alloc == 0)
+	if (s->is_alloc == 0) {
+		errno = ENOMEM;
 		return -1;
+	}
 
 	const size_t _rsize = (slen - remn_size) + size + 1;
 	char *const _new_cstr = realloc(s->cstr, _rsize);
@@ -495,15 +496,68 @@ str_deinit(Str *s)
 
 
 char *
+str_set(Str *s, const char cstr[])
+{
+	const size_t len = strlen(cstr);
+	if (len == 0) {
+		s->len = 0;
+		s->cstr[0] = '\0';
+		return s->cstr;
+	}
+
+	if (_str_resize(s, len) < 0)
+		return NULL;
+
+	memcpy(s->cstr, cstr, len + 1);
+	s->len = len;
+	return s->cstr;
+}
+
+
+char *
+str_set_n(Str *s, const char cstr[], size_t len)
+{
+	if (len == 0) {
+		s->len = 0;
+		s->cstr[0] = '\0';
+		return s->cstr;
+	}
+
+	if (_str_resize(s, len) < 0)
+		return NULL;
+
+	memcpy(s->cstr, cstr, len);
+	s->len = len;
+	s->cstr[len] = '\0';
+	return s->cstr;
+}
+
+
+char *
+str_append(Str *s, const char cstr[])
+{
+	const size_t cstr_len = strlen(cstr);
+	if (cstr_len == 0)
+		return s->cstr;
+
+	if (_str_resize(s, cstr_len) < 0)
+		return NULL;
+
+	const size_t len = s->len;
+	memcpy(s->cstr + len, cstr, cstr_len + 1);
+	s->len = len + cstr_len;
+	return s->cstr;
+}
+
+
+char *
 str_append_n(Str *s, const char cstr[], size_t len)
 {
 	if (len == 0)
 		return s->cstr;
 
-	if (_str_resize(s, len) < 0) {
-		errno = ENOMEM;
+	if (_str_resize(s, len) < 0)
 		return NULL;
-	}
 
 	size_t slen = s->len;
 	memcpy(s->cstr + slen, cstr, len);
@@ -518,10 +572,8 @@ str_append_n(Str *s, const char cstr[], size_t len)
 char *
 str_append_c(Str *s, char c)
 {
-	if (_str_resize(s, 1) < 0) {
-		errno = ENOMEM;
+	if (_str_resize(s, 1) < 0)
 		return NULL;
-	}
 
 	size_t slen = s->len;
 	s->cstr[slen] = c;
@@ -557,10 +609,8 @@ str_set_fmt(Str *s, const char fmt[], ...)
 		return s->cstr;
 	}
 
-	if (_str_resize(s, cstr_len) < 0) {
-		errno = ENOMEM;
+	if (_str_resize(s, cstr_len) < 0)
 		return NULL;
-	}
 
 	va_start(va, fmt);
 	ret = vsnprintf(s->cstr, cstr_len + 1, fmt, va);
@@ -594,10 +644,8 @@ str_append_fmt(Str *s, const char fmt[], ...)
 	if (cstr_len == 0)
 		return s->cstr;
 
-	if (_str_resize(s, cstr_len) < 0) {
-		errno = ENOMEM;
+	if (_str_resize(s, cstr_len) < 0)
 		return NULL;
-	}
 
 	size_t len = s->len;
 	va_start(va, fmt);
