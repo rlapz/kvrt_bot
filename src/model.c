@@ -302,14 +302,14 @@ out0:
 
 
 int
-model_sched_message_del(int32_t list[], int len, int64_t now)
+model_sched_message_del(int32_t list[], int len)
 {
 	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		return -1;
 
-	if (str_set(&str, "DELETE FROM Sched_Message WHERE (? >= next_run) AND id IN (") == NULL)
+	if (str_set(&str, "DELETE FROM Sched_Message WHERE id IN (") == NULL)
 		goto out0;
 
 	for (int i = 0; i < len; i++) {
@@ -332,10 +332,8 @@ model_sched_message_del(int32_t list[], int len, int64_t now)
 		goto out1;
 	}
 
-	int param_count = 1;
-	sqlite3_bind_int64(stmt, param_count++, now);
 	for (int i = 0; i < len; i++)
-		sqlite3_bind_int(stmt, param_count++, list[i]);
+		sqlite3_bind_int(stmt, i + 1, list[i]);
 
 	if (_sqlite_step_one(stmt) < 0)
 		goto out2;

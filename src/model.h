@@ -86,7 +86,7 @@ typedef struct model_sched_message {
 } ModelSchedMessage;
 
 int model_sched_message_get_list(ModelSchedMessage *list[], int len, int64_t now);
-int model_sched_message_del(int32_t list[], int len, int64_t now);
+int model_sched_message_del(int32_t list[], int len);
 int model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s);
 int model_sched_message_delete(const ModelSchedMessage *s, int64_t interval_s);
 
