@@ -77,8 +77,6 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 int
 message_list_init(MessageList *l, const char args[])
 {
-	assert(l->msg != NULL);
-
 	/* not a callback */
 	if (l->id_callback == NULL) {
 		l->page = 1;
@@ -123,11 +121,11 @@ message_list_init(MessageList *l, const char args[])
 	if (timer == 0) {
 		int should_delete = 1;
 		if (l->id_user != from_id)
-			should_delete = is_admin(l->id_user, l->msg->chat.id, &l->id_owner);
+			should_delete = is_admin(l->id_user, l->id_chat, &l->id_owner);
 
 		if (should_delete) {
 			tg_api_answer_callback_query(l->id_callback, "Deleted", NULL, 0);
-			tg_api_delete_message(l->msg->chat.id, l->msg->id);
+			tg_api_delete_message(l->id_chat, l->id_message);
 			return -3;
 		}
 
@@ -215,9 +213,9 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 		return ret;
 
 	if (l->id_callback == NULL)
-		ret = tg_api_send_inline_keyboard(l->msg->chat.id, l->msg->id, body_list, &kbds, 1, ret_id);
+		ret = tg_api_send_inline_keyboard(l->id_chat, l->id_message, body_list, &kbds, 1, ret_id);
 	else
-		ret = tg_api_edit_inline_keyboard(l->msg->chat.id, l->msg->id, body_list, &kbds, 1, ret_id);
+		ret = tg_api_edit_inline_keyboard(l->id_chat, l->id_message, body_list, &kbds, 1, ret_id);
 
 	free(body_list);
 	return ret;

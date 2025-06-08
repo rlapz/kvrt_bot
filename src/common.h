@@ -48,13 +48,14 @@ typedef struct message_list_pagination {
 } MessageListPagination;
 
 typedef struct message_list {
-	int64_t          id_user;
-	int64_t          id_owner;
-	const char      *id_callback;	/* NULL: not a callback */
-	const char      *ctx;
-	const char      *title;
-	const char      *body;
-	const TgMessage *msg;
+	int64_t     id_user;
+	int64_t     id_owner;
+	int64_t     id_chat;
+	int64_t     id_message;
+	const char *id_callback;	/* NULL: not a callback */
+	const char *ctx;
+	const char *title;
+	const char *body;
 
 	/* filled by message_list_init() */
 	int64_t     created_by;

@@ -15,6 +15,7 @@ typedef struct cmd_param {
 	int64_t          id_owner;
 	int64_t          id_user;
 	int64_t          id_chat;
+	int64_t          id_message;
 	const char      *id_callback;	/* NULL: not a callback */
 	const char      *bot_username;
 	const TgMessage *msg;

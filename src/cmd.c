@@ -99,7 +99,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 	if ((is_cb == 0) && _exec_cmd_message(cmd))
 		return;
 
-	const int cflags = model_chat_get_flags(cmd->msg->chat.id);
+	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
 		send_text_plain(cmd->msg, "Failed to get chat flags");
 		return;
@@ -246,9 +246,9 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 	if (_verify(c, chat_flags, handler->flags) == 0)
 		return 1;
 
-	const int64_t from_id = (c->msg->from)? c->msg->from->id : -1;
 	log_info("cmd: _exec_builtin: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s: %p",
-		 c->msg->chat.id, from_id, c->msg->id, handler->name, handler->callback_fn);
+		 c->id_chat, c->id_user, c->id_message, handler->name, handler->callback_fn);
+
 	handler->callback_fn(c);
 	return 1;
 }
@@ -261,7 +261,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
 		return 1;
 
-	const int ret = model_cmd_extern_get_one(&ce, c->msg->chat.id, c->name);
+	const int ret = model_cmd_extern_get_one(&ce, c->id_chat, c->name);
 	if (ret < 0)
 		return 1;
 
@@ -284,16 +284,15 @@ static int
 _exec_cmd_message(const CmdParam *c)
 {
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
-	const int ret = model_cmd_message_get_value(c->msg->chat.id, c->name, value, LEN(value));
+	const int ret = model_cmd_message_get_value(c->id_chat, c->name, value, LEN(value));
 	if (ret < 0)
 		return 1;
 
 	if (ret == 0)
 		return 0;
 
-	const int64_t from_id = (c->msg->from)? c->msg->from->id : -1;
 	log_info("cmd: _exec_cmd_message: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
-		 c->msg->chat.id, from_id, c->msg->id, c->name);
+		 c->id_chat, c->id_user, c->msg->id, c->name);
 
 	send_text_format(c->msg, value);
 	return 1;

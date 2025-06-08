@@ -66,9 +66,10 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	int is_err = 1;
 	MessageList list = {
 		.ctx = cmd->name,
-		.msg = cmd->msg,
 		.id_user = cmd->id_user,
 		.id_owner = cmd->id_owner,
+		.id_chat = cmd->id_chat,
+		.id_message = cmd->msg->id,
 		.id_callback = cmd->id_callback,
 	};
 

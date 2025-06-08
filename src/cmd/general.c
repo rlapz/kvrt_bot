@@ -36,9 +36,10 @@ cmd_general_help(const CmdParam *cmd)
 	MessageList list = {
 		.id_user = cmd->id_user,
 		.id_owner = cmd->id_owner,
+		.id_chat = cmd->id_chat,
+		.id_message = cmd->msg->id,
 		.id_callback = cmd->id_callback,
 		.ctx = cmd->name,
-		.msg = cmd->msg,
 		.title = "Command list",
 	};
 

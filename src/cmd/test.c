@@ -75,9 +75,10 @@ void
 cmd_test_list(const CmdParam *cmd)
 {
 	MessageList list = {
+		.id_chat = cmd->id_chat,
+		.id_message = cmd->msg->id,
 		.body = "test",
 		.ctx = "/test_list",
-		.msg = cmd->msg,
 		.title = "Test List",
 		.udata = "",
 	};
