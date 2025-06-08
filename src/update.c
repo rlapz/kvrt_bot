@@ -128,13 +128,14 @@ _handle_member_new(Update *u, const TgMessage *msg)
 	}
 
 	if (model_admin_get_privilegs(chat_id, u->id_bot) > 0) {
-		ModelSchedMessage schd = {
+		const ModelSchedMessage schd = {
+			.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
 			.chat_id = chat_id,
 			.message_id = msg->id,
 			.expire = 5,
 		};
 
-		if (model_sched_message_delete(&schd, 3) <= 0)
+		if (model_sched_message_add(&schd, 3) <= 0)
 			tg_api_delete_message(chat_id, msg->id);
 	}
 
@@ -163,8 +164,14 @@ _handle_member_new(Update *u, const TgMessage *msg)
 	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, NULL, str.cstr, &ret_id) < 0)
 		goto out2;
 
-	const ModelSchedMessage schd = { .chat_id = chat_id, .message_id = ret_id, .expire = 5 };
-	model_sched_message_delete(&schd, 10);
+	const ModelSchedMessage schd = {
+		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+		.chat_id = chat_id,
+		.message_id = ret_id,
+		.expire = 5
+	};
+
+	model_sched_message_add(&schd, 10);
 
 out2:
 	free(fname_e);
@@ -185,8 +192,14 @@ _handle_member_leave(Update *u, const TgMessage *msg)
 	if (model_admin_get_privilegs(msg->chat.id, u->id_bot) <= 0)
 		return;
 
-	const ModelSchedMessage schd = { .chat_id = msg->chat.id, .message_id = msg->id, .expire = 5 };
-	if (model_sched_message_delete(&schd, 3) <= 0)
+	const ModelSchedMessage schd = {
+		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+		.chat_id = msg->chat.id,
+		.message_id = msg->id,
+		.expire = 5
+	};
+
+	if (model_sched_message_add(&schd, 3) <= 0)
 		tg_api_delete_message(msg->chat.id, msg->id);
 }
 

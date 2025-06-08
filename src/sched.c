@@ -115,7 +115,7 @@ _handler(void *ctx, void *udata)
 	is_err = 0;
 
 out1:
-	model_sched_message_del(id_list, count);
+	model_sched_message_delete(id_list, count);
 	for (int j = 0; (j < count) && (is_err); j++)
 		free(msg_list[j]);
 out0:

@@ -302,7 +302,7 @@ out0:
 
 
 int
-model_sched_message_del(int32_t list[], int len)
+model_sched_message_delete(int32_t list[], int len)
 {
 	int ret = -1;
 	Str str;
@@ -328,7 +328,7 @@ model_sched_message_del(int32_t list[], int len)
 	sqlite3_stmt *stmt;
 	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_sched_message_del: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		log_err(0, "model: model_sched_message_delete: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out1;
 	}
 
@@ -351,20 +351,26 @@ out0:
 
 
 int
-model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s)
+model_sched_message_add(const ModelSchedMessage *s, int64_t interval_s)
 {
-	if (cstr_is_empty(s->value_in)) {
-		log_err(0, "model: model_sched_message_send: value is empty");
+	const int type = s->type;
+	if ((type < MODEL_SCHED_MESSAGE_TYPE_SEND) || (type >= _MODEL_SCHED_MESSAGE_TYPE_SIZE)) {
+		log_err(0, "model: model_sched_message_add: invalid type");
 		return -1;
 	}
 
 	if (s->expire < 5) {
-		log_err(0, "model: model_sched_message_send: invalid expiration time");
+		log_err(0, "model: model_sched_message_add: invalid expiration time");
 		return -1;
 	}
 
 	if (interval_s <= 0) {
-		log_err(0, "model: model_sched_message_send: invalid interval");
+		log_err(0, "model: model_sched_message_add: invalid interval");
+		return -1;
+	}
+
+	if ((type == MODEL_SCHED_MESSAGE_TYPE_SEND) && cstr_is_empty(s->value_in)) {
+		log_err(0, "model: model_sched_message_add: value is empty");
 		return -1;
 	}
 
@@ -381,68 +387,21 @@ model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s)
 
 	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_sched_message_send: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		log_err(0, "model: model_sched_message_add: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
 	int i = 1;
-	sqlite3_bind_int(stmt, i++, MODEL_SCHED_MESSAGE_TYPE_SEND);
+	sqlite3_bind_int(stmt, i++, s->type);
 	sqlite3_bind_int64(stmt, i++, s->chat_id);
 	sqlite3_bind_int64(stmt, i++, s->message_id);
-	sqlite3_bind_text(stmt, i++, s->value_in, -1, NULL);
+	if (type == MODEL_SCHED_MESSAGE_TYPE_SEND)
+		sqlite3_bind_text(stmt, i++, s->value_in, -1, NULL);
+	else
+		sqlite3_bind_null(stmt, i++);
+
 	sqlite3_bind_int64(stmt, i++, time(NULL) + interval_s);
 	sqlite3_bind_int64(stmt, i, s->expire);
-
-	if (_sqlite_step_one(stmt) < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
-}
-
-
-int
-model_sched_message_delete(const ModelSchedMessage *s, int64_t interval_s)
-{
-	if (s->expire < 5) {
-		log_err(0, "model: model_sched_message_delete: invalid expiration time");
-		return -1;
-	}
-
-	if (interval_s <= 0) {
-		log_err(0, "model: model_sched_message_delete: invalid interval");
-		return -1;
-	}
-
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
-
-	const char *const query =
-		"INSERT INTO Sched_Message(type, chat_id, message_id, next_run, expire) "
-		"VALUES(?, ?, ?, ?, ?);";
-
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_sched_message_delete: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	int i = 1;
-	sqlite3_bind_int(stmt, i++, MODEL_SCHED_MESSAGE_TYPE_DELETE);
-	sqlite3_bind_int64(stmt, i++, s->chat_id);
-	sqlite3_bind_int64(stmt, i++, s->message_id);
-	sqlite3_bind_int64(stmt, i++, time(NULL) + interval_s);
-	sqlite3_bind_int64(stmt, i, s->expire);
-
 	if (_sqlite_step_one(stmt) < 0)
 		goto out1;
 

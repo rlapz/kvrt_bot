@@ -68,6 +68,8 @@ int model_admin_get_privilegs(int64_t chat_id, int64_t user_id);
 enum {
 	MODEL_SCHED_MESSAGE_TYPE_SEND = 0,
 	MODEL_SCHED_MESSAGE_TYPE_DELETE,
+
+	_MODEL_SCHED_MESSAGE_TYPE_SIZE,
 };
 
 #define MODEL_SCHED_MESSAGE_VALUE_SIZE (8194)
@@ -86,9 +88,8 @@ typedef struct model_sched_message {
 } ModelSchedMessage;
 
 int model_sched_message_get_list(ModelSchedMessage *list[], int len, int64_t now);
-int model_sched_message_del(int32_t list[], int len);
-int model_sched_message_send(const ModelSchedMessage *s, int64_t interval_s);
-int model_sched_message_delete(const ModelSchedMessage *s, int64_t interval_s);
+int model_sched_message_delete(int32_t list[], int len);
+int model_sched_message_add(const ModelSchedMessage *s, int64_t interval_s);
 
 
 /*
