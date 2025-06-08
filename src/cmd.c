@@ -12,22 +12,25 @@
 
 /*
  * CmdExtern child process argument list:
- * 	CMD:
- * 		0: Executable file
- * 		1: Exec type "cmd"
- * 		2: Chat ID
- * 		3: User ID
- * 		4: Message ID
- * 		5: Chat text
- * 		6: Raw JSON
- * 	Callback:
- * 		0: Executable file
- * 		1: Exec type "callback"
- * 		2: Callback ID
- * 		3: Chat ID
- * 		4: User ID
- *              5: Message ID
- * 		6-n: User data
+ * CMD:
+ * 	0: Executable file
+ * 	1: CMD Name
+ * 	2: Exec type "cmd"
+ * 	3: Chat ID
+ * 	4: User ID
+ * 	5: Message ID
+ * 	6: Chat text
+ * 	7: Raw JSON
+ *
+ * Callback:
+ * 	0: Executable file
+ * 	1: CMD Name
+ * 	2: Exec type "callback"
+ * 	3: Callback ID
+ * 	4: Chat ID
+ * 	5: User ID
+ * 	6: Message ID
+ * 	7-n: User data
  */
 
 #define _CMD_EXTERN_ARGS_SIZE (16)
@@ -324,13 +327,14 @@ _spawn_child_process(const CmdParam *c, const char file_name[])
 {
 	const int is_callback = (c->id_callback != NULL);
 
-	/* +3 = (executable file + flag(CMD/CALLBACK) + NULL) */
-	char *argv[_CMD_EXTERN_ARGS_SIZE + 3] = {
+	/* +4 = (executable file + command name + flag(CMD/CALLBACK) + NULL) */
+	char *argv[_CMD_EXTERN_ARGS_SIZE + 4] = {
 		[0] = (char *)file_name,
-		[1] = (is_callback)? "callback" : "cmd",
+		[1] = (char *)c->name,
+		[2] = (is_callback)? "callback" : "cmd",
 	};
 
-	int i = 2;
+	int i = 3;
 	if (is_callback)
 		argv[i++] = (char *)c->id_callback;
 

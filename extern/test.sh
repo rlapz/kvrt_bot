@@ -7,21 +7,24 @@
 #-------------------------------------------------------------------
 # Child process argument list (this file):
 # CMD:
-#	0: Executable file
-#	1: Exec type "cmd"
-#	2: Chat ID
-#	3: User ID
-#	4: Message ID
-#	5: Chat text
-#	6: Raw JSON
+# 	0: Executable file
+# 	1: CMD Name
+# 	2: Exec type "cmd"
+# 	3: Chat ID
+# 	4: User ID
+# 	5: Message ID
+# 	6: Chat text
+# 	7: Raw JSON
+#
 # Callback:
-#	0: Executable file
-#	1: Exec type "callback"
-#	2: Callback ID
-#	3: Chat ID
-#	4: User ID
-#	5: Message ID
-#	6-n: User data
+# 	0: Executable file
+# 	1: CMD Name
+# 	2: Exec type "callback"
+# 	3: Callback ID
+# 	4: Chat ID
+# 	5: User ID
+# 	6: Message ID
+# 	7-n: User data
 #
 #-------------------------------------------------------------------
 # "api" argument list (to send a request)
@@ -56,14 +59,22 @@
 #
 
 
-echo "/test" 0 "$TG_API" "$TG_API_SECRET_KEY" "$BOT_ID" "$OWNER_ID" "$@"
+echo "Executable file: $0"
+echo "CMD Name       : $1"
+echo "Exec type      : $2"
+echo "Chat ID        : $3"
+echo "User ID        : $4"
+echo "Message ID     : $5"
+echo "Text           : $6"
+echo "Raw JSON       : $7"
 
 # Example (send plain text)
 #
 # ./api [CMD Name] [API_TYPE_PLAIN] [Telegram API + Token] [Telegram secret key] [Bot ID]  [Owner ID]  [Chat ID] [Message ID] [Text]
-./api   "/test"    0                "$TG_API"              "$TG_API_SECRET_KEY"  "$BOT_ID" "$OWNER_ID" $2        $4           "hello world! from \"$0\""
+./api   "/test"    0                "$TG_API"              "$TG_API_SECRET_KEY"  "$BOT_ID" "$OWNER_ID" $3        $5           "hello world! from \"$1:$0\""
 
 
 # print the 6-th argument: Raw JSON (see: Child process argument list)
-echo "$6" | jq
+echo "$7" | jq
 
+echo "---------------------------------------------------------------"
