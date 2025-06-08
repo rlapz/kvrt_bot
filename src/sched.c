@@ -12,7 +12,6 @@
 #include "util.h"
 
 
-static void _reset(Sched *s);
 static void _spawn_handler(EvCtx *ctx);
 static void _handler(void *ctx, void *udata);
 static void _run_task(void *ctx, void *udata);
@@ -24,16 +23,15 @@ static void _run_task(void *ctx, void *udata);
 int
 sched_init(Sched *s, time_t timeout_s)
 {
-	const int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
+	const int fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (fd < 0) {
 		log_err(errno, "sched: sched_init: timerfd_create");
 		return -1;
 	}
 
 	const struct itimerspec timerspec = {
-		.it_value = (struct timespec) {
-			.tv_sec = timeout_s,
-		},
+		.it_value = (struct timespec) { .tv_sec = timeout_s },
+		.it_interval = (struct timespec) { .tv_sec = timeout_s },
 	};
 
 	if (timerfd_settime(fd, 0, &timerspec, NULL) < 0) {
@@ -69,20 +67,6 @@ sched_deinit(const Sched *s)
  * Private
  */
 static void
-_reset(Sched *s)
-{
-	const struct itimerspec timerspec = {
-		.it_value = (struct timespec) {
-			.tv_sec = s->timeout_s,
-		},
-	};
-
-	if (timerfd_settime(s->ctx.fd, 0, &timerspec, NULL) < 0)
-		log_err(errno, "sched: _reset: timerfd_settime");
-}
-
-
-static void
 _spawn_handler(EvCtx *ctx)
 {
 	Sched *const s = FIELD_PARENT_PTR(Sched, ctx, ctx);
@@ -91,22 +75,18 @@ _spawn_handler(EvCtx *ctx)
 	const ssize_t rd = read(ctx->fd, &timer, sizeof(timer));
 	if (rd < 0) {
 		log_err(errno, "sched: _spawn_handler: read");
-		goto out0;
+		return;
 	}
 
 	if (rd != sizeof(timer)) {
 		log_err(errno, "sched: _spawn_handler: read: invalid size: [%zu:%zu]", rd, sizeof(timer));
-		goto out0;
+		return;
 	}
 
 	/* only 1 thread could call _handler */
 	bool expected = true;
-	bool desired = false;
-	if (atomic_compare_exchange_strong(&s->is_ready, &expected, desired))
+	if (atomic_compare_exchange_strong(&s->is_ready, &expected, false))
 		thrd_pool_add_job(_handler, s, NULL);
-
-out0:
-	_reset(s);
 }
 
 

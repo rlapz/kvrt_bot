@@ -31,7 +31,6 @@ static Ev _instance = { .fd = -1 };
 static void _signal_handler(EvCtx *c);
 static void _listener_handler(EvCtx *c);
 static void _timer_handler(EvCtx *c);
-static int  _timer_reset(EvTimer *t);
 
 
 /*
@@ -231,9 +230,8 @@ ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t 
 	}
 
 	const struct itimerspec timerspec = {
-		.it_value = (struct timespec) {
-			.tv_sec = timeout_s,
-		},
+		.it_value = (struct timespec) { .tv_sec = timeout_s },
+		.it_interval = (struct timespec) { .tv_sec = timeout_s },
 	};
 
 	if (timerfd_settime(fd, 0, &timerspec, NULL) < 0) {
@@ -319,18 +317,4 @@ _timer_handler(EvCtx *c)
 		err = errno;
 
 	t->callback_fn(t->udata, err);
-	_timer_reset(t);
-}
-
-
-static int
-_timer_reset(EvTimer *t)
-{
-	const struct itimerspec timerspec = {
-		.it_value = (struct timespec) {
-			.tv_sec = t->timeout_s,
-		},
-	};
-
-	return timerfd_settime(t->ctx.fd, 0, &timerspec, NULL);
 }

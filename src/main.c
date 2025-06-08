@@ -558,7 +558,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out1;
 
-	ret = ev_timer_init(&timer, _server_on_timer, s, 1);
+	ret = ev_timer_init(&timer, _server_on_timer, s, 5);
 	if (ret < 0)
 		goto out2;
 
