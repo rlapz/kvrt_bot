@@ -475,17 +475,15 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		return -1;
 	}
 
-#if (CFG_CHLD_IMPORT_SYS_ENVP == 1)
-	char **envp_ptr = envp;
-	while (*envp_ptr != NULL) {
-		if (chld_add_env(*envp_ptr) < 0)
-			goto err0;
+	if (cfg->sys.import_sys_envp) {
+		char **envp_ptr = envp;
+		while (*envp_ptr != NULL) {
+			if (chld_add_env(*envp_ptr) < 0)
+				goto err0;
 
-		envp_ptr++;
+			envp_ptr++;
+		}
 	}
-#else
-	(void)envp;
-#endif
 
 	char buff[4096];
 	const char *const root_dir = getcwd(buff, LEN(buff));

@@ -9,6 +9,7 @@
 /* default */
 #define CFG_DEF_LISTEN_HOST         "127.0.0.1"
 #define CFG_DEF_LISTEN_PORT         (22224)
+#define CFG_DEF_SYS_IMPORT_SYS_ENVP (0)
 #define CFG_DEF_SYS_WORKER_SIZE     4
 #define CFG_DEF_SYS_DB_FILE         "./db.sqlite"
 #define CFG_DEF_CMD_EXTERN_PATH     "./extern"
@@ -28,7 +29,6 @@
 #define CFG_CMD_BUILTIN_MAP_SIZE      (1024)
 #define CFG_CHLD_ITEMS_SIZE           (256)
 #define CFG_CHLD_ENVP_SIZE            (128)
-#define CFG_CHLD_IMPORT_SYS_ENVP      (0)
 
 #define CFG_ENV_ROOT_DIR            "ROOT_DIR"
 #define CFG_ENV_TELEGRAM_API        "TG_API"
@@ -74,6 +74,7 @@ typedef struct config {
 		int  port;
 	} listen;
 	struct {
+		int      import_sys_envp;
 		unsigned worker_size;
 		int      db_pool_conn_size;
 		char     db_file[CFG_SYS_DB_FILE_SIZE];

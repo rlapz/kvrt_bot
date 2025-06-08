@@ -321,6 +321,18 @@ cstr_concat_n(size_t count, ...)
 }
 
 
+int
+cstr_to_bool(const char cstr[])
+{
+	if (cstr_casecmp(cstr, "true"))
+		return 1;
+	if (cstr_casecmp(cstr, "false"))
+		return 0;
+
+	return -1;
+}
+
+
 /*
  * SpaceTokenizer
  */

@@ -71,6 +71,8 @@ cstr_from_bool(int cond)
 	return (cond != 0)? "true" : "false";
 }
 
+int cstr_to_bool(const char cstr[]);
+
 
 /*
  * SpaceTokenizer

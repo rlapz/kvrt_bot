@@ -323,6 +323,7 @@ out0:
 static void
 _parse_sys(Config *c, json_object *obj)
 {
+	int import_envp = CFG_DEF_SYS_IMPORT_SYS_ENVP;
 	unsigned worker_size = CFG_DEF_SYS_WORKER_SIZE;
 	const char *db_file = CFG_DEF_SYS_DB_FILE;
 	int db_pool_conn_size = CFG_DEF_DB_CONN_POOL_SIZE;
@@ -332,6 +333,12 @@ _parse_sys(Config *c, json_object *obj)
 		goto out0;
 
 	json_object *tmp_obj;
+	if (json_object_object_get_ex(sys_obj, "import_sys_envp", &tmp_obj) != 0) {
+		const char *const bool_type = (const char *)json_object_get_string(tmp_obj);
+		import_envp = cstr_to_bool(bool_type);
+		import_envp = (import_envp < 0)? 0 : import_envp;
+	}
+
 	if (json_object_object_get_ex(sys_obj, "worker_size", &tmp_obj) != 0)
 		worker_size = (unsigned)json_object_get_uint64(tmp_obj);
 
@@ -348,6 +355,7 @@ _parse_sys(Config *c, json_object *obj)
 	}
 
 out0:
+	c->sys.import_sys_envp = import_envp;
 	c->sys.worker_size = worker_size;
 	c->sys.db_pool_conn_size = db_pool_conn_size;
 	cstr_copy_n(c->sys.db_file, CFG_SYS_DB_FILE_SIZE, db_file);
