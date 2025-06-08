@@ -28,7 +28,7 @@
 #define CFG_CMD_BUILTIN_MAP_SIZE      (1024)
 #define CFG_CHLD_ITEMS_SIZE           (256)
 #define CFG_CHLD_ENVP_SIZE            (128)
-#define CFG_CHLD_IMPORT_SYS_ENVP      (1)
+#define CFG_CHLD_IMPORT_SYS_ENVP      (0)
 
 #define CFG_ENV_ROOT_DIR            "ROOT_DIR"
 #define CFG_ENV_TELEGRAM_API        "TG_API"
