@@ -34,7 +34,7 @@ typedef struct anime_sched_item {
 	const char *type;
 	const char *source;
 	unsigned    episodes;
-	const char *status;
+	const char *broadcast;
 	const char *duration;
 	const char *rating;
 	double      score;
@@ -153,9 +153,9 @@ _anime_sched_get_list(const char filter[], unsigned limit, unsigned page, int sh
 	if (str_init_alloc(&str, 1024) < 0)
 		return ret;
 
-	const char *const req = str_set_fmt(&str, "%s?page=%u&filter=%s&limit=%u&kids=false&swf=%s",
+	const char *const req = str_set_fmt(&str, "%s?page=%u&filter=%s&limit=%u&kids=false&sfw=%s",
 					    _ANIME_SCHED_BASE_URL, page, filter, limit,
-					    ((show_nsfw)? "true" : "false"));
+					    cstr_from_bool(show_nsfw));
 	if (req == NULL)
 		goto out0;
 
@@ -240,8 +240,12 @@ _anime_sched_parse(AnimeSched *a, json_object *obj)
 			item->source = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "episodes", &tmp_obj))
 			item->episodes = (unsigned)json_object_get_int(tmp_obj);
-		if (json_object_object_get_ex(_obj, "status", &tmp_obj))
-			item->status = json_object_get_string(tmp_obj);
+
+		if (json_object_object_get_ex(_obj, "broadcast", &tmp_obj)) {
+			if (json_object_object_get_ex(tmp_obj, "string", &tmp_obj))
+				item->broadcast = json_object_get_string(tmp_obj);
+		}
+
 		if (json_object_object_get_ex(_obj, "duration", &tmp_obj))
 			item->duration = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "rating", &tmp_obj))
@@ -315,12 +319,12 @@ _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
 		str_append_fmt(&str, "Source   : %s\n", cstr_empty_if_null(item->source));
 		str_append_fmt(&str, "Duration : %s\n", cstr_empty_if_null(item->duration));
 		str_append_fmt(&str, "Score    : %.2f\n", item->score);
-		str_append_fmt(&str, "Status   : %s\n", cstr_empty_if_null(item->status));
+		str_append_fmt(&str, "Broadcast: %s\n", cstr_empty_if_null(item->broadcast));
 		str_append_fmt(&str, "Rating   : %s\n", cstr_empty_if_null(item->rating));
 
 		const char *const *tmp = item->genres;
 		if (*tmp != NULL) {
-			str_append_fmt(&str, "Genres   : ");
+			str_append(&str, "Genres   : ");
 			while (*tmp != NULL)
 				str_append_fmt(&str, "%s, ", (*tmp++));
 
@@ -330,7 +334,7 @@ _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
 
 		tmp = item->themes;
 		if (*tmp != NULL) {
-			str_append_fmt(&str, "Themes   : ");
+			str_append(&str, "Themes   : ");
 			while (*tmp != NULL)
 				str_append_fmt(&str, "%s, ", (*tmp++));
 
@@ -340,7 +344,7 @@ _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
 
 		tmp = item->demographics;
 		if (*tmp != NULL) {
-			str_append_fmt(&str, "Dgraphics: ");
+			str_append(&str, "Dgraphics: ");
 			while (*tmp != NULL)
 				str_append_fmt(&str, "%s, ", (*tmp++));
 
