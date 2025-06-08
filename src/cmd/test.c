@@ -43,7 +43,7 @@ cmd_test_sched(const CmdParam *cmd)
 	const char *const ss = str_set_fmt(&str, "Success! Scheduled for %lus.", timeout_s);
 
 	int64_t ret_id;
-	if (tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, ss, &ret_id) < 0)
+	if (tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, ss, &ret_id) < 0)
 		return;
 
 	ModelSchedMessage del = {

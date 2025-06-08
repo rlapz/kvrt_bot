@@ -215,7 +215,7 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 		return ret;
 
 	if (l->id_callback == NULL)
-		ret = tg_api_send_inline_keyboard(l->msg->chat.id, &l->msg->id, body_list, &kbds, 1, ret_id);
+		ret = tg_api_send_inline_keyboard(l->msg->chat.id, l->msg->id, body_list, &kbds, 1, ret_id);
 	else
 		ret = tg_api_edit_inline_keyboard(l->msg->chat.id, l->msg->id, body_list, &kbds, 1, ret_id);
 

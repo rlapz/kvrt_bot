@@ -3,6 +3,7 @@
 
 #include "api.h"
 
+#include "../src/common.h"
 #include "../src/tg_api.h"
 #include "../src/util.h"
 
@@ -24,7 +25,7 @@
  * API_TYPE_LIST:
  * 	arg[7]: Chat ID
  * 	arg[8]: User ID
- * 	arg[9]: Message ID
+ * 	arg[9]: Message ID	-> 0: no reply
  * 	arg[10]: Callback ID	-> "empty string: Not a callback"
  * 	arg[11]: Context name
  * 	arg[12]: Title
@@ -34,7 +35,7 @@
  *	arg[7]: Callback ID
  *	arg[8]: Is Text?	-> 0: URL, 1: Text
  *	arg[9]: Text/URL
- *	arg[10]: Show alert?	-> 0: True, 1: False
+ *	arg[10]: Show alert?	-> 0: False, 1: True
  */
 
 
@@ -296,7 +297,7 @@ _exec_answer_callback(const Args *args)
 	}
 
 	int64_t show_alert;
-	if ((cstr_to_int64(args->user_data[1], &show_alert) < 0) || (int64_is_bool(show_alert) == 0)) {
+	if ((cstr_to_int64(args->user_data[3], &show_alert) < 0) || (int64_is_bool(show_alert) == 0)) {
 		log_err(EINVAL, "api: _exec_send_text: invalid \"Show Alert\" value");
 		return -1;
 	}
@@ -312,11 +313,50 @@ _exec_answer_callback(const Args *args)
 static int
 _exec_send_list(const Args *args)
 {
-	log_debug("cmd name     : %s", args->cmd_name);
-	log_debug("api type     : %d", args->api_type);
-	log_debug("tg api       : %s", args->tg_api);
-	log_debug("tg api secret: %s", args->tg_api_secret_key);
-	log_debug("bot id       : %" PRIi64, args->tg_tg_bot_id);
-	log_debug("owner id     : %" PRIi64, args->tg_tg_owner_id);
+	if (args->user_data_len != 7) {
+		log_err(EINVAL, "api: _exec_send_list: invalid argument length");
+		return -1;
+	}
+
+	int64_t chat_id;
+	if (cstr_to_int64(args->user_data[0], &chat_id) < 0) {
+		log_err(EINVAL, "api: _exec_send_list: invalid \"Chat ID\" value");
+		return -1;
+	}
+
+	int64_t user_id;
+	if (cstr_to_int64(args->user_data[1], &user_id) < 0) {
+		log_err(EINVAL, "api: _exec_send_list: invalid \"User ID\" value");
+		return -1;
+	}
+
+	int64_t message_id;
+	if (cstr_to_int64(args->user_data[2], &message_id) < 0) {
+		log_err(EINVAL, "api: _exec_send_list: invalid \"Message ID\" value");
+		return -1;
+	}
+
+	const char *const callback_id = cstr_null_if_empty(args->user_data[3]);
+
+	const char *const context = args->user_data[4];
+	if (cstr_is_empty(context)) {
+		log_err(EINVAL, "api: _exec_answer_callback: \"Context Name\" is empty");
+		return -1;
+	}
+
+	const char *const title = args->user_data[5];
+	if (cstr_is_empty(title)) {
+		log_err(EINVAL, "api: _exec_answer_callback: \"Title\" is empty");
+		return -1;
+	}
+
+	const char *const body = args->user_data[6];
+	if (cstr_is_empty(body)) {
+		log_err(EINVAL, "api: _exec_answer_callback: \"Body\" is empty");
+		return -1;
+	}
+
+
+	/* TODO */
 	return 0;
 }

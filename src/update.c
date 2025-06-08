@@ -161,7 +161,7 @@ _handle_member_new(Update *u, const TgMessage *msg)
 		goto out2;
 
 	int64_t ret_id;
-	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, NULL, str.cstr, &ret_id) < 0)
+	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, 0, str.cstr, &ret_id) < 0)
 		goto out2;
 
 	const ModelSchedMessage schd = {

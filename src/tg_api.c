@@ -29,7 +29,7 @@ tg_api_init(const char base_api[])
 
 
 int
-tg_api_send_text(int type, int64_t chat_id, const int64_t *reply_to, const char text[], int64_t *ret_id)
+tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[], int64_t *ret_id)
 {
 	assert(_base_api != NULL);
 
@@ -44,7 +44,7 @@ tg_api_send_text(int type, int64_t chat_id, const int64_t *reply_to, const char 
 	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
 		goto out0;
 
-	if ((reply_to != NULL) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to) == NULL))
+	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
 		goto out0;
 
 	char *const new_text = curl_easy_escape(NULL, text, 0);
@@ -105,7 +105,7 @@ tg_api_delete_message(int64_t chat_id, int64_t message_id)
 
 
 int
-tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char text[],
+tg_api_send_inline_keyboard(int64_t chat_id, int64_t reply_to, const char text[],
 			    const TgApiInlineKeyboard kbds[], unsigned kbds_len,
 			    int64_t *ret_id)
 {
@@ -130,7 +130,7 @@ tg_api_send_inline_keyboard(int64_t chat_id, const int64_t *reply_to, const char
 	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
 		goto out2;
 
-	if ((reply_to != NULL) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, *reply_to) == NULL))
+	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
 		goto out2;
 
 	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s", new_text, ret_str) == NULL)

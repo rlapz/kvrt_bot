@@ -18,13 +18,13 @@
 static inline void
 send_text_plain(const TgMessage *msg, const char text[])
 {
-	tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, &msg->id, text, NULL);
+	tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, text, NULL);
 }
 
 static inline void
 send_text_format(const TgMessage *msg, const char text[])
 {
-	tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, &msg->id, text, NULL);
+	tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, msg->id, text, NULL);
 }
 
 
