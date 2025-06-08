@@ -9,11 +9,10 @@
 
 
 typedef struct db {
-	volatile int  is_alive;
-	const char   *db_path;
-	DList         sql_pool;
-	mtx_t         mutex;
-	cnd_t         cond;
+	int         in_pool;
+	const char *db_path;
+	DList       sql_pool;
+	mtx_t       mutex;
 } Db;
 
 static Db _instance;
@@ -46,17 +45,9 @@ sqlite_pool_init(const char path[], int conn_pool_size)
 		goto err0;
 	}
 
-	if (cnd_init(&d->cond) != thrd_success) {
-		log_err(0, "sqlite_pool: sqlite_pool_init: cnd_init: failed");
-		goto err1;
-	}
-
-	d->is_alive = 1;
 	d->db_path = path;
 	return 0;
 
-err1:
-	mtx_destroy(&d->mutex);
 err0:
 	_pool_cleanup(d);
 	return -1;
@@ -68,12 +59,8 @@ sqlite_pool_deinit(void)
 {
 	Db *const d = &_instance;
 
-	d->is_alive = 0;
-	cnd_broadcast(&d->cond);
-
 	_pool_cleanup(d);
 	mtx_destroy(&d->mutex);
-	cnd_destroy(&d->cond);
 }
 
 
@@ -85,31 +72,20 @@ sqlite_pool_get(void)
 
 	mtx_lock(&d->mutex);
 
-	while (d->is_alive) {
-		if ((node = dlist_pop(&d->sql_pool)) != NULL)
-			break;
-
-		cnd_wait(&d->cond, &d->mutex);
-	}
+	node = dlist_pop(&d->sql_pool);
 
 	mtx_unlock(&d->mutex);
 
-	if (node == NULL)
-		return NULL;
+	if (node == NULL) {
+		DbConn *conn;
+		if (_open(d->db_path, &conn) < 0)
+			return NULL;
+
+		conn->_in_pool = 0;
+		node = &conn->_node;
+	}
 
 	return FIELD_PARENT_PTR(DbConn, _node, node);
-}
-
-
-DbConn *
-sqlite_pool_get_no_wait(void)
-{
-	DbConn *ret;
-	if (_open(_instance.db_path, &ret) < 0)
-		return NULL;
-
-	ret->_in_pool = 0;
-	return ret;
 }
 
 
@@ -126,7 +102,6 @@ sqlite_pool_put(DbConn *conn)
 	mtx_lock(&d->mutex);
 
 	dlist_append(&d->sql_pool, &conn->_node);
-	cnd_signal(&d->cond);
 
 	mtx_unlock(&d->mutex);
 }

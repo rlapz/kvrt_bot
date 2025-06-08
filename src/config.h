@@ -14,7 +14,7 @@
 #define CFG_DEF_SYS_DB_FILE         "./db.sqlite"
 #define CFG_DEF_CMD_EXTERN_PATH     "./extern"
 #define CFG_DEF_CMD_EXTERN_LOG_FILE "./extern/log.txt"
-#define CFG_DEF_DB_CONN_POOL_SIZE   (16)
+#define CFG_DEF_DB_CONN_POOL_SIZE   (4)
 
 #define CFG_LOG_BUFFER_SIZE           (1024 * 1024)
 #define CFG_BUFFER_SIZE               (1024 * 512)

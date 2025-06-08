@@ -20,7 +20,6 @@ int  sqlite_pool_init(const char path[], int conn_pool_size);
 void sqlite_pool_deinit(void);
 
 DbConn *sqlite_pool_get(void);
-DbConn *sqlite_pool_get_no_wait(void);
 void    sqlite_pool_put(DbConn *conn);
 
 int sqlite_pool_tran_begin(DbConn *conn);
