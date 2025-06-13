@@ -31,8 +31,7 @@ send_text_format(const TgMessage *msg, const char text[])
 /*
  * misc
  */
-int   privileges_check(const TgMessage *msg, int64_t owner_id);
-int   is_admin(int64_t user_id, int64_t chat_id, const int64_t *owner_id);
+int   is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id);
 char *tg_escape(const char src[]);
 
 

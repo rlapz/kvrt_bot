@@ -45,12 +45,22 @@ config_load_from_json(const char path[], Config **cfg)
 	if (_parse(new_cfg, buffer) < 0)
 		goto err0;
 
+	new_cfg->file_path = path;
 	*cfg = new_cfg;
 	return 0;
 
 err0:
 	free(new_cfg);
 	return -1;
+}
+
+
+void
+config_free(Config **c)
+{
+	free((*c)->api.url);
+	free(*c);
+	*c = NULL;
 }
 
 
@@ -196,6 +206,13 @@ _parse_api(Config *c, json_object *obj)
 		return -1;
 	}
 
+	char *const base_api = CSTR_CONCAT(CFG_TELEGRAM_API, token);
+	if (base_api == NULL) {
+		log_err(0, "config: _parse_api: api.url: failed to allocate");
+		return -1;
+	}
+
+	c->api.url = base_api;
 	c->api.token_len = cstr_copy_n(c->api.token, CFG_API_TOKEN_SIZE, token);
 	c->api.secret_len = cstr_copy_n(c->api.secret, CFG_API_SECRET_SIZE, secret);
 	return 0;

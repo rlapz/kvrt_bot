@@ -15,30 +15,9 @@
  * misc
  */
 int
-privileges_check(const TgMessage *msg, int64_t owner_id)
+is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
 {
-	if (msg->from->id == owner_id)
-		return 1;
-
-	const int privs = model_admin_get_privilegs(msg->chat.id, msg->from->id);
-	if (privs < 0) {
-		send_text_plain(msg, "Failed to get admin list");
-		return -1;
-	}
-
-	if (privs == 0) {
-		send_text_plain(msg, "Permission denied!");
-		return 0;
-	}
-
-	return 1;
-}
-
-
-int
-is_admin(int64_t user_id, int64_t chat_id, const int64_t *owner_id)
-{
-	if ((owner_id != NULL) && (user_id == *owner_id))
+	if ((owner_id != 0) && (user_id == owner_id))
 		return 1;
 
 	const int privs = model_admin_get_privilegs(chat_id, user_id);
@@ -121,7 +100,7 @@ message_list_init(MessageList *l, const char args[])
 	if (timer == 0) {
 		int should_delete = 1;
 		if (l->id_user != from_id)
-			should_delete = is_admin(l->id_user, l->id_chat, &l->id_owner);
+			should_delete = is_admin(l->id_user, l->id_chat, l->id_owner);
 
 		if (should_delete) {
 			tg_api_answer_callback_query(l->id_callback, "Deleted", NULL, 0);

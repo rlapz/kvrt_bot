@@ -12,16 +12,19 @@ IS_DEBUG ?= 0
 PREFIX   := /usr
 CC       := cc
 CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_GNU_SOURCE
-LFLAGS   := -lcurl -ljson-c
+LFLAGS   := -lcurl -ljson-c -lsqlite3 -lm
 
-SRC := api.c ../src/util.c ../src/tg.c ../src/tg_api.c
+SRC := api.c ../src/config.c ../src/util.c ../src/tg.c ../src/tg_api.c ../src/common.c \
+	   ../src/model.c ../src/sqlite_pool.c
 OBJ := $(SRC:.c=.o)
 
 ifeq ($(IS_DEBUG), 1)
 	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
-	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined -fsanitize=leak
+	LFLAGS := $(LFLAGS) -fsanitize=address -fsanitize=undefined -fsanitize=leak -Werror
+else ifeq ($(VALGRIND), 1)
+	CFLAGS := $(CFLAGS) -g -DDEBUG -O0
 else
-	CFLAGS := $(CFLAGS) -O2
+	CFLAGS := $(CFLAGS) -march=native -O2
 endif
 
 #------------------------------------------------------------------------------------#

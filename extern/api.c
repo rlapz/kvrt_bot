@@ -1,73 +1,55 @@
 #include <errno.h>
 #include <stdint.h>
+#include <stdarg.h>
 
-#include "api.h"
-
+#include "../src/config.h"
 #include "../src/common.h"
+#include "../src/model.h"
 #include "../src/tg_api.h"
 #include "../src/util.h"
 
 
-/* Mandatory argument list:
- *	arg[1]: CMD Name
- * 	arg[2]: API_TYPE_*
- * 	arg[3]: TELEGRAM API + TOKEN
- * 	arg[4]: TELEGRAM SECRET KEY
- * 	arg[5]: Bot ID
- * 	arg[6]: Owner ID
- *
- * -----------------------------------------------------------------
- * API_TYPE_TEXT_*:
- * 	arg[7]: Chat ID
- * 	arg[8]: Message ID	-> 0: no reply
- * 	arg[9]: Text
- *
- * API_TYPE_LIST:
- * 	arg[7]: Chat ID
- * 	arg[8]: User ID
- * 	arg[9]: Message ID	-> 0: no reply
- * 	arg[10]: Callback ID	-> "empty string: Not a callback"
- * 	arg[11]: Context name
- * 	arg[12]: Title
- * 	arg[13]: Body
- *
- * API_TYPE_CALLBACK_ANSWER:
- *	arg[7]: Callback ID
- *	arg[8]: Is Text?	-> 0: URL, 1: Text
- *	arg[9]: Text/URL
- *	arg[10]: Show alert?	-> 0: False, 1: True
+#define _TYPE_SEND_TEXT       "send_text"
+#define _TYPE_ANSWER_CALLBACK "answer_callback"
+#define _TYPE_DELETE_MESSAGE  "delete_message"
+#define _TYPE_SCHED_MESSAGE   "sched_message"
+
+
+/*
+ * See: README.txt
  */
+
+#define _RESP_ADD_ERROR_FMT(R, ...) _json_add_str_fmt(R, "error", __VA_ARGS__)
+#define _RESP_ADD_ERROR(R, V)       _json_add_str(R, "error", V)
 
 
 enum {
-	_ARG_CMD_NAME = 0,
-	_ARG_TYPE,
-	_ARG_TG_API,
-	_ARG_TG_API_SECRET_KEY,
-	_ARG_TG_BOT_ID,
-	_ARG_TG_OWNER_ID,
-
-	__ARG_END,
+	_ARG_EXEC_NAME = 0,
+	_ARG_CONFIG_FILE,
+	_ARG_API_TYPE,
+	_ARG_DATA,
 };
 
 
-typedef struct {
-	const char  *cmd_name;
-	int          api_type;
+typedef struct arg {
+	Config      *config;
+	const char  *api_type;
 	const char  *tg_api;
-	const char  *tg_api_secret_key;
-	int64_t      tg_tg_bot_id;
-	int64_t      tg_tg_owner_id;
-	int          user_data_len;
-	const char **user_data;
-} Args;
+	int64_t      bot_id;
+	int64_t      owner_id;
+	json_object *data;
+	json_object *resp;
+} Arg;
 
+static int _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj);
 
-static int _args_init(int argc1, const char *argv1[], Args *args);
-static int _exec(const Args *args);
-static int _exec_send_text(const Args *args);
-static int _exec_answer_callback(const Args *args);
-static int _exec_send_list(const Args *args);
+static int _json_add_str(json_object *root, const char key[], const char value[]);
+static int _json_add_str_fmt(json_object *root, const char key[], const char fmt[], ...);
+
+static int _send_text(const Arg *arg);
+static int _delete_message(const Arg *arg);
+static int _answer_callback(const Arg *arg);
+static int _sched_message(const Arg *arg);
 
 
 /*
@@ -76,73 +58,39 @@ static int _exec_send_list(const Args *args);
 int
 main(int argc, char *argv[])
 {
-	log_init(4096);
-
-	Args args;
-	int ret = _args_init(argc + 1, (const char **)&argv[1], &args);
-	if (ret < 0) {
-		if (ret == -1) {
-			log_info("api:\nMandatory argument list:\n"
-				 " [1]  : CMD Name\n"
-				 " [2]  : Api Type: {\n"
-				 "           0: Send text plain\n"
-				 "           1: Send text format\n"
-				 "           2: Send list\n"
-				 "           3: Callback answer\n"
-				 "        }\n"
-				 " [3]  : Telegram API + Token\n"
-				 " [4]  : Telegram Secret Key\n"
-				 " [5]  : Bot ID\n"
-				 " [6]  : Owner ID\n"
-				 " [n..]: User Data\n"
-				 "\n-----\n"
-				 "Example:\n"
-				 "  ./api '/test' 0 'telegram_api:token' 'secret_key' bot_id owner_id "
-					"chat_id message_id 'text_xxxx'\n"
-			);
-		}
-
-		goto out0;
+	int ret = 1;
+	json_object *const resp_obj = json_object_new_object();
+	if (resp_obj == NULL) {
+		fprintf(stdout, "{ \"error\": \"failed to create new json object\" }");
+		return 1;
 	}
 
-	ret = _exec(&args);
+	Arg arg;
+	if (_arg_parse(&arg, argc, argv, resp_obj) < 0)
+		goto out0;
+
+	tg_api_init(arg.tg_api);
+
+	if (cstr_casecmp(arg.api_type, _TYPE_SEND_TEXT))
+		ret = -_send_text(&arg);
+	else if (cstr_casecmp(arg.api_type, _TYPE_DELETE_MESSAGE))
+		ret = -_delete_message(&arg);
+	else if (cstr_casecmp(arg.api_type, _TYPE_ANSWER_CALLBACK))
+		ret = -_answer_callback(&arg);
+	else if (cstr_casecmp(arg.api_type, _TYPE_SCHED_MESSAGE))
+		ret = -_sched_message(&arg);
+	else
+		_RESP_ADD_ERROR(resp_obj, "invalid api type!");
+
+	config_free(&arg.config);
+
+	(void)_json_add_str_fmt;
 
 out0:
-	log_deinit();
-	return -ret;
-}
-
-
-int
-api_send_text(int type, int64_t chat_id, const int64_t *reply_to, const char text[], int64_t *ret_id)
-{
-	int _type = 0;
-	switch (type) {
-	case API_TYPE_TEXT_PLAIN:
-		_type = TG_API_TEXT_TYPE_PLAIN;
-		break;
-	case API_TYPE_TEXT_FORMAT:
-		_type = TG_API_TEXT_TYPE_FORMAT;
-		break;
-	default:
-		return -1;
-	}
-
-	return tg_api_send_text(_type, chat_id, reply_to, text, ret_id);
-}
-
-
-int
-api_delete_message(int64_t chat_id, int64_t message_id)
-{
-	return tg_api_delete_message(chat_id, message_id);
-}
-
-
-int
-api_answer_callback(const char id[], const char text[], const char url[], int show_alert)
-{
-	return tg_api_answer_callback_query(id, text, url, show_alert);
+	fprintf(stdout, "%s\n", json_object_to_json_string(resp_obj));
+	json_object_put(arg.data);
+	json_object_put(resp_obj);
+	return ret;
 }
 
 
@@ -150,213 +98,287 @@ api_answer_callback(const char id[], const char text[], const char url[], int sh
  * Private
  */
 static int
-_args_init(int argc1, const char *argv1[], Args *args)
+_arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 {
-	if (argc1 <= (__ARG_END + 1)) {
-		log_err(EINVAL, "api: _args_init: incomplete mandatory arguments");
+	int ret = -1;
+	const char *resp = "";
+
+	a->data = NULL;
+	if (argc != 4) {
+		resp = "invalid argument length!";
+		goto out0;
+	}
+
+	const char *const cfg_file = argv[_ARG_CONFIG_FILE];
+	if (cstr_is_empty(cfg_file)) {
+		resp = "'Config File' is empty";
+		goto out0;
+	}
+
+	if (config_load_from_json(cfg_file, &a->config) < 0) {
+		resp = "filed to load config file";
+		goto out0;
+	}
+
+	a->api_type = argv[_ARG_API_TYPE];
+	if (cstr_is_empty(a->api_type)) {
+		resp = "'API Type' is empty";
+		goto out0;
+	}
+
+	a->data = json_tokener_parse(argv[_ARG_DATA]);
+	if (a->data == NULL) {
+		resp = "'Data': failed to parse";
+		goto out0;
+	}
+
+	a->tg_api = a->config->api.url;
+	a->bot_id = a->config->tg.bot_id;
+	a->owner_id = a->config->tg.owner_id;
+	ret = 0;
+
+out0:
+	if (ret < 0)
+		config_free(&a->config);
+
+	a->resp = resp_obj;
+	_RESP_ADD_ERROR(resp_obj, resp);
+	return ret;
+}
+
+
+static int
+_json_add_str(json_object *root, const char key[], const char value[])
+{
+	json_object *const str_obj = json_object_new_string(value);
+	if (str_obj == NULL)
+		return -1;
+
+	if (json_object_object_add(root, key, str_obj) != 0) {
+		json_object_put(str_obj);
 		return -1;
 	}
 
-	if (argc1 == (__ARG_END + 2)) {
-		log_err(EINVAL, "api: _args_init: no user data argument was provided");
-		return -1;
-	}
-
-	args->cmd_name = argv1[_ARG_CMD_NAME];
-	if (cstr_is_empty(args->cmd_name)) {
-		log_err(EINVAL, "api: _args_init[%d]: CMD_NAME is empty", _ARG_CMD_NAME);
-		return -2;
-	}
-
-	int64_t api_type;
-	if (cstr_to_int64(argv1[_ARG_TYPE], &api_type) < 0) {
-		log_err(errno, "api: _args_init[%d]: ARG_TYPE: failed to parse", _ARG_TYPE);
-		return -2;
-	}
-
-	args->api_type = (int)api_type;
-
-	args->tg_api = argv1[_ARG_TG_API];
-	if (cstr_is_empty(args->tg_api)) {
-		log_err(EINVAL, "api: _args_init[%d]: TG_API is empty", _ARG_TG_API);
-		return -2;
-	}
-
-	args->tg_api_secret_key = argv1[_ARG_TG_API_SECRET_KEY];
-	if (cstr_is_empty(args->tg_api_secret_key)) {
-		log_err(EINVAL, "api: _args_init[%d]: TG_API_SECRET_KEY is empty", _ARG_TG_API_SECRET_KEY);
-		return -2;
-	}
-
-	const char *const bot_id = argv1[_ARG_TG_BOT_ID];
-	if (cstr_is_empty(bot_id)) {
-		log_err(EINVAL, "api: _args_init[%d]: TG_BOT_ID is empty", _ARG_TG_BOT_ID);
-		return -2;
-	}
-
-	const char *const owner_id = argv1[_ARG_TG_OWNER_ID];
-	if (cstr_is_empty(owner_id)) {
-		log_err(EINVAL, "api: _args_init[%d]: TG_OWNER_ID is empty", _ARG_TG_OWNER_ID);
-		return -2;
-	}
-
-	if (cstr_to_int64(bot_id, &args->tg_tg_bot_id) < 0) {
-		log_err(EINVAL, "api: _args_init[%d]: TG_BOT_ID: failed to parse", _ARG_TG_BOT_ID);
-		return -2;
-	}
-
-	if (cstr_to_int64(owner_id, &args->tg_tg_owner_id) < 0) {
-		log_err(EINVAL, "api: _args_init[%d]: TG_OWNER_ID: failed to parse", _ARG_TG_OWNER_ID);
-		return -2;
-	}
-
-	args->user_data = &argv1[__ARG_END];
-	args->user_data_len = argc1 - __ARG_END - 2;
-
-#ifdef DEBUG
-	for (int i = 0; i < args->user_data_len; i++)
-		log_debug("api: _args_init: user data arg[%d]: %s", i, args->user_data[i]);
-#endif
 	return 0;
 }
 
 
 static int
-_exec(const Args *args)
+_json_add_str_fmt(json_object *root, const char key[], const char fmt[], ...)
 {
-	switch (args->api_type) {
-	case API_TYPE_TEXT_PLAIN:
-	case API_TYPE_TEXT_FORMAT:
-		return _exec_send_text(args);
-	case API_TYPE_LIST:
-		return _exec_send_list(args);
-	case API_TYPE_CALLBACK_ANSWER:
-		return _exec_answer_callback(args);
-	}
+	int ret;
+	va_list va;
 
-	log_err(EINVAL, "api: _exec: invalid api type: %d", args->api_type);
-	return -1;
+	va_start(va, fmt);
+	ret = vsnprintf(NULL, 0, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		return -1;
+
+	const size_t new_str_len = (size_t)ret + 1;
+	char *const new_str = malloc(new_str_len);
+	if (new_str == NULL)
+		return -1;
+
+	va_start(va, fmt);
+	ret = vsnprintf(new_str, new_str_len, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		goto out0;
+
+	new_str[ret] = '\0';
+
+	ret = -1;
+	json_object *const str_obj = json_object_new_string(new_str);
+	if (str_obj == NULL)
+		goto out0;
+
+	if (json_object_object_add(root, key, str_obj) != 0)
+		json_object_put(str_obj);
+	else
+		ret = 0;
+
+out0:
+	free(new_str);
+	return ret;
 }
 
 
 static int
-_exec_send_text(const Args *args)
+_send_text(const Arg *arg)
 {
-	if (args->user_data_len != 3) {
-		log_err(EINVAL, "api: _exec_send_text: invalid argument length");
-		return -1;
+	int ret = -1;
+	int64_t ret_id = 0;
+	const char  *resp = "";
+
+	json_object *type_obj;
+	if (json_object_object_get_ex(arg->data, "type", &type_obj) == 0) {
+		resp = "no 'type' field";
+		goto out0;
 	}
 
-	int64_t chat_id;
-	if (cstr_to_int64(args->user_data[0], &chat_id) < 0) {
-		log_err(EINVAL, "api: _exec_send_text: invalid \"Chat ID\" value");
-		return -1;
+	const char *const type_str = json_object_get_string(type_obj);
+
+	int type;
+	if (cstr_casecmp(type_str, "plain")) {
+		type = TG_API_TEXT_TYPE_PLAIN;
+	} else if (cstr_casecmp(type_str, "format")) {
+		type = TG_API_TEXT_TYPE_FORMAT;
+	} else {
+		resp = "'type': invalid value";
+		goto out0;
 	}
 
-	int64_t message_id;
-	if (cstr_to_int64(args->user_data[1], &message_id) < 0) {
-		log_err(EINVAL, "api: _exec_send_text: invalid \"Message ID\" value");
-		return -1;
+	json_object *chat_id_obj;
+	if (json_object_object_get_ex(arg->data, "chat_id", &chat_id_obj) == 0) {
+		resp = "no 'chat_id' field";
+		goto out0;
 	}
 
-	if (cstr_is_empty(args->user_data[2])) {
-		log_err(EINVAL, "api: _exec_send_text: \"Text\" is empty");
-		return -1;
+	json_object *msg_id_obj;
+	if (json_object_object_get_ex(arg->data, "message_id", &msg_id_obj) == 0) {
+		resp = "no 'message_id' field";
+		goto out0;
 	}
 
-	tg_api_init(args->tg_api);
-	return api_send_text(args->api_type, chat_id, (message_id != 0)? &message_id : NULL,
-			     args->user_data[2], NULL);
+	json_object *text_obj;
+	if (json_object_object_get_ex(arg->data, "text", &text_obj) == 0) {
+		resp = "no 'text' field";
+		goto out0;
+	}
+
+	const int64_t chat_id = json_object_get_int64(chat_id_obj);
+	if (chat_id == 0) {
+		resp = "'chat_id': invalid value";
+		goto out0;
+	}
+
+	const int64_t msg_id = json_object_get_int64(msg_id_obj);
+
+	const char *const text = (const char *)json_object_get_string(text_obj);
+	if (cstr_is_empty(text)) {
+		resp = "'text': empty";
+		goto out0;
+	}
+
+	ret = tg_api_send_text(type, chat_id, msg_id, text, &ret_id);
+	if (ret < 0)
+		resp = "failed to send message";
+
+out0:
+	_RESP_ADD_ERROR(arg->resp, resp);
+	json_object_object_add(arg->resp, "message_id", json_object_new_int64(ret_id));
+	return ret;
 }
 
 
 static int
-_exec_answer_callback(const Args *args)
+_delete_message(const Arg *arg)
 {
-	if (args->user_data_len != 4) {
-		log_err(EINVAL, "api: _exec_answer_callback: invalid argument length");
-		return -1;
+	int ret = -1;
+	const char *resp = "";
+
+	json_object *chat_id_obj;
+	if (json_object_object_get_ex(arg->data, "chat_id", &chat_id_obj) == 0) {
+		resp = "no 'chat_id' field";
+		goto out0;
 	}
 
-	const char *const callback_id = args->user_data[0];
-	if (cstr_is_empty(callback_id)) {
-		log_err(EINVAL, "api: _exec_answer_callback: \"Callback ID\" is empty");
-		return -1;
+	json_object *msg_id_obj;
+	if (json_object_object_get_ex(arg->data, "message_id", &msg_id_obj) == 0) {
+		resp = "no 'message_id' field";
+		goto out0;
 	}
 
-	int64_t is_text;
-	if ((cstr_to_int64(args->user_data[1], &is_text) < 0) || (int64_is_bool(is_text) == 0)) {
-		log_err(EINVAL, "api: _exec_send_text: invalid \"Is Text\" value");
-		return -1;
+	const int64_t chat_id = json_object_get_int64(chat_id_obj);
+	if (chat_id == 0) {
+		resp = "'chat_id': invalid value";
+		goto out0;
 	}
 
-	const char *const text_url = args->user_data[2];
-	if (cstr_is_empty(text_url)) {
-		log_err(EINVAL, "api: _exec_answer_callback: \"Text/URL\" is empty");
-		return -1;
+	const int64_t msg_id = json_object_get_int64(msg_id_obj);
+	if (msg_id == 0) {
+		resp = "'msg_id': invalid value";
+		goto out0;
 	}
 
-	int64_t show_alert;
-	if ((cstr_to_int64(args->user_data[3], &show_alert) < 0) || (int64_is_bool(show_alert) == 0)) {
-		log_err(EINVAL, "api: _exec_send_text: invalid \"Show Alert\" value");
-		return -1;
+	ret = tg_api_delete_message(chat_id, msg_id);
+	if (ret < 0)
+		resp = "failed to delete message";
+
+out0:
+	_RESP_ADD_ERROR(arg->resp, resp);
+	return ret;
+}
+
+
+static int
+_answer_callback(const Arg *arg)
+{
+	int ret = -1;
+	const char *resp = "";
+
+	json_object *id_obj;
+	if (json_object_object_get_ex(arg->data, "id", &id_obj) == 0) {
+		resp = "no 'id' field";
+		goto out0;
 	}
 
-	tg_api_init(args->tg_api);
+	json_object *is_text_obj;
+	if (json_object_object_get_ex(arg->data, "is_text", &is_text_obj) == 0) {
+		resp = "no 'is_text' field";
+		goto out0;
+	}
+
+	json_object *value_obj;
+	if (json_object_object_get_ex(arg->data, "value", &value_obj) == 0) {
+		resp = "no 'value' field";
+		goto out0;
+	}
+
+	json_object *show_alert_obj;
+	if (json_object_object_get_ex(arg->data, "show_alert", &show_alert_obj) == 0) {
+		resp = "no 'show_alert' field";
+		goto out0;
+	}
+
+	const char *const id = json_object_get_string(id_obj);
+	if (cstr_is_empty(id)) {
+		resp = "'id': empty";
+		goto out0;
+	}
+
+	const int is_text = json_object_get_int(is_text_obj);
+
+	const char *const value = json_object_get_string(value_obj);
+	if (cstr_is_empty(value)) {
+		resp = "'value': empty";
+		goto out0;
+	}
+
+	const int show_alert = json_object_get_int(show_alert_obj);
 	if (is_text)
-		return api_answer_callback(callback_id, text_url, NULL, (int)show_alert);
+		ret = tg_api_answer_callback_query(id, value, NULL, show_alert);
+	else
+		ret = tg_api_answer_callback_query(id, NULL, value, show_alert);
 
-	return api_answer_callback(callback_id, NULL, text_url, (int)show_alert);
+	if (ret < 0)
+		resp = "failed to answer callback query";
+
+out0:
+	_RESP_ADD_ERROR(arg->resp, resp);
+	return ret;
 }
 
 
 static int
-_exec_send_list(const Args *args)
+_sched_message(const Arg *arg)
 {
-	if (args->user_data_len != 7) {
-		log_err(EINVAL, "api: _exec_send_list: invalid argument length");
-		return -1;
-	}
-
-	int64_t chat_id;
-	if (cstr_to_int64(args->user_data[0], &chat_id) < 0) {
-		log_err(EINVAL, "api: _exec_send_list: invalid \"Chat ID\" value");
-		return -1;
-	}
-
-	int64_t user_id;
-	if (cstr_to_int64(args->user_data[1], &user_id) < 0) {
-		log_err(EINVAL, "api: _exec_send_list: invalid \"User ID\" value");
-		return -1;
-	}
-
-	int64_t message_id;
-	if (cstr_to_int64(args->user_data[2], &message_id) < 0) {
-		log_err(EINVAL, "api: _exec_send_list: invalid \"Message ID\" value");
-		return -1;
-	}
-
-	const char *const callback_id = cstr_null_if_empty(args->user_data[3]);
-
-	const char *const context = args->user_data[4];
-	if (cstr_is_empty(context)) {
-		log_err(EINVAL, "api: _exec_answer_callback: \"Context Name\" is empty");
-		return -1;
-	}
-
-	const char *const title = args->user_data[5];
-	if (cstr_is_empty(title)) {
-		log_err(EINVAL, "api: _exec_answer_callback: \"Title\" is empty");
-		return -1;
-	}
-
-	const char *const body = args->user_data[6];
-	if (cstr_is_empty(body)) {
-		log_err(EINVAL, "api: _exec_answer_callback: \"Body\" is empty");
-		return -1;
-	}
-
+	int ret = -1;
 
 	/* TODO */
-	return 0;
+	_RESP_ADD_ERROR(arg->resp, "not yet supported");
+	return ret;
 }

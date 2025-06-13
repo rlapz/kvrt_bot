@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <json.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -68,7 +69,6 @@ static int  _client_resp_prep(Client *c);
  */
 typedef struct server {
 	const Config *cfg;
-	char         *base_api;
 	DList         clients;
 } Server;
 
@@ -441,12 +441,7 @@ _client_resp_prep(Client *c)
 static int
 _server_init(Server *s, const Config *cfg)
 {
-	char *const base_api = CSTR_CONCAT(CFG_TELEGRAM_API, cfg->api.token);
-	if (base_api == NULL)
-		return -1;
-
 	dlist_init(&s->clients);
-	s->base_api = base_api;
 	s->cfg = cfg;
 	return 0;
 }
@@ -461,8 +456,6 @@ _server_deinit(Server *s)
 		close(client->ctx.fd);
 		free(client);
 	}
-
-	free(s->base_api);
 }
 
 
@@ -485,12 +478,19 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		}
 	}
 
-	char buff[4096];
+	char buff[PATH_MAX];
 	const char *const root_dir = getcwd(buff, LEN(buff));
 	if (root_dir == NULL)
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
+		goto err0;
+
+	const char *const cfg_file = realpath(cfg->file_path, buff);
+	if (cfg_file == NULL)
+		goto err0;
+
+	if (chld_add_env_kv(CFG_ENV_CONFIG_FILE, cfg_file) < 0)
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0)
@@ -539,7 +539,7 @@ _server_run(Server *s, char *envp[])
 
 
 	config_dump(cfg);
-	tg_api_init(s->base_api);
+	tg_api_init(s->cfg->api.url);
 
 	int ret = sqlite_pool_init(cfg->sys.db_file, cfg->sys.db_pool_conn_size);
 	if (ret < 0)
@@ -566,7 +566,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out3;
 
-	ret = _server_init_chld(s, s->base_api, envp);
+	ret = _server_init_chld(s, s->cfg->api.url, envp);
 	if (ret < 0)
 		goto out4;
 
@@ -851,7 +851,7 @@ main(int argc, char *argv[], char *envp[])
 	_server_deinit(&srv);
 
 out1:
-	free(cfg);
+	config_free(&cfg);
 out0:
 	log_deinit();
 	return -ret;

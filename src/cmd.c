@@ -26,11 +26,12 @@
  * 	0: Executable file
  * 	1: CMD Name
  * 	2: Exec type "callback"
- * 	3: Callback ID
- * 	4: Chat ID
- * 	5: User ID
- * 	6: Message ID
- * 	7-n: User data
+ * 	3: Chat ID
+ * 	4: User ID
+ * 	5: Message ID
+ * 	6: Callback ID
+ * 	7: Data
+ * 	8: Raw JSON
  */
 
 #define _CMD_EXTERN_ARGS_SIZE (16)
@@ -314,8 +315,10 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_TEST) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_TEST) == 0))
 		return 0;
 
-	if ((flags & MODEL_CMD_FLAG_ADMIN) && (privileges_check(c->msg, c->id_owner) == 0))
+	if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
+		send_text_plain(c->msg, "Permission denied!");
 		return 0;
+	}
 
 	return 1;
 }
@@ -334,8 +337,6 @@ _spawn_child_process(const CmdParam *c, const char file_name[])
 	};
 
 	int i = 3;
-	if (is_callback)
-		argv[i++] = (char *)c->id_callback;
 
 	char chat_id[24];
 	snprintf(chat_id, LEN(chat_id), "%" PRIi64, c->id_chat);
@@ -346,15 +347,17 @@ _spawn_child_process(const CmdParam *c, const char file_name[])
 	argv[i++] = user_id;
 
 	char message_id[24];
-	snprintf(message_id, LEN(message_id), "%" PRIi64, c->msg->id);
+	snprintf(message_id, LEN(message_id), "%" PRIi64, c->id_message);
 	argv[i++] = message_id;
 
 	if (is_callback) {
-		argv[i] = (char *)c->args;
+		argv[i++] = (char *)c->id_callback;
+		argv[i++] = (char *)c->args;
 	} else {
 		argv[i++] = (char *)c->msg->text.cstr;
-		argv[i] = (char *)json_object_to_json_string(c->json);
 	}
+
+	argv[i] = (char *)json_object_to_json_string(c->json);
 
 	return chld_spawn(file_name, argv);
 }

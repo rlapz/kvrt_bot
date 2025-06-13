@@ -31,6 +31,7 @@
 #define CFG_CHLD_ENVP_SIZE            (128)
 
 #define CFG_ENV_ROOT_DIR            "ROOT_DIR"
+#define CFG_ENV_CONFIG_FILE         "CONFIG_FILE"
 #define CFG_ENV_TELEGRAM_API        "TG_API"
 #define CFG_ENV_TELEGRAM_SECRET_KEY "TG_API_SECRET_KEY"
 #define CFG_ENV_CMD_EXTERN_PATH     "CMD_PATH"
@@ -52,11 +53,13 @@
 
 
 typedef struct config {
+	const char *file_path;
 	struct {
-		char   token[CFG_API_TOKEN_SIZE];
-		size_t token_len;
-		char   secret[CFG_API_SECRET_SIZE];
-		size_t secret_len;
+		char   *url;
+		char    token[CFG_API_TOKEN_SIZE];
+		size_t  token_len;
+		char    secret[CFG_API_SECRET_SIZE];
+		size_t  secret_len;
 	} api;
 	struct {
 		char   url[CFG_HOOK_URL_SIZE];
@@ -86,6 +89,7 @@ typedef struct config {
 } Config;
 
 int  config_load_from_json(const char path[], Config **cfg);
+void config_free(Config **c);
 void config_dump(const Config *c);
 
 

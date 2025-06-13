@@ -230,6 +230,18 @@ cstr_to_int64_n(const char cstr[], size_t len, int64_t *ret)
 
 
 int
+cstr_to_uint64(const char cstr[], uint64_t *ret)
+{
+	errno = 0;
+	const unsigned long long _ret = strtoull(cstr, NULL, 10);
+	if (errno == 0)
+		*ret = (uint64_t)_ret;
+
+	return -errno;
+}
+
+
+int
 cstr_to_uint64_n(const char cstr[], size_t len, uint64_t *ret)
 {
 	char buffer[UINT64_DIGITS_LEN];
@@ -1441,8 +1453,8 @@ log_debug(__attribute_maybe_unused__ const char fmt[], ...)
 	if ((size_t)ret >= _log_buffer_size)
 		_log_buffer[_log_buffer_size - 1] = '\0';
 
-	fprintf(stdout, "D: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), _log_buffer);
-	fflush(stdout);
+	fprintf(stderr, "D: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), _log_buffer);
+	fflush(stderr);
 
 	mtx_unlock(&_log_mutex); // unlock
 #endif

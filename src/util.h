@@ -41,6 +41,7 @@ char *cstr_to_lower_n(char dest[], size_t len);
 
 int cstr_to_int64(const char cstr[], int64_t *ret);
 int cstr_to_int64_n(const char cstr[], size_t len, int64_t *ret);
+int cstr_to_uint64(const char cstr[], uint64_t *ret);
 int cstr_to_uint64_n(const char cstr[], size_t len, uint64_t *ret);
 
 static inline int
@@ -60,6 +61,13 @@ cstr_empty_if_null(const char cstr[])
 {
 	return (cstr == NULL) ? "" : cstr;
 }
+
+static inline const char *
+cstr_null_if_empty(const char cstr[])
+{
+	return (cstr_is_empty(cstr))? NULL : cstr;
+}
+
 
 char *cstr_concat_n(size_t count, ...);
 
