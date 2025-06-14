@@ -5,6 +5,10 @@
 #include <threads.h>
 
 
+/*
+ * TODO: Optimize; more reliable
+ */
+
 typedef void (*ThrdPoolFn) (void *ctx, void *udata);
 
 int  thrd_pool_init(unsigned thrd_size);

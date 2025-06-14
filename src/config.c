@@ -3,9 +3,11 @@
 #include <inttypes.h>
 #include <json.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <sys/stat.h>
+#include <sys/mman.h>
 
 #include "config.h"
 
@@ -15,51 +17,69 @@
 #define _BUFFER_SIZE (1024 * 1024)
 
 
-static int  _read_file(char buffer[], size_t size, const char path[]);
-static int  _parse(Config *c, const char buffer[]);
-static int  _parse_api(Config *c, json_object *obj);
-static int  _parse_hook(Config *c, json_object *obj);
-static int  _parse_tg(Config *c, json_object *obj);
-static void _parse_listen(Config *c, json_object *obj);
-static void _parse_sys(Config *c, json_object *obj);
-static void _parse_cmd_extern(Config *c, json_object *obj);
-static int  _validate(const Config *c);
+static int  _load_json(const char path[]);
+static int  _parse_json(const char buffer[], const char path[]);
+static int  _parse_json_api(Config *c, json_object *root_obj);
+static int  _parse_json_hook(Config *c, json_object *root_obj);
+static int  _parse_json_tg(Config *c, json_object *root_obj);
+static void _parse_json_sys(Config *c, json_object *root_obj);
+static void _parse_json_listen(Config *c, json_object *root_obj);
+static void _parse_json_cmd_extern(Config *c, json_object *root_obj);
 
 
 /*
  * Public
  */
 int
-config_load_from_json(const char path[], Config **cfg)
+config_load(Config **c, const char path[])
 {
-	Config *const new_cfg = malloc(sizeof(Config));
-	if (new_cfg == NULL) {
-		log_err(errno, "config_load_from_env: malloc");
-		return -1;
+	int ret = -1;
+	int fd;
+	for (int i = 0; i < 3; i++) {
+		fd = open(path, O_RDONLY);
+		if (fd >= 0)
+			break;
+
+		if (errno != ENOENT) {
+			log_err(errno, "config: config_load: open: '%s'", path);
+			return -1;
+		}
+
+		if (_load_json(path) < 0)
+			return -1;
 	}
 
-	char buffer[_BUFFER_SIZE];
-	if (_read_file(buffer, sizeof(buffer), path) < 0)
-		goto err0;
+	struct stat st;
+	if (fstat(fd, &st) < 0) {
+		log_err(errno, "config: config_load: fstst: '%s'", path);
+		goto out0;
+	}
 
-	if (_parse(new_cfg, buffer) < 0)
-		goto err0;
+	// TODO: verify Config file
+	if (st.st_size != sizeof(Config)) {
+		log_err(errno, "config: config_load: invalid size: '%s'", path);
+		goto out0;
+	}
 
-	new_cfg->file_path = path;
-	*cfg = new_cfg;
-	return 0;
+	void *const map = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+	if (map == MAP_FAILED) {
+		log_err(errno, "config: config_load: mmap: '%s'", path);
+		goto out0;
+	}
 
-err0:
-	free(new_cfg);
-	return -1;
+	*c = (Config *)map;
+	ret = 0;
+
+out0:
+	close(fd);
+	return ret;
 }
 
 
 void
 config_free(Config **c)
 {
-	free((*c)->api.url);
-	free(*c);
+	munmap(*c, sizeof(Config));
 	*c = NULL;
 }
 
@@ -70,26 +90,26 @@ config_dump(const Config *c)
 	puts("---[CONFIG]---");
 
 #ifdef DEBUG
-	printf("Api Token            : %s\n", c->api.token);
-	printf("Api Secret           : %s\n", c->api.secret);
+	printf("Api Token            : %s\n", c->api_token);
+	printf("Api Secret           : %s\n", c->api_secret);
 #else
 	printf("Api Token            : *****************\n");
 	printf("Api Secret           : *****************\n");
 #endif
 
-	printf("Hook URL             : %s%s\n", c->hook.url, c->hook.path);
+	printf("Hook URL             : %s%s\n", c->hook_url, c->hook_path);
 
-	printf("Listen Host          : %s\n", c->listen.host);
-	printf("Listen Port          : %d\n", c->listen.port);
-	printf("Worker Size          : %u\n", c->sys.worker_size);
+	printf("Listen Host          : %s\n", c->listen_host);
+	printf("Listen Port          : %u\n", c->listen_port);
+	printf("Worker Size          : %u\n", c->worker_size);
 	printf("Child Process Max    : %u\n", CFG_CHLD_ITEMS_SIZE);
-	printf("DB file              : %s\n", c->sys.db_file);
-	printf("DB pool connections  : %d\n", c->sys.db_pool_conn_size);
-	printf("Owner ID             : %" PRIi64 "\n", c->tg.owner_id);
-	printf("Bot ID               : %" PRIi64 "\n", c->tg.bot_id);
-	printf("Bot username         : %s\n", c->tg.bot_username);
-	printf("External cmd path    : %s\n", c->cmd_extern.path);
-	printf("External cmd log file: %s\n", c->cmd_extern.log_file);
+	printf("DB path              : %s\n", c->db_path);
+	printf("DB pool connections  : %d\n", c->db_pool_conn_size);
+	printf("Owner ID             : %" PRIi64 "\n", c->owner_id);
+	printf("Bot ID               : %" PRIi64 "\n", c->bot_id);
+	printf("Bot username         : %s\n", c->bot_username);
+	printf("External cmd path    : %s\n", c->cmd_extern_path);
+	printf("External cmd log file: %s\n", c->cmd_extern_log_file);
 	puts("---[CONFIG]---");
 }
 
@@ -98,74 +118,63 @@ config_dump(const Config *c)
  * Private
  */
 static int
-_read_file(char buffer[], size_t size, const char path[])
+_load_json(const char path[])
 {
-	int ret = -1;
-	const int fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		log_err(errno, "config: _read_file: open: \"%s\"", path);
+	char buffer[_BUFFER_SIZE];
+	size_t buffer_len = LEN(buffer);
+
+	/* finding .bin extension */
+	const char *const ext = strrchr(path, '.');
+	if ((ext != NULL) && (cstr_casecmp(ext, ".bin") == 0)) {
+		log_err(0, "config: _load_json: '%s': invalid file path", path);
 		return -1;
 	}
 
-	struct stat st;
-	if (fstat(fd, &st) < 0) {
-		log_err(errno, "config: _read_file: fstat: \"%s\"", path);
-		goto out0;
+	char *const json_path = buffer;
+	cstr_copy_n(json_path, (ext - path) + 1, path);
+
+	int ret = file_read_all(json_path, buffer, &buffer_len);
+	if (ret < 0) {
+		log_err(ret, "config: _load_json: file_read_all: '%s'", json_path);
+		return -1;
 	}
 
-	if ((size_t)st.st_size >= size) {
-		log_err(0, "config: _read_file: \"%s\": file too big: max %zubytes", path, size);
-		goto out0;
-	}
-
-	size_t total = 0;
-	const size_t rsize = (size_t)st.st_size;
-	while (total < rsize) {
-		const ssize_t rd = read(fd, buffer + total, rsize - total);
-		if (rd < 0) {
-			log_err(errno, "config: _read_file: read: \"%s\"", path);
-			goto out0;
-		}
-
-		if (rd == 0)
-			break;
-
-		total += (size_t)rd;
-	}
-
-	buffer[total] = '\0';
-	ret = 0;
-
-out0:
-	close(fd);
-	return ret;
+	buffer[buffer_len] = '\0';
+	return _parse_json(buffer, path);
 }
 
 
 static int
-_parse(Config *c, const char buffer[])
+_parse_json(const char buffer[], const char path[])
 {
 	int ret = -1;
+	Config cfg = { 0 };
+
 	json_object *const root_obj = json_tokener_parse(buffer);
 	if (root_obj == NULL) {
-		log_err(0, "config: _parse: json_tokener_parse: failed");
+		log_err(0, "config: _parse_json: json_tokener_parse: failed");
 		return -1;
 	}
 
-	if (_parse_api(c, root_obj) < 0)
+	if (_parse_json_api(&cfg, root_obj) < 0)
+		goto out0;
+	if (_parse_json_hook(&cfg, root_obj) < 0)
+		goto out0;
+	if (_parse_json_tg(&cfg, root_obj) < 0)
 		goto out0;
 
-	if (_parse_hook(c, root_obj) < 0)
-		goto out0;
+	_parse_json_sys(&cfg, root_obj);
+	_parse_json_listen(&cfg, root_obj);
+	_parse_json_cmd_extern(&cfg, root_obj);
 
-	if (_parse_tg(c, root_obj) < 0)
-		goto out0;
+	const char *const cfg_mem = (const char *)&cfg;
+	size_t cfg_mem_len = sizeof(cfg);
 
-	_parse_sys(c, root_obj);
-	_parse_listen(c, root_obj);
-	_parse_cmd_extern(c, root_obj);
-
-	ret = _validate(c);
+	ret = file_write_all(path, cfg_mem, &cfg_mem_len);
+	if ((ret == 0) && (cfg_mem_len != sizeof(cfg))) {
+		log_err(0, "config: _parse_json: file_write_all: '%s': invalid len", path);
+		ret = -1;
+	}
 
 out0:
 	json_object_put(root_obj);
@@ -174,192 +183,164 @@ out0:
 
 
 static int
-_parse_api(Config *c, json_object *obj)
+_parse_json_api(Config *c, json_object *root_obj)
 {
 	json_object *api_obj;
-	if (json_object_object_get_ex(obj, "api", &api_obj) == 0) {
-		log_err(0, "config: _parse_api: api: no such object");
+	if (json_object_object_get_ex(root_obj, "api", &api_obj) == 0) {
+		log_err(0, "config: _parse_json_api: api: no such object");
 		return -1;
 	}
 
 	json_object *token_obj;
 	if (json_object_object_get_ex(api_obj, "token", &token_obj) == 0) {
-		log_err(0, "config: _parse_api: api.token: no such object");
+		log_err(0, "config: _parse_json_api: api.token: no such object");
 		return -1;
 	}
 
 	json_object *secret_obj;
 	if (json_object_object_get_ex(api_obj, "secret", &secret_obj) == 0) {
-		log_err(0, "config: _parse_api: api.secret: no such object");
+		log_err(0, "config: _parse_json_api: api.secret: no such object");
 		return -1;
 	}
 
 	const char *const token = json_object_get_string(token_obj);
 	if (cstr_is_empty(token)) {
-		log_err(0, "config: _parse_api: api.token: empty");
+		log_err(0, "config: _parse_json_api: api.token: empty");
 		return -1;
 	}
 
 	const char *const secret = json_object_get_string(secret_obj);
 	if (cstr_is_empty(secret)) {
-		log_err(0, "config: _parse_api: api.secret: empty");
+		log_err(0, "config: _parse_json_api: api.secret: empty");
 		return -1;
 	}
 
 	char *const base_api = CSTR_CONCAT(CFG_TELEGRAM_API, token);
 	if (base_api == NULL) {
-		log_err(0, "config: _parse_api: api.url: failed to allocate");
+		log_err(0, "config: _parse_json_api: api.url: failed to allocate");
 		return -1;
 	}
 
-	c->api.url = base_api;
-	c->api.token_len = cstr_copy_n(c->api.token, CFG_API_TOKEN_SIZE, token);
-	c->api.secret_len = cstr_copy_n(c->api.secret, CFG_API_SECRET_SIZE, secret);
+	cstr_copy_n(c->api_url, LEN(c->api_url), base_api);
+	cstr_copy_n(c->api_token, LEN(c->api_token), token);
+	cstr_copy_n(c->api_secret, LEN(c->api_secret), secret);
+
+	free(base_api);
 	return 0;
 }
 
 
 static int
-_parse_hook(Config *c, json_object *obj)
+_parse_json_hook(Config *c, json_object *root_obj)
 {
 	json_object *hook_obj;
-	if (json_object_object_get_ex(obj, "hook", &hook_obj) == 0) {
-		log_err(0, "config: _parse_hook: hook: no such object");
+	if (json_object_object_get_ex(root_obj, "hook", &hook_obj) == 0) {
+		log_err(0, "config: _parse_json_hook: hook: no such object");
 		return -1;
 	}
 
 	json_object *url_obj;
 	if (json_object_object_get_ex(hook_obj, "url", &url_obj) == 0) {
-		log_err(0, "config: _parse_api: hook.url: no such object");
+		log_err(0, "config: _parse_json_api: hook.url: no such object");
 		return -1;
 	}
 
 	json_object *path_obj;
 	if (json_object_object_get_ex(hook_obj, "path", &path_obj) == 0) {
-		log_err(0, "config: _parse_api: hook.path: no such object");
+		log_err(0, "config: _parse_json_api: hook.path: no such object");
 		return -1;
 	}
 
 	const char *const url = json_object_get_string(url_obj);
 	if (cstr_is_empty(url)) {
-		log_err(0, "config: _parse_api: hook.url: empty");
+		log_err(0, "config: _parse_json_api: hook.url: empty");
 		return -1;
 	}
 
 	const char *const path = json_object_get_string(path_obj);
 	if (cstr_is_empty(path)) {
-		log_err(0, "config: _parse_api: hook.path: empty");
+		log_err(0, "config: _parse_json_api: hook.path: empty");
 		return -1;
 	}
 
-	c->hook.url_len = cstr_copy_n(c->hook.url, CFG_HOOK_URL_SIZE, url);
-	cstr_to_lower_n(c->hook.url, c->hook.url_len);
-
-	c->hook.path_len = cstr_copy_n(c->hook.path, CFG_HOOK_PATH_SIZE, path);
+	cstr_copy_n(c->hook_url, LEN(c->hook_url), url);
+	cstr_copy_n(c->hook_path, LEN(c->hook_path), path);
 	return 0;
 }
 
 
 static int
-_parse_tg(Config *c, json_object *obj)
+_parse_json_tg(Config *c, json_object *root_obj)
 {
 	json_object *tg_obj;
-	if (json_object_object_get_ex(obj, "tg", &tg_obj) == 0) {
-		log_err(0, "config: _parse_tg: tg: no such object");
+	if (json_object_object_get_ex(root_obj, "tg", &tg_obj) == 0) {
+		log_err(0, "config: _parse_json_tg: tg: no such object");
 		return -1;
 	}
 
 	json_object *bot_id_obj;
 	if (json_object_object_get_ex(tg_obj, "bot_id", &bot_id_obj) == 0) {
-		log_err(0, "config: _parse_tg: tg.bot_id: no such object");
+		log_err(0, "config: _parse_json_tg: tg.bot_id: no such object");
 		return -1;
 	}
 
 	json_object *owner_id_obj;
 	if (json_object_object_get_ex(tg_obj, "owner_id", &owner_id_obj) == 0) {
-		log_err(0, "config: _parse_tg: tg.owner_id: no such object");
+		log_err(0, "config: _parse_json_tg: tg.owner_id: no such object");
 		return -1;
 	}
 
 	json_object *bot_username_obj;
 	if (json_object_object_get_ex(tg_obj, "bot_username", &bot_username_obj) == 0) {
-		log_err(0, "config: _parse_tg: tg.bot_username: no such object");
+		log_err(0, "config: _parse_json_tg: tg.bot_username: no such object");
 		return -1;
 	}
 
-	c->tg.bot_id = json_object_get_int64(bot_id_obj);
-	if (c->tg.bot_id == 0) {
-		log_err(0, "config: _parse_tg: tg.bot_id: invalid value");
+	c->bot_id = json_object_get_int64(bot_id_obj);
+	if (c->bot_id == 0) {
+		log_err(0, "config: _parse_json_tg: tg.bot_id: invalid value");
 		return -1;
 	}
 
-	c->tg.owner_id = json_object_get_int64(owner_id_obj);
-	if (c->tg.owner_id == 0) {
-		log_err(0, "config: _parse_tg: tg.owner_id: invalid value");
+	c->owner_id = json_object_get_int64(owner_id_obj);
+	if (c->owner_id == 0) {
+		log_err(0, "config: _parse_json_tg: tg.owner_id: invalid value");
 		return -1;
 	}
 
 	const char *const bot_username = json_object_get_string(bot_username_obj);
 	if (cstr_is_empty(bot_username)) {
-		log_err(0, "config: _parse_tg: tg.bot_username: empty");
+		log_err(0, "config: _parse_json_tg: tg.bot_username: empty");
 		return -1;
 	}
 
-	const size_t len = cstr_copy_n(c->tg.bot_username, CFG_TG_BOT_USERNAME_SIZE, bot_username);
-	cstr_to_lower_n(c->tg.bot_username, len);
+	cstr_copy_n(c->bot_username, LEN(c->bot_username), bot_username);
 	return 0;
 }
 
 
 static void
-_parse_listen(Config *c, json_object *obj)
+_parse_json_sys(Config *c, json_object *root_obj)
 {
-	const char *host = CFG_DEF_LISTEN_HOST;
-	int port = CFG_DEF_LISTEN_PORT;
-
-	json_object *listen_obj;
-	if (json_object_object_get_ex(obj, "listen", &listen_obj) == 0)
-		goto out0;
-
-	json_object *tmp_obj;
-	if (json_object_object_get_ex(listen_obj, "host", &tmp_obj) != 0) {
-		const char *const _host = json_object_get_string(tmp_obj);
-		if (_host[0] != '\0')
-			host = _host;
-	}
-
-	if (json_object_object_get_ex(listen_obj, "port", &tmp_obj) != 0)
-		port = (int)json_object_get_int(tmp_obj);
-
-out0:
-	cstr_copy_n(c->listen.host, CFG_LISTEN_HOST_SIZE, host);
-	c->listen.port = port;
-}
-
-
-static void
-_parse_sys(Config *c, json_object *obj)
-{
-	int import_envp = CFG_DEF_SYS_IMPORT_SYS_ENVP;
-	unsigned worker_size = CFG_DEF_SYS_WORKER_SIZE;
+	uint16_t import_envp = CFG_DEF_SYS_IMPORT_SYS_ENVP;
+	uint16_t worker_size = CFG_DEF_SYS_WORKER_SIZE;
 	const char *db_file = CFG_DEF_SYS_DB_FILE;
-	int db_pool_conn_size = CFG_DEF_DB_CONN_POOL_SIZE;
+	uint16_t db_pool_conn_size = CFG_DEF_DB_CONN_POOL_SIZE;
 
 	json_object *sys_obj;
-	if (json_object_object_get_ex(obj, "sys", &sys_obj) == 0)
+	if (json_object_object_get_ex(root_obj, "sys", &sys_obj) == 0)
 		goto out0;
 
 	json_object *tmp_obj;
 	if (json_object_object_get_ex(sys_obj, "import_sys_envp", &tmp_obj) != 0) {
 		const char *const bool_type = (const char *)json_object_get_string(tmp_obj);
 		import_envp = cstr_to_bool(bool_type);
-		import_envp = (import_envp < 0)? 0 : import_envp;
 	}
 
 	if (json_object_object_get_ex(sys_obj, "worker_size", &tmp_obj) != 0)
 		worker_size = (unsigned)json_object_get_uint64(tmp_obj);
 
-	if (json_object_object_get_ex(obj, "db_file", &tmp_obj) != 0) {
+	if (json_object_object_get_ex(sys_obj, "db_file", &tmp_obj) != 0) {
 		const char *const _db_file = json_object_get_string(tmp_obj);
 		if (cstr_is_empty(_db_file) == 0)
 			db_file = _db_file;
@@ -372,21 +353,47 @@ _parse_sys(Config *c, json_object *obj)
 	}
 
 out0:
-	c->sys.import_sys_envp = import_envp;
-	c->sys.worker_size = worker_size;
-	c->sys.db_pool_conn_size = db_pool_conn_size;
-	cstr_copy_n(c->sys.db_file, CFG_SYS_DB_FILE_SIZE, db_file);
+	c->import_sys_envp = import_envp;
+	c->worker_size = worker_size;
+	c->db_pool_conn_size = db_pool_conn_size;
+	cstr_copy_n(c->db_path, LEN(c->db_path), db_file);
 }
 
 
 static void
-_parse_cmd_extern(Config *c, json_object *obj)
+_parse_json_listen(Config *c, json_object *root_obj)
+{
+	const char *host = CFG_DEF_LISTEN_HOST;
+	uint16_t port = CFG_DEF_LISTEN_PORT;
+
+	json_object *listen_obj;
+	if (json_object_object_get_ex(root_obj, "listen", &listen_obj) == 0)
+		goto out0;
+
+	json_object *tmp_obj;
+	if (json_object_object_get_ex(listen_obj, "host", &tmp_obj) != 0) {
+		const char *const _host = json_object_get_string(tmp_obj);
+		if (_host[0] != '\0')
+			host = _host;
+	}
+
+	if (json_object_object_get_ex(listen_obj, "port", &tmp_obj) != 0)
+		port = (uint16_t)json_object_get_uint64(tmp_obj);
+
+out0:
+	cstr_copy_n(c->listen_host, LEN(c->listen_host), host);
+	c->listen_port = port;
+}
+
+
+static void
+_parse_json_cmd_extern(Config *c, json_object *root_obj)
 {
 	const char *cmd_extern_path = CFG_DEF_CMD_EXTERN_PATH;
 	const char *cmd_extern_log_file = CFG_DEF_CMD_EXTERN_LOG_FILE;
 
 	json_object *cmd_extern_obj;
-	if (json_object_object_get_ex(obj, "cmd_extern", &cmd_extern_obj) == 0)
+	if (json_object_object_get_ex(root_obj, "cmd_extern", &cmd_extern_obj) == 0)
 		goto out0;
 
 	json_object *tmp_obj;
@@ -403,15 +410,6 @@ _parse_cmd_extern(Config *c, json_object *obj)
 	}
 
 out0:
-	cstr_copy_n(c->cmd_extern.path, CFG_CMD_EXTERN_PATH_SIZE, cmd_extern_path);
-	cstr_copy_n(c->cmd_extern.log_file, CFG_CMD_EXTERN_LOG_FILE_SIZE, cmd_extern_log_file);
-}
-
-
-static int
-_validate(const Config *c)
-{
-	/* TODO */
-	(void)c;
-	return 0;
+	cstr_copy_n(c->cmd_extern_path, LEN(c->cmd_extern_path), cmd_extern_path);
+	cstr_copy_n(c->cmd_extern_log_file, LEN(c->cmd_extern_log_file), cmd_extern_log_file);
 }

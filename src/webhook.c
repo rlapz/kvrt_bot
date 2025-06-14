@@ -14,10 +14,10 @@ static void _print_json(const char raw[]);
 
 
 int
-webhook_set(const Config *cfg)
+webhook_set(const Config *config)
 {
 	log_info("webhook: webhook_set: setting up webhook...");
-	log_info("webhook: url: \"%s%s\"", cfg->hook.url, cfg->hook.path);
+	log_info("webhook: url: \"%s%s\"", config->hook_url, config->hook_path);
 
 	Str str;
 	int ret = str_init_alloc(&str, 0);
@@ -28,8 +28,8 @@ webhook_set(const Config *cfg)
 
 	const char *const req = str_set_fmt(&str, "%s%s/setWebhook?url=%s%s&allowed_updates="
 						  ALLOWED_UPDATES "&drop_pending_updates=True&secret_token=%s",
-					    CFG_TELEGRAM_API, cfg->api.token, cfg->hook.url, cfg->hook.path,
-					    cfg->api.secret);
+					    CFG_TELEGRAM_API, config->api_token, config->hook_url,
+					    config->hook_path, config->api_secret);
 	if (req == NULL) {
 		log_err(errno, "webhook: webhook_set: str_set_fmt: NULL");
 		goto out0;
@@ -53,7 +53,7 @@ out0:
 
 
 int
-webhook_del(const Config *cfg)
+webhook_del(const Config *config)
 {
 	log_info("webhook: webhook_del: deleting webhook...");
 
@@ -65,7 +65,7 @@ webhook_del(const Config *cfg)
 	}
 
 	const char *const req = str_set_fmt(&str, "%s%s/deleteWebhook?drop_pending_updates=True",
-					    CFG_TELEGRAM_API, cfg->api.token);
+					    CFG_TELEGRAM_API, config->api_token);
 	if (req == NULL) {
 		log_err(errno, "webhook: webhook_del: str_set_fmt: NULL");
 		goto out0;
@@ -89,7 +89,7 @@ out0:
 
 
 int
-webhook_info(const Config *cfg)
+webhook_info(const Config *config)
 {
 	log_info("webhook: webhook_info:");
 
@@ -101,7 +101,7 @@ webhook_info(const Config *cfg)
 	}
 
 	const char *const req = str_set_fmt(&str, "%s%s/getWebhookInfo",
-					    CFG_TELEGRAM_API, cfg->api.token);
+					    CFG_TELEGRAM_API, config->api_token);
 	if (req == NULL) {
 		log_err(errno, "webhook: webhook_info: str_set_fmt: NULL");
 		goto out0;

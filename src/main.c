@@ -68,11 +68,12 @@ static int  _client_resp_prep(Client *c);
  * Server
  */
 typedef struct server {
-	const Config *cfg;
+	const char   *config_path;
+	const Config *config;
 	DList         clients;
 } Server;
 
-static int  _server_init(Server *s, const Config *cfg);
+static int  _server_init(Server *s, const Config *config, const char config_path[]);
 static void _server_deinit(Server *s);
 static int  _server_init_chld(Server *s, const char api[], char *envp[]);
 static int  _server_run(Server *s, char *envp[]);
@@ -316,7 +317,7 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	size_t host_len = 0;
 	const char *content_type = NULL;
 	size_t content_type_len = 0;
-	const Config *cfg = c->parent->cfg;
+	const Config *config = c->parent->config;
 
 
 #ifdef DEBUG
@@ -331,8 +332,8 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	if ((req->method_len == 4) && strncasecmp(req->method, "POST", 4) != 0)
 		return -1;
 
-	if ((req->path_len == cfg->hook.path_len) &&
-	    (strncasecmp(cfg->hook.path, req->path, req->path_len) != 0)) {
+	if ((req->path_len == strlen(config->hook_path)) &&
+	    (strncasecmp(config->hook_path, req->path, req->path_len) != 0)) {
 		return -1;
 	}
 
@@ -372,17 +373,17 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 		}
 	}
 
-	if (cstr_cmp_n2(cfg->api.secret, cfg->api.secret_len, secret, secret_len) == 0)
+	if (cstr_cmp_n2(config->api_secret, strlen(config->api_secret), secret, secret_len) == 0)
 		return -1;
 
 	if ((scontent_len == NULL) || (scontent_len_len >= UINT64_DIGITS_LEN))
 		return -1;
 
 	/* ommit "https://" */
-	const char *hook_url = cfg->hook.url;
-	size_t hook_url_len = cfg->hook.url_len;
+	const char *hook_url = config->hook_url;
+	size_t hook_url_len = strlen(config->hook_url);
 	{
-		const char *const proto = strstr(cfg->hook.url, "https://");
+		const char *const proto = strstr(config->hook_url, "https://");
 		if (proto != NULL) {
 			hook_url = proto + 8;
 			hook_url_len = hook_url_len - 8;
@@ -439,10 +440,11 @@ _client_resp_prep(Client *c)
  * Server
  */
 static int
-_server_init(Server *s, const Config *cfg)
+_server_init(Server *s, const Config *config, const char config_path[])
 {
 	dlist_init(&s->clients);
-	s->cfg = cfg;
+	s->config = config;
+	s->config_path = config_path;
 	return 0;
 }
 
@@ -462,13 +464,13 @@ _server_deinit(Server *s)
 static int
 _server_init_chld(Server *s, const char api[], char *envp[])
 {
-	const Config *const cfg = s->cfg;
-	if (chld_init(cfg->cmd_extern.path, cfg->cmd_extern.log_file) < 0) {
+	const Config *const config = s->config;
+	if (chld_init(config->cmd_extern_path, config->cmd_extern_log_file) < 0) {
 		log_err(0, "main: _server_init_chld: chld_init: failed");
 		return -1;
 	}
 
-	if (cfg->sys.import_sys_envp) {
+	if (config->import_sys_envp) {
 		char **envp_ptr = envp;
 		while (*envp_ptr != NULL) {
 			if (chld_add_env(*envp_ptr) < 0)
@@ -486,7 +488,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
 		goto err0;
 
-	const char *const cfg_file = realpath(cfg->file_path, buff);
+	const char *const cfg_file = realpath(s->config_path, buff);
 	if (cfg_file == NULL)
 		goto err0;
 
@@ -496,27 +498,27 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0)
 		goto err0;
 
-	if (chld_add_env_kv(CFG_ENV_TELEGRAM_SECRET_KEY, cfg->api.secret) < 0)
+	if (chld_add_env_kv(CFG_ENV_TELEGRAM_SECRET_KEY, config->api_secret) < 0)
 		goto err0;
 
 	char owner_id[24];
-	if (snprintf(owner_id, LEN(owner_id), "%" PRIi64, cfg->tg.owner_id) < 0)
+	if (snprintf(owner_id, LEN(owner_id), "%" PRIi64, config->owner_id) < 0)
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_OWNER_ID, owner_id) < 0)
 		goto err0;
 
 	char bot_id[24];
-	if (snprintf(bot_id, LEN(bot_id), "%" PRIi64, cfg->tg.bot_id) < 0)
+	if (snprintf(bot_id, LEN(bot_id), "%" PRIi64, config->bot_id) < 0)
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_BOT_ID, bot_id) < 0)
 		goto err0;
 
-	if (chld_add_env_kv(CFG_ENV_BOT_USERNAME, cfg->tg.bot_username) < 0)
+	if (chld_add_env_kv(CFG_ENV_BOT_USERNAME, config->bot_username) < 0)
 		goto err0;
 
-	if (chld_add_env_kv(CFG_ENV_DB_PATH, cfg->sys.db_file) < 0)
+	if (chld_add_env_kv(CFG_ENV_DB_PATH, config->db_path) < 0)
 		goto err0;
 
 	return 0;
@@ -535,13 +537,13 @@ _server_run(Server *s, char *envp[])
 	EvTimer timer;
 	EvListener listener;
 	Sched sched;
-	const Config *const cfg = s->cfg;
+	const Config *const config = s->config;
 
 
-	config_dump(cfg);
-	tg_api_init(s->cfg->api.url);
+	config_dump(config);
+	tg_api_init(s->config->api_url);
 
-	int ret = sqlite_pool_init(cfg->sys.db_file, cfg->sys.db_pool_conn_size);
+	int ret = sqlite_pool_init(config->db_path, config->db_pool_conn_size);
 	if (ret < 0)
 		return ret;
 
@@ -562,11 +564,11 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out2;
 
-	ret = ev_listener_init(&listener, cfg->listen.host, cfg->listen.port, _server_on_listener, s);
+	ret = ev_listener_init(&listener, config->listen_host, (int)config->listen_port, _server_on_listener, s);
 	if (ret < 0)
 		goto out3;
 
-	ret = _server_init_chld(s, s->cfg->api.url, envp);
+	ret = _server_init_chld(s, s->config->api_url, envp);
 	if (ret < 0)
 		goto out4;
 
@@ -574,7 +576,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out5;
 
-	ret = thrd_pool_init(cfg->sys.worker_size);
+	ret = thrd_pool_init(config->worker_size);
 	if (ret < 0)
 		goto out6;
 
@@ -774,12 +776,12 @@ _server_handle_update(void *ctx, void *udata)
 {
 	Server *const s = (Server *)ctx;
 	json_object *const json = (json_object *)udata;
-	const Config *const cfg = s->cfg;
+	const Config *const config = s->config;
 
 	Update update = {
-		.id_bot = cfg->tg.bot_id,
-		.id_owner = cfg->tg.owner_id,
-		.username = cfg->tg.bot_username,
+		.id_bot = config->bot_id,
+		.id_owner = config->owner_id,
+		.username = config->bot_username,
 	};
 
 	update_handle(&update, json);
@@ -803,7 +805,7 @@ _print_help(const char name[])
 
 
 static int
-_handle_args(char *argv[], const Config *cfg)
+_handle_args(char *argv[], const Config *config)
 {
 	const char *const argv1 = argv[1];
 	if (strcmp(argv1, "help") == 0) {
@@ -812,11 +814,11 @@ _handle_args(char *argv[], const Config *cfg)
 	}
 
 	if (strcmp(argv1, "webhook-set") == 0)
-		return -webhook_set(cfg);
+		return -webhook_set(config);
 	if (strcmp(argv1, "webhook-del") == 0)
-		return -webhook_del(cfg);
+		return -webhook_del(config);
 	if (strcmp(argv1, "webhook-info") == 0)
-		return -webhook_info(cfg);
+		return -webhook_info(config);
 
 	_print_help(argv[0]);
 
@@ -833,17 +835,17 @@ main(int argc, char *argv[], char *envp[])
 		return ret;
 	}
 
-	Config *cfg;
-	if (config_load_from_json("./config.json", &cfg) < 0)
+	Config *config;
+	if (config_load(&config, "./config.json.bin") < 0)
 		goto out0;
 
 	if (argc > 1) {
-		ret = _handle_args(argv, cfg);
+		ret = _handle_args(argv, config);
 		goto out1;
 	}
 
 	Server srv;
-	ret = _server_init(&srv, cfg);
+	ret = _server_init(&srv, config, "./config.json.bin");
 	if (ret < 0)
 		goto out1;
 
@@ -851,7 +853,7 @@ main(int argc, char *argv[], char *envp[])
 	_server_deinit(&srv);
 
 out1:
-	config_free(&cfg);
+	config_free(&config);
 out0:
 	log_deinit();
 	return -ret;

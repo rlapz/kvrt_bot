@@ -1196,6 +1196,76 @@ args_free(char *args[], unsigned len)
 }
 
 
+int
+file_read_all(const char path[], char buffer[], size_t *len)
+{
+	int ret = -1;
+	const int fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -errno;
+
+	struct stat st;
+	if (fstat(fd, &st) < 0) {
+		ret = -errno;
+		goto out0;
+	}
+
+	size_t total = 0;
+	const size_t rsize = MIN((size_t)st.st_size, *len);
+	while (total < rsize) {
+		const ssize_t rd = read(fd, buffer + total, rsize - total);
+		if (rd < 0) {
+			ret = -errno;
+			goto out0;
+		}
+
+		if (rd == 0)
+			break;
+
+		total += (size_t)rd;
+	}
+
+	*len = total;
+	ret = 0;
+
+out0:
+	close(fd);
+	return ret;
+}
+
+
+int
+file_write_all(const char path[], const char buffer[], size_t *len)
+{
+	int ret = -1;
+	const int fd = creat(path, 00644);
+	if (fd < 0)
+		return -errno;
+
+	size_t total = 0;
+	const size_t rsize = *len;
+	while (total < rsize) {
+		const ssize_t wr = write(fd, buffer + total, rsize - total);
+		if (ret < 0) {
+			ret = -errno;
+			goto out0;
+		}
+
+		if (wr == 0)
+			break;
+
+		total += (size_t)wr;
+	}
+
+	*len = total;
+	ret = 0;
+
+out0:
+	close(fd);
+	return ret;
+}
+
+
 /*
  * Http
  */

@@ -115,7 +115,7 @@ _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 		goto out0;
 	}
 
-	if (config_load_from_json(cfg_file, &a->config) < 0) {
+	if (config_load(&a->config, cfg_file) < 0) {
 		resp = "filed to load config file";
 		goto out0;
 	}
@@ -132,9 +132,9 @@ _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 		goto out0;
 	}
 
-	a->tg_api = a->config->api.url;
-	a->bot_id = a->config->tg.bot_id;
-	a->owner_id = a->config->tg.owner_id;
+	a->tg_api = a->config->api_url;
+	a->bot_id = a->config->bot_id;
+	a->owner_id = a->config->owner_id;
 	ret = 0;
 
 out0:

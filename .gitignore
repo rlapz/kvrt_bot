@@ -57,6 +57,7 @@ run.sh
 db.sql
 db.sqlite
 config.json
+config.bin
 
 vgcore.*
 

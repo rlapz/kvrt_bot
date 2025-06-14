@@ -41,6 +41,7 @@
 #define CFG_ENV_DB_PATH             "DB_PATH"
 
 /* config.json */
+#define CFG_API_URL_SIZE             (256)
 #define CFG_API_TOKEN_SIZE           (64)
 #define CFG_API_SECRET_SIZE          (64)
 #define CFG_HOOK_URL_SIZE            (64)
@@ -53,42 +54,25 @@
 
 
 typedef struct config {
-	const char *file_path;
-	struct {
-		char   *url;
-		char    token[CFG_API_TOKEN_SIZE];
-		size_t  token_len;
-		char    secret[CFG_API_SECRET_SIZE];
-		size_t  secret_len;
-	} api;
-	struct {
-		char   url[CFG_HOOK_URL_SIZE];
-		size_t url_len;
-		char   path[CFG_HOOK_PATH_SIZE];
-		size_t path_len;
-	} hook;
-	struct {
-		int64_t bot_id;
-		int64_t owner_id;
-		char    bot_username[CFG_TG_BOT_USERNAME_SIZE];
-	} tg;
-	struct {
-		char host[CFG_LISTEN_HOST_SIZE];
-		int  port;
-	} listen;
-	struct {
-		int      import_sys_envp;
-		unsigned worker_size;
-		int      db_pool_conn_size;
-		char     db_file[CFG_SYS_DB_FILE_SIZE];
-	} sys;
-	struct {
-		char path[CFG_CMD_EXTERN_PATH_SIZE];
-		char log_file[CFG_CMD_EXTERN_LOG_FILE_SIZE];
-	} cmd_extern;
+	char     api_url[CFG_API_URL_SIZE];
+	char     api_token[CFG_API_TOKEN_SIZE];
+	char     api_secret[CFG_API_SECRET_SIZE];
+	char     hook_url[CFG_HOOK_URL_SIZE];
+	char     hook_path[CFG_HOOK_PATH_SIZE];
+	int64_t  bot_id;
+	int64_t  owner_id;
+	char     bot_username[CFG_TG_BOT_USERNAME_SIZE];
+	char     listen_host[CFG_LISTEN_HOST_SIZE];
+	uint16_t listen_port;
+	uint16_t import_sys_envp;
+	uint16_t worker_size;
+	uint16_t db_pool_conn_size;
+	char     db_path[CFG_SYS_DB_FILE_SIZE];
+	char     cmd_extern_path[CFG_CMD_EXTERN_PATH_SIZE];
+	char     cmd_extern_log_file[CFG_CMD_EXTERN_LOG_FILE_SIZE];
 } Config;
 
-int  config_load_from_json(const char path[], Config **cfg);
+int  config_load(Config **c, const char path[]);
 void config_free(Config **c);
 void config_dump(const Config *c);
 

@@ -175,6 +175,9 @@ int64_is_bool(int64_t val)
 	return ((val == 0) || (val == 1));
 }
 
+int file_read_all(const char path[], char buffer[], size_t *len);
+int file_write_all(const char path[], const char buffer[], size_t *len);
+
 
 /*
  * Chld
