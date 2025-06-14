@@ -6,9 +6,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <sys/stat.h>
-#include <sys/mman.h>
-
 #include "config.h"
 
 #include "util.h"
@@ -31,56 +28,32 @@ static void _parse_json_cmd_extern(Config *c, json_object *root_obj);
  * Public
  */
 int
-config_load(Config **c, const char path[])
+config_load(Config *c, const char path[])
 {
-	int ret = -1;
-	int fd;
 	for (int i = 0; i < 3; i++) {
-		fd = open(path, O_RDONLY);
-		if (fd >= 0)
-			break;
+		size_t cfg_len = sizeof(*c);
+		const int ret = file_read_all(path, (char *)c, &cfg_len);
+		if (ret < 0) {
+			if (ret != -ENOENT) {
+				log_err(errno, "config: config_load: open: '%s'", path);
+				return -1;
+			}
 
-		if (errno != ENOENT) {
-			log_err(errno, "config: config_load: open: '%s'", path);
-			return -1;
+			if (_load_json(path) < 0)
+				return -1;
 		}
 
-		if (_load_json(path) < 0)
-			return -1;
+		if (cfg_len != sizeof(*c)) {
+			if (_load_json(path) < 0)
+				return -1;
+
+			continue;
+		}
+
+		return 0;
 	}
 
-	struct stat st;
-	if (fstat(fd, &st) < 0) {
-		log_err(errno, "config: config_load: fstst: '%s'", path);
-		goto out0;
-	}
-
-	// TODO: verify Config file
-	if (st.st_size != sizeof(Config)) {
-		log_err(errno, "config: config_load: invalid size: '%s'", path);
-		goto out0;
-	}
-
-	void *const map = mmap(NULL, (size_t)st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-	if (map == MAP_FAILED) {
-		log_err(errno, "config: config_load: mmap: '%s'", path);
-		goto out0;
-	}
-
-	*c = (Config *)map;
-	ret = 0;
-
-out0:
-	close(fd);
-	return ret;
-}
-
-
-void
-config_free(Config **c)
-{
-	munmap(*c, sizeof(Config));
-	*c = NULL;
+	return -1;
 }
 
 

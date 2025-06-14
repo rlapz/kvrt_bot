@@ -72,8 +72,7 @@ typedef struct config {
 	char     cmd_extern_log_file[CFG_CMD_EXTERN_LOG_FILE_SIZE];
 } Config;
 
-int  config_load(Config **c, const char path[]);
-void config_free(Config **c);
+int  config_load(Config *c, const char path[]);
 void config_dump(const Config *c);
 
 

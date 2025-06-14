@@ -835,25 +835,23 @@ main(int argc, char *argv[], char *envp[])
 		return ret;
 	}
 
-	Config *config;
+	Config config;
 	if (config_load(&config, "./config.json.bin") < 0)
 		goto out0;
 
 	if (argc > 1) {
-		ret = _handle_args(argv, config);
-		goto out1;
+		ret = _handle_args(argv, &config);
+		goto out0;
 	}
 
 	Server srv;
-	ret = _server_init(&srv, config, "./config.json.bin");
+	ret = _server_init(&srv, &config, "./config.json.bin");
 	if (ret < 0)
-		goto out1;
+		goto out0;
 
 	ret = _server_run(&srv, envp);
 	_server_deinit(&srv);
 
-out1:
-	config_free(&config);
 out0:
 	log_deinit();
 	return -ret;

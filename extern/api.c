@@ -32,7 +32,7 @@ enum {
 
 
 typedef struct arg {
-	Config      *config;
+	Config       config;
 	const char  *api_type;
 	const char  *tg_api;
 	int64_t      bot_id;
@@ -82,8 +82,6 @@ main(int argc, char *argv[])
 	else
 		_RESP_ADD_ERROR(resp_obj, "invalid api type!");
 
-	config_free(&arg.config);
-
 	(void)_json_add_str_fmt;
 
 out0:
@@ -132,15 +130,12 @@ _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 		goto out0;
 	}
 
-	a->tg_api = a->config->api_url;
-	a->bot_id = a->config->bot_id;
-	a->owner_id = a->config->owner_id;
+	a->tg_api = a->config.api_url;
+	a->bot_id = a->config.bot_id;
+	a->owner_id = a->config.owner_id;
 	ret = 0;
 
 out0:
-	if (ret < 0)
-		config_free(&a->config);
-
 	a->resp = resp_obj;
 	_RESP_ADD_ERROR(resp_obj, resp);
 	return ret;
