@@ -164,11 +164,11 @@ ev_signal_deinit(const EvSignal *e)
 
 
 int
-ev_listener_init(EvListener *e, const char host[], int port, void (*callback_fn)(void *, int), void *udata)
+ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int), void *udata)
 {
 	const struct sockaddr_in addr = {
 		.sin_family = AF_INET,
-		.sin_port = htons((in_port_t)port),
+		.sin_port = htons(port),
 		.sin_addr.s_addr = inet_addr(host),
 	};
 

@@ -569,7 +569,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out2;
 
-	ret = ev_listener_init(&listener, config->listen_host, (int)config->listen_port, _server_on_listener, s);
+	ret = ev_listener_init(&listener, config->listen_host, config->listen_port, _server_on_listener, s);
 	if (ret < 0)
 		goto out3;
 

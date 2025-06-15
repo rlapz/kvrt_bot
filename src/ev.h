@@ -44,7 +44,7 @@ typedef struct ev_listener {
 	int    fd;
 } EvListener;
 
-int  ev_listener_init(EvListener *e, const char host[], int port, void (*callback_fn)(void *, int),
+int  ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int),
 		      void *udata);
 void ev_listener_deinit(const EvListener *e);
 
