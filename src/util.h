@@ -162,6 +162,7 @@ void *cstr_map_get(CstrMap *c, const char key[]);
  */
 int val_is_null_and_n(size_t count, ...);
 int val_is_null_or_n(size_t count, ...);
+int val_cmp_n2(const void *a, size_t a_len, const void *b, size_t b_len);
 
 #define VAL_IS_NULL(...)    val_is_null_and_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 #define VAL_IS_NULL_OR(...) val_is_null_or_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)

@@ -11,24 +11,24 @@
 #define CFG_DEF_LISTEN_PORT         (22224)
 #define CFG_DEF_SYS_IMPORT_SYS_ENVP (0)
 #define CFG_DEF_SYS_WORKER_SIZE     4
-#define CFG_DEF_SYS_DB_FILE         "./db.sqlite"
+#define CFG_DEF_SYS_DB_PATH         "./db.sqlite"
 #define CFG_DEF_CMD_EXTERN_PATH     "./extern"
 #define CFG_DEF_CMD_EXTERN_LOG_FILE "./extern/log.txt"
 #define CFG_DEF_DB_CONN_POOL_SIZE   (4)
 
-#define CFG_LOG_BUFFER_SIZE           (1024 * 1024)
-#define CFG_BUFFER_SIZE               (1024 * 512)
-#define CFG_EVENTS_SIZE               (128)
-#define CFG_HTTP_RESPONSE_OK          "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
-#define CFG_HTTP_RESPONSE_ERROR       "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
-#define CFG_TELEGRAM_API              "https://api.telegram.org/bot"
-#define CFG_MAX_CLIENTS               (128)
-#define CFG_LIST_ITEMS_SIZE           (8)
-#define CFG_LIST_TIMEOUT_S            (3600)
-#define CFG_CONNECTION_TIMEOUT_S      (3)
-#define CFG_CMD_BUILTIN_MAP_SIZE      (1024)
-#define CFG_CHLD_ITEMS_SIZE           (256)
-#define CFG_CHLD_ENVP_SIZE            (128)
+#define CFG_LOG_BUFFER_SIZE      (1024 * 1024)
+#define CFG_BUFFER_SIZE          (1024 * 512)
+#define CFG_EVENTS_SIZE          (128)
+#define CFG_HTTP_RESPONSE_OK     "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
+#define CFG_HTTP_RESPONSE_ERROR  "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
+#define CFG_TELEGRAM_API         "https://api.telegram.org/bot"
+#define CFG_MAX_CLIENTS          (128)
+#define CFG_LIST_ITEMS_SIZE      (8)
+#define CFG_LIST_TIMEOUT_S       (3600)
+#define CFG_CONNECTION_TIMEOUT_S (3)
+#define CFG_CMD_BUILTIN_MAP_SIZE (1024)
+#define CFG_CHLD_ITEMS_SIZE      (256)
+#define CFG_CHLD_ENVP_SIZE       (128)
 
 #define CFG_ENV_ROOT_DIR            "ROOT_DIR"
 #define CFG_ENV_CONFIG_FILE         "CONFIG_FILE"
@@ -41,14 +41,14 @@
 #define CFG_ENV_DB_PATH             "DB_PATH"
 
 /* config.json */
-#define CFG_API_URL_SIZE             (256)
+#define CFG_API_URL_SIZE             (4096)
 #define CFG_API_TOKEN_SIZE           (64)
 #define CFG_API_SECRET_SIZE          (64)
-#define CFG_HOOK_URL_SIZE            (64)
-#define CFG_HOOK_PATH_SIZE           (32)
-#define CFG_TG_BOT_USERNAME_SIZE     (64)
+#define CFG_HOOK_URL_SIZE            (4096)
+#define CFG_HOOK_PATH_SIZE           (64)
+#define CFG_BOT_USERNAME_SIZE        (64)
 #define CFG_LISTEN_HOST_SIZE         (64)
-#define CFG_SYS_DB_FILE_SIZE         (256)
+#define CFG_DB_FILE_SIZE             (4096)
 #define CFG_CMD_EXTERN_PATH_SIZE     (4096)
 #define CFG_CMD_EXTERN_LOG_FILE_SIZE (4096)
 
@@ -61,13 +61,13 @@ typedef struct config {
 	char     hook_path[CFG_HOOK_PATH_SIZE];
 	int64_t  bot_id;
 	int64_t  owner_id;
-	char     bot_username[CFG_TG_BOT_USERNAME_SIZE];
+	char     bot_username[CFG_BOT_USERNAME_SIZE];
 	char     listen_host[CFG_LISTEN_HOST_SIZE];
 	uint16_t listen_port;
 	uint16_t import_sys_envp;
 	uint16_t worker_size;
 	uint16_t db_pool_conn_size;
-	char     db_path[CFG_SYS_DB_FILE_SIZE];
+	char     db_path[CFG_DB_FILE_SIZE];
 	char     cmd_extern_path[CFG_CMD_EXTERN_PATH_SIZE];
 	char     cmd_extern_log_file[CFG_CMD_EXTERN_LOG_FILE_SIZE];
 } Config;

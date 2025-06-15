@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -11,11 +12,8 @@
 #include "util.h"
 
 
-#define _BUFFER_SIZE (1024 * 1024)
-
-
 static int  _load_json(const char path[]);
-static int  _parse_json(const char buffer[], const char path[]);
+static int  _parse_json(char buffer[], size_t size, const char path[]);
 static int  _parse_json_api(Config *c, json_object *root_obj);
 static int  _parse_json_hook(Config *c, json_object *root_obj);
 static int  _parse_json_tg(Config *c, json_object *root_obj);
@@ -30,27 +28,26 @@ static void _parse_json_cmd_extern(Config *c, json_object *root_obj);
 int
 config_load(Config *c, const char path[])
 {
+	if (cstr_is_empty(path)) {
+		log_err(EINVAL, "config: config_load: path is empty");
+		return -1;
+	}
+
 	for (int i = 0; i < 3; i++) {
 		size_t cfg_len = sizeof(*c);
 		const int ret = file_read_all(path, (char *)c, &cfg_len);
-		if (ret < 0) {
-			if (ret != -ENOENT) {
-				log_err(errno, "config: config_load: open: '%s'", path);
-				return -1;
-			}
+		if ((ret == 0) && (cfg_len == sizeof(*c)))
+			return 0;
 
-			if (_load_json(path) < 0)
-				return -1;
-		}
-
-		if (cfg_len != sizeof(*c)) {
+		if ((ret == 0) || (ret == -ENOENT)) {
 			if (_load_json(path) < 0)
 				return -1;
 
 			continue;
 		}
 
-		return 0;
+		log_err(errno, "config: config_load: open: '%s'", path);
+		break;
 	}
 
 	return -1;
@@ -93,7 +90,7 @@ config_dump(const Config *c)
 static int
 _load_json(const char path[])
 {
-	char buffer[_BUFFER_SIZE];
+	char buffer[CFG_BUFFER_SIZE];
 	size_t buffer_len = LEN(buffer);
 
 	/* finding .bin extension */
@@ -113,38 +110,41 @@ _load_json(const char path[])
 	}
 
 	buffer[buffer_len] = '\0';
-	return _parse_json(buffer, path);
+	return _parse_json(buffer, LEN(buffer), path);
 }
 
 
 static int
-_parse_json(const char buffer[], const char path[])
+_parse_json(char buffer[], size_t size, const char path[])
 {
-	int ret = -1;
-	Config cfg = { 0 };
+	Config *const cfg = (Config *)buffer;
+	size_t cfg_len = sizeof(*cfg);
+	assert(cfg_len <= size);
 
+	int ret = -1;
 	json_object *const root_obj = json_tokener_parse(buffer);
 	if (root_obj == NULL) {
 		log_err(0, "config: _parse_json: json_tokener_parse: failed");
 		return -1;
 	}
 
-	if (_parse_json_api(&cfg, root_obj) < 0)
+#ifdef DEBUG
+	memset(buffer, 0xa, size);
+#endif
+
+	if (_parse_json_api(cfg, root_obj) < 0)
 		goto out0;
-	if (_parse_json_hook(&cfg, root_obj) < 0)
+	if (_parse_json_hook(cfg, root_obj) < 0)
 		goto out0;
-	if (_parse_json_tg(&cfg, root_obj) < 0)
+	if (_parse_json_tg(cfg, root_obj) < 0)
 		goto out0;
 
-	_parse_json_sys(&cfg, root_obj);
-	_parse_json_listen(&cfg, root_obj);
-	_parse_json_cmd_extern(&cfg, root_obj);
+	_parse_json_sys(cfg, root_obj);
+	_parse_json_listen(cfg, root_obj);
+	_parse_json_cmd_extern(cfg, root_obj);
 
-	const char *const cfg_mem = (const char *)&cfg;
-	size_t cfg_mem_len = sizeof(cfg);
-
-	ret = file_write_all(path, cfg_mem, &cfg_mem_len);
-	if ((ret == 0) && (cfg_mem_len != sizeof(cfg))) {
+	ret = file_write_all(path, buffer, &cfg_len);
+	if ((ret == 0) && (cfg_len != sizeof(*cfg))) {
 		log_err(0, "config: _parse_json: file_write_all: '%s': invalid len", path);
 		ret = -1;
 	}
@@ -297,7 +297,7 @@ _parse_json_sys(Config *c, json_object *root_obj)
 {
 	uint16_t import_envp = CFG_DEF_SYS_IMPORT_SYS_ENVP;
 	uint16_t worker_size = CFG_DEF_SYS_WORKER_SIZE;
-	const char *db_file = CFG_DEF_SYS_DB_FILE;
+	const char *db_file = CFG_DEF_SYS_DB_PATH;
 	uint16_t db_pool_conn_size = CFG_DEF_DB_CONN_POOL_SIZE;
 
 	json_object *sys_obj;

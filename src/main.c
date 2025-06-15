@@ -67,13 +67,21 @@ static int  _client_resp_prep(Client *c);
 /*
  * Server
  */
+typedef struct server_verif {
+	size_t      api_secret_len;
+	const char *hook_url;
+	size_t      hook_url_len;
+	size_t      hook_path_len;
+} ServerVerif;
+
 typedef struct server {
-	const char   *config_path;
-	const Config *config;
-	DList         clients;
+	const char *config_file;
+	Config      config;
+	ServerVerif verif;
+	DList       clients;
 } Server;
 
-static int  _server_init(Server *s, const Config *config, const char config_path[]);
+static int  _server_init(Server *s, const char config_file[]);
 static void _server_deinit(Server *s);
 static int  _server_init_chld(Server *s, const char api[], char *envp[]);
 static int  _server_run(Server *s, char *envp[]);
@@ -317,7 +325,9 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	size_t host_len = 0;
 	const char *content_type = NULL;
 	size_t content_type_len = 0;
-	const Config *config = c->parent->config;
+	const Config *const config = &c->parent->config;
+	const ServerVerif *const vf = &c->parent->verif;
+
 
 
 #ifdef DEBUG
@@ -329,13 +339,10 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	}
 #endif
 
-	if ((req->method_len == 4) && strncasecmp(req->method, "POST", 4) != 0)
+	if (cstr_casecmp_n2(req->method, req->method_len, "POST", 4) == 0)
 		return -1;
-
-	if ((req->path_len == strlen(config->hook_path)) &&
-	    (strncasecmp(config->hook_path, req->path, req->path_len) != 0)) {
+	if (cstr_casecmp_n2(req->path, req->path_len, config->hook_path, vf->hook_path_len) == 0)
 		return -1;
-	}
 
 	const size_t hdr_len = req->hdr_len;
 	for (size_t i = 0, found = 0; (i < hdr_len) && (found < 4); i++) {
@@ -373,26 +380,12 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 		}
 	}
 
-	if (cstr_cmp_n2(config->api_secret, strlen(config->api_secret), secret, secret_len) == 0)
-		return -1;
-
 	if ((scontent_len == NULL) || (scontent_len_len >= UINT64_DIGITS_LEN))
 		return -1;
-
-	/* ommit "https://" */
-	const char *hook_url = config->hook_url;
-	size_t hook_url_len = strlen(config->hook_url);
-	{
-		const char *const proto = strstr(config->hook_url, "https://");
-		if (proto != NULL) {
-			hook_url = proto + 8;
-			hook_url_len = hook_url_len - 8;
-		}
-	}
-
-	if (cstr_casecmp_n2(hook_url, hook_url_len, host, host_len) == 0)
+	if (val_cmp_n2(config->api_secret, vf->api_secret_len, secret, secret_len) == 0)
 		return -1;
-
+	if (cstr_casecmp_n2(vf->hook_url, vf->hook_url_len, host, host_len) == 0)
+		return -1;
 	if (cstr_casecmp_n2(content_type, content_type_len, "application/json", 16) == 0)
 		return -1;
 
@@ -440,11 +433,27 @@ _client_resp_prep(Client *c)
  * Server
  */
 static int
-_server_init(Server *s, const Config *config, const char config_path[])
+_server_init(Server *s, const char config_file[])
 {
+	if (config_load(&s->config, config_file) < 0)
+		return -1;
+
 	dlist_init(&s->clients);
-	s->config = config;
-	s->config_path = config_path;
+
+	s->verif.api_secret_len = strlen(s->config.api_secret);
+	s->verif.hook_url_len = strlen(s->config.hook_url);
+	s->verif.hook_path_len = strlen(s->config.hook_path);
+
+	/* ommit "https://" */
+	const char *const proto = strstr(s->config.hook_url, "https://");
+	if (proto != NULL) {
+		s->verif.hook_url = proto + 8;
+		s->verif.hook_url_len -= 8;
+	} else {
+		s->verif.hook_url = s->config.hook_url;
+	}
+
+	s->config_file = config_file;
 	return 0;
 }
 
@@ -464,7 +473,7 @@ _server_deinit(Server *s)
 static int
 _server_init_chld(Server *s, const char api[], char *envp[])
 {
-	const Config *const config = s->config;
+	const Config *const config = &s->config;
 	if (chld_init(config->cmd_extern_path, config->cmd_extern_log_file) < 0) {
 		log_err(0, "main: _server_init_chld: chld_init: failed");
 		return -1;
@@ -488,7 +497,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
 		goto err0;
 
-	const char *const cfg_file = realpath(s->config_path, buff);
+	const char *const cfg_file = realpath(s->config_file, buff);
 	if (cfg_file == NULL)
 		goto err0;
 
@@ -537,11 +546,11 @@ _server_run(Server *s, char *envp[])
 	EvTimer timer;
 	EvListener listener;
 	Sched sched;
-	const Config *const config = s->config;
+	const Config *const config = &s->config;
 
 
 	config_dump(config);
-	tg_api_init(s->config->api_url);
+	tg_api_init(config->api_url);
 
 	int ret = sqlite_pool_init(config->db_path, config->db_pool_conn_size);
 	if (ret < 0)
@@ -568,7 +577,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out3;
 
-	ret = _server_init_chld(s, s->config->api_url, envp);
+	ret = _server_init_chld(s, config->api_url, envp);
 	if (ret < 0)
 		goto out4;
 
@@ -776,7 +785,7 @@ _server_handle_update(void *ctx, void *udata)
 {
 	Server *const s = (Server *)ctx;
 	json_object *const json = (json_object *)udata;
-	const Config *const config = s->config;
+	const Config *const config = &s->config;
 
 	Update update = {
 		.id_bot = config->bot_id,
@@ -805,7 +814,7 @@ _print_help(const char name[])
 
 
 static int
-_handle_args(char *argv[], const Config *config)
+_handle_args(char *argv[], const char config_file[])
 {
 	const char *const argv1 = argv[1];
 	if (strcmp(argv1, "help") == 0) {
@@ -813,12 +822,16 @@ _handle_args(char *argv[], const Config *config)
 		return EXIT_SUCCESS;
 	}
 
+	Config config;
+	if (config_load(&config, config_file) < 0)
+		return EXIT_FAILURE;
+
 	if (strcmp(argv1, "webhook-set") == 0)
-		return -webhook_set(config);
+		return -webhook_set(&config);
 	if (strcmp(argv1, "webhook-del") == 0)
-		return -webhook_del(config);
+		return -webhook_del(&config);
 	if (strcmp(argv1, "webhook-info") == 0)
-		return -webhook_info(config);
+		return -webhook_info(&config);
 
 	_print_help(argv[0]);
 
@@ -835,17 +848,14 @@ main(int argc, char *argv[], char *envp[])
 		return ret;
 	}
 
-	Config config;
-	if (config_load(&config, "./config.json.bin") < 0)
-		goto out0;
-
+	const char *const config_file = "./config.json.bin";
 	if (argc > 1) {
-		ret = _handle_args(argv, &config);
+		ret = _handle_args(argv, config_file);
 		goto out0;
 	}
 
 	Server srv;
-	ret = _server_init(&srv, &config, "./config.json.bin");
+	ret = _server_init(&srv, config_file);
 	if (ret < 0)
 		goto out0;
 

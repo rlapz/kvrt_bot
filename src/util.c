@@ -1057,6 +1057,22 @@ out0:
 }
 
 
+int
+val_cmp_n2(const void *a, size_t a_len, const void *b, size_t b_len)
+{
+	if ((a == NULL) && (b == NULL))
+		return 1;
+
+	if (a_len != b_len)
+		return 0;
+
+	if (memcmp(a, b, b_len) != 0)
+		return 0;
+
+	return 1;
+}
+
+
 enum {
 	_ARGS_PARSE_STATE_NORMAL,
 	_ARGS_PARSE_STATE_SINGLE_QUOTE,
