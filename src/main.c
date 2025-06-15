@@ -329,7 +329,6 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	const ServerVerif *const vf = &c->parent->verif;
 
 
-
 #ifdef DEBUG
 	log_debug("main: method: |%.*s|", (int)req->method_len, req->method);
 	log_debug("main: path  : |%.*s|", (int)req->path_len, req->path);
@@ -505,9 +504,6 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0)
-		goto err0;
-
-	if (chld_add_env_kv(CFG_ENV_TELEGRAM_SECRET_KEY, config->api_secret) < 0)
 		goto err0;
 
 	char owner_id[24];

@@ -30,15 +30,14 @@
 #define CFG_CHLD_ITEMS_SIZE      (256)
 #define CFG_CHLD_ENVP_SIZE       (128)
 
-#define CFG_ENV_ROOT_DIR            "ROOT_DIR"
-#define CFG_ENV_CONFIG_FILE         "CONFIG_FILE"
-#define CFG_ENV_TELEGRAM_API        "TG_API"
-#define CFG_ENV_TELEGRAM_SECRET_KEY "TG_API_SECRET_KEY"
-#define CFG_ENV_CMD_EXTERN_PATH     "CMD_PATH"
-#define CFG_ENV_OWNER_ID            "OWNER_ID"
-#define CFG_ENV_BOT_ID              "BOT_ID"
-#define CFG_ENV_BOT_USERNAME        "BOT_USERNAME"
-#define CFG_ENV_DB_PATH             "DB_PATH"
+#define CFG_ENV_ROOT_DIR        "ROOT_DIR"
+#define CFG_ENV_CONFIG_FILE     "CONFIG_FILE"
+#define CFG_ENV_TELEGRAM_API    "TG_API"
+#define CFG_ENV_CMD_EXTERN_PATH "CMD_PATH"
+#define CFG_ENV_OWNER_ID        "OWNER_ID"
+#define CFG_ENV_BOT_ID          "BOT_ID"
+#define CFG_ENV_BOT_USERNAME    "BOT_USERNAME"
+#define CFG_ENV_DB_PATH         "DB_PATH"
 
 /* config.json */
 #define CFG_API_URL_SIZE             (4096)
