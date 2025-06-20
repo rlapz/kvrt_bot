@@ -117,12 +117,19 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	name[0] = '/';
 	cstr_copy_n2(name + 1, LEN(name) - 1, st_name.value, st_name.len);
-	if (cmd_builtin_is_exists(name)) {
+
+	int ret = model_cmd_builtin_is_exists(name);
+	if (ret < 0) {
+		resp = "Failed to check builtin cmd";
+		goto out0;
+	}
+
+	if (ret > 0) {
 		resp = "Cannot modify builtin cmd";
 		goto out0;
 	}
 
-	int ret = model_cmd_extern_is_exists(name);
+	ret = model_cmd_extern_is_exists(name);
 	if (ret < 0) {
 		resp = "Failed to check extern cmd";
 		goto out0;

@@ -593,33 +593,31 @@ _server_run(Server *s, char *envp[])
 	ret = ev_ctx_add(&signale.ctx);
 	if (ret < 0) {
 		log_err(ret, "main; _server_run: ev_ctx_add: signal");
-		goto out8;
+		goto out7;
 	}
 
 	ret = ev_ctx_add(&timer.ctx);
 	if (ret < 0) {
 		log_err(ret, "main: _server_run: ev_ctx_add: timer");
-		goto out8;
+		goto out7;
 	}
 
 	ret = ev_ctx_add(&listener.ctx);
 	if (ret < 0) {
 		log_err(ret, "main: _server_run: ev_ctx_add: listener");
-		goto out8;
+		goto out7;
 	}
 
 	ret = ev_ctx_add(&sched.ctx);
 	if (ret < 0) {
 		log_err(ret, "main: _server_run: ev_ctx_add: sched");
-		goto out8;
+		goto out7;
 	}
 
 	ret = ev_run();
 	if (ret < 0)
 		log_err(ret, "main: _server_run: ev_run");
 
-out8:
-	cmd_deinit();
 out7:
 	thrd_pool_deinit();
 out6:

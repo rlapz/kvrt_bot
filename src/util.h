@@ -16,6 +16,7 @@
 #define FIELD_PARENT_PTR(T, FIELD, PTR) ((T *)(((char *)(PTR)) - offsetof(T, FIELD)))
 #define MIN(a, b)                       (((a) < (b)) ? (a) : (b))
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
+#define UNSET(X, F)                     ((X) &= ~(F))
 
 #define INT64_DIGITS_LEN  (24)
 #define UINT64_DIGITS_LEN (24)
@@ -136,25 +137,6 @@ char *str_set_fmt(Str *s, const char fmt[], ...);
 char *str_append_fmt(Str *s, const char fmt[], ...);
 char *str_pop(Str *s, size_t count);
 char *str_dup(Str *s);
-
-
-/*
- * CstrMap
- */
-typedef struct cstr_map_item {
-	const char *key;
-	void       *value;
-} CstrMapItem;
-
-typedef struct cstr_map {
-	size_t       size;
-	CstrMapItem *items;
-} CstrMap;
-
-int   cstr_map_init(CstrMap *c, size_t size);
-void  cstr_map_deinit(CstrMap *c);
-int   cstr_map_set(CstrMap *c, const char key[], void *value);
-void *cstr_map_get(CstrMap *c, const char key[]);
 
 
 /*

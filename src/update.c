@@ -88,6 +88,11 @@ _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 		.json = json,
 	};
 
+	if (model_chat_init(param.id_chat) < 0) {
+		send_text_plain(param.msg, "failed to initialized chat");
+		return;
+	}
+
 	cmd_exec(&param, cb->data);
 }
 
@@ -112,6 +117,11 @@ _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 		.json = json,
 	};
 
+	if (model_chat_init(param.id_chat) < 0) {
+		send_text_plain(param.msg, "failed to initialized chat");
+		return;
+	}
+
 	cmd_exec(&param, msg->text.cstr);
 }
 
@@ -125,7 +135,7 @@ _handle_member_new(Update *u, const TgMessage *msg)
 	const TgUser *const user = &msg->new_member;
 	if (user->id == u->id_bot) {
 		_admin_load(msg);
-		model_cmd_extern_disabled_setup(chat_id);
+		model_chat_init(chat_id);
 		return;
 	}
 

@@ -10,10 +10,9 @@
 static const char *const _icon_admin  = "🅰️";
 static const char *const _icon_nsfw   = "🔞";
 static const char *const _icon_extra  = "🎲";
-static const char *const _icon_extern = "📦";
 
 
-static char *_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len);
+static char *_cmd_list_body(const ModelCmd list[], unsigned len);
 
 
 /*
@@ -26,9 +25,6 @@ cmd_general_start(const CmdParam *cmd)
 }
 
 
-/*
- * TODO: merge builtin and external command list
- */
 void
 cmd_general_help(const CmdParam *cmd)
 {
@@ -55,14 +51,13 @@ cmd_general_help(const CmdParam *cmd)
 		return;
 	}
 
-	unsigned start;
-	CmdBuiltin *builtins = NULL;
-	MessageListPagination pagination = { .page_count = list.page };
-	if (cmd_builtin_get_list(&builtins, cflags, &start, &pagination) < 0)
+	ModelCmd cmd_list[CFG_LIST_ITEMS_SIZE];
+	MessageListPagination pag = { .page_count = list.page };
+	if (cmd_get_list(cmd_list, LEN(cmd_list), &pag, cflags) < 0)
 		goto out0;
 
-	list.body = _builtin_list_body(builtins, start, pagination.items_count);
-	is_err = message_list_send(&list, &pagination, NULL);
+	list.body = _cmd_list_body(cmd_list, pag.items_count);
+	is_err = message_list_send(&list, &pag, NULL);
 
 	free((char *)list.body);
 
@@ -113,7 +108,7 @@ cmd_general_dump_admin(const CmdParam *cmd)
  * Private
  */
 static char *
-_builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
+_cmd_list_body(const ModelCmd list[], unsigned len)
 {
 	const char *admin_only;
 	const char *nsfw;
@@ -124,22 +119,26 @@ _builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
 	if (str_init_alloc(&str, 1024) < 0)
 		return NULL;
 
-	for (unsigned i = num; i < len; i++) {
-		const CmdBuiltin *const cb = &list[i];
-		char *const name = tg_escape(cb->name);
+	str_append_fmt(&str, "%s", "\nBuiltin:\n");
+	for (unsigned i = 0; i < len; i++) {
+		const ModelCmd *const mc = &list[i];
+		if (mc->flags & MODEL_CMD_FLAG_EXTERN)
+			continue;
+
+		char *const name = tg_escape(mc->name);
 		if (name == NULL)
 			goto err0;
 
-		char *const desc = tg_escape(cb->description);
+		char *const desc = tg_escape(mc->description);
 		if (desc == NULL) {
 			free(name);
 			goto err0;
 		}
 
-		admin_only = (cb->flags & MODEL_CMD_FLAG_ADMIN)? _icon_admin : "";
-		nsfw = (cb->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
-		extra = (cb->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
-		res = str_append_fmt(&str, "%u\\. %s \\- %s %s%s%s\n", i + 1,
+		admin_only = (mc->flags & MODEL_CMD_FLAG_ADMIN)? _icon_admin : "";
+		nsfw = (mc->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
+		extra = (mc->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
+		res = str_append_fmt(&str, "%s \\- %s %s%s%s\n",
 				     name, desc, admin_only, nsfw, extra);
 
 		free(desc);
@@ -148,8 +147,36 @@ _builtin_list_body(const CmdBuiltin list[], unsigned num, unsigned len)
 			goto err0;
 	}
 
-	str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW, %s: Extern```",
-		       _icon_admin, _icon_extra, _icon_nsfw, _icon_extern);
+	str_append_fmt(&str, "%s", "\nExtern:\n");
+	for (unsigned i = 0; i < len; i++) {
+		const ModelCmd *const mc = &list[i];
+		if ((mc->flags & MODEL_CMD_FLAG_EXTERN) == 0)
+			continue;
+
+		char *const name = tg_escape(mc->name);
+		if (name == NULL)
+			goto err0;
+
+		char *const desc = tg_escape(mc->description);
+		if (desc == NULL) {
+			free(name);
+			goto err0;
+		}
+
+		admin_only = (mc->flags & MODEL_CMD_FLAG_ADMIN)? _icon_admin : "";
+		nsfw = (mc->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
+		extra = (mc->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
+		res = str_append_fmt(&str, "%s \\- %s %s%s%s\n",
+				     name, desc, admin_only, nsfw, extra);
+
+		free(desc);
+		free(name);
+		if (res == NULL)
+			goto err0;
+	}
+
+	str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW```",
+		       _icon_admin, _icon_extra, _icon_nsfw);
 	return str.cstr;
 
 err0:

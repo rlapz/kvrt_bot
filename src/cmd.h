@@ -28,8 +28,8 @@ typedef struct cmd_param {
 } CmdParam;
 
 int  cmd_init(void);
-void cmd_deinit(void);
 void cmd_exec(CmdParam *cmd, const char req[]);
+int  cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags);
 
 
 typedef struct cmd_builtin {
@@ -38,10 +38,6 @@ typedef struct cmd_builtin {
 	const char *description;
 	void       (*callback_fn)(const CmdParam *);
 } CmdBuiltin;
-
-int cmd_builtin_get_list(CmdBuiltin *list[], int chat_flags, unsigned *start_num,
-			 MessageListPagination *pag);
-int cmd_builtin_is_exists(const char name[]);
 
 
 /*
@@ -130,31 +126,29 @@ void cmd_test_list(const CmdParam *cmd);
 	.name = "/test_echo",							\
 	.description = "just a test",						\
 	.callback_fn = cmd_test_echo,						\
-	.flags = MODEL_CMD_FLAG_TEST,						\
 },										\
 {										\
 	.name = "/test_sched",							\
 	.description = "test sched",						\
 	.callback_fn = cmd_test_sched,						\
-	.flags = MODEL_CMD_FLAG_TEST,						\
 },										\
 {										\
 	.name = "/test_nsfw",							\
 	.description = "test nsfw",						\
 	.callback_fn = cmd_test_nsfw,						\
-	.flags = MODEL_CMD_FLAG_TEST | MODEL_CMD_FLAG_NSFW | MODEL_CMD_FLAG_EXTRA,\
+	.flags = MODEL_CMD_FLAG_NSFW | MODEL_CMD_FLAG_EXTRA,			\
 },										\
 {										\
 	.name = "/test_admin",							\
 	.description = "test admin",						\
 	.callback_fn = cmd_test_admin,						\
-	.flags = MODEL_CMD_FLAG_TEST | MODEL_CMD_FLAG_ADMIN,			\
+	.flags = MODEL_CMD_FLAG_ADMIN,						\
 },										\
 {										\
 	.name = "/test_list",							\
 	.description = "test message list",					\
 	.callback_fn = cmd_test_list,						\
-	.flags = MODEL_CMD_FLAG_TEST | MODEL_CMD_FLAG_CALLBACK,			\
+	.flags = MODEL_CMD_FLAG_CALLBACK,					\
 }
 #else
 #define CMD_BUILTIN_LIST_TEST { 0 }
