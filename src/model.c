@@ -150,7 +150,7 @@ out0:
 int
 model_chat_get_flags(int64_t chat_id)
 {
-	int flags = 0;
+	int ret = -1;
 	sqlite3_stmt *stmt;
 
 	DbConn *const conn = sqlite_pool_get();
@@ -158,23 +158,24 @@ model_chat_get_flags(int64_t chat_id)
 		return -1;
 
 	const char *const query = "SELECT flags FROM Chat WHERE (chat_id = ?);";
-	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "model: model_chat_get_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_chat_get_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
 	sqlite3_bind_int64(stmt, 1, chat_id);
-	if (_sqlite_step_one(stmt) <= 0)
+	ret = _sqlite_step_one(stmt);
+	if (ret <= 0)
 		goto out1;
 
-	flags = sqlite3_column_int(stmt, 0);
+	ret = sqlite3_column_int(stmt, 0);
 
 out1:
 	sqlite3_finalize(stmt);
 out0:
 	sqlite_pool_put(conn);
-	return flags;
+	return ret;
 }
 
 
@@ -602,7 +603,8 @@ model_cmd_extern_get(ModelCmdExtern *c, const char name[])
 	}
 
 	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (_sqlite_step_one(stmt) <= 0)
+	ret = _sqlite_step_one(stmt);
+	if (ret <= 0)
 		goto out1;
 
 	c->id = sqlite3_column_int(stmt, 0);
@@ -611,8 +613,6 @@ model_cmd_extern_get(ModelCmdExtern *c, const char name[])
 	cstr_copy_n(c->name, LEN(c->name), (const char *)sqlite3_column_text(stmt, 3));
 	cstr_copy_n(c->file_name, LEN(c->file_name), (const char *)sqlite3_column_text(stmt, 4));
 	cstr_copy_n(c->description, LEN(c->description), (const char *)sqlite3_column_text(stmt, 5));
-
-	ret = 1;
 
 out1:
 	sqlite3_finalize(stmt);
