@@ -75,19 +75,19 @@ void
 cmd_test_list(const CmdParam *cmd)
 {
 	MessageList list = {
+		.id_user = cmd->id_user,
+		.id_owner = cmd->id_owner,
 		.id_chat = cmd->id_chat,
 		.id_message = cmd->msg->id,
+		.id_callback = cmd->id_callback,
 		.body = "test",
-		.ctx = "/test_list",
+		.ctx = cmd->name,
 		.title = "Test List",
 		.udata = "",
 	};
 
-	if (cstr_is_empty(list.id_callback) == 0) {
-		tg_api_answer_callback_query(list.id_callback, "ok", NULL, 1);
+	if (message_list_init(&list, cmd->args) < 0)
 		return;
-	}
-
 
 	const MessageListPagination pag = { .page_count = 1, .page_size = 1 };
 	message_list_send(&list, &pag, NULL);
