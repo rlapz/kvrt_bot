@@ -286,7 +286,7 @@ out0:
 
 
 int
-model_admin_get_privilegs(int64_t chat_id, int64_t user_id)
+model_admin_get_privileges(int64_t chat_id, int64_t user_id)
 {
 	int privs = 0;
 	sqlite3_stmt *stmt;

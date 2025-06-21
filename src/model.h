@@ -44,7 +44,7 @@ typedef struct model_admin {
 } ModelAdmin;
 
 int model_admin_reload(const ModelAdmin list[], int len);
-int model_admin_get_privilegs(int64_t chat_id, int64_t user_id);
+int model_admin_get_privileges(int64_t chat_id, int64_t user_id);
 
 
 /*

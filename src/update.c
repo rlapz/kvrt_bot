@@ -139,7 +139,7 @@ _handle_member_new(Update *u, const TgMessage *msg)
 		return;
 	}
 
-	if (model_admin_get_privilegs(chat_id, u->id_bot) > 0) {
+	if (model_admin_get_privileges(chat_id, u->id_bot) > 0) {
 		const ModelSchedMessage schd = {
 			.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
 			.chat_id = chat_id,
@@ -201,7 +201,7 @@ _handle_member_leave(Update *u, const TgMessage *msg)
 	if (msg->left_chat_member.id == u->id_bot)
 		return;
 
-	if (model_admin_get_privilegs(msg->chat.id, u->id_bot) <= 0)
+	if (model_admin_get_privileges(msg->chat.id, u->id_bot) <= 0)
 		return;
 
 	const ModelSchedMessage schd = {
