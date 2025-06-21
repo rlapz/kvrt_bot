@@ -91,8 +91,9 @@ model_chat_init(int64_t chat_id)
 		goto out1;
 
 	sqlite3_finalize(stmt);
+	ret = -1;
 
-	query = "INSERT INTO Chat(chat_id, flags) VALUES(?, ?);";
+	query = "INSERT INTO Chat(chat_id, flags, created_at) VALUES(?, ?, ?);";
 	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
 		log_err(0, "model: model_chat_init: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
@@ -101,6 +102,7 @@ model_chat_init(int64_t chat_id)
 
 	sqlite3_bind_int64(stmt, 1, chat_id);
 	sqlite3_bind_int64(stmt, 2, MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN);
+	sqlite3_bind_int64(stmt, 3, time(NULL));
 	ret = _sqlite_step_one(stmt);
 	if (ret < 0)
 		goto out1;
@@ -185,16 +187,19 @@ out0:
 static int
 _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 {
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		return -1;
 
-	int ret = -1;
-	if (str_set(&str, "INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges) VALUES ") == NULL)
+	const char *const query =
+		"INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges, created_at) VALUES ";
+
+	if (str_set(&str, query) == NULL)
 		goto out0;
 
 	for (int i = 0; i < len; i++) {
-		if (str_append_fmt(&str, "(?, ?, ?, ?), ") == NULL)
+		if (str_append_fmt(&str, "(?, ?, ?, ?, ?), ") == NULL)
 			goto out0;
 	}
 
@@ -207,11 +212,13 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 		goto out0;
 	}
 
+	const time_t now = time(NULL);
 	for (int i = 0, j = 1; i < len; i++) {
 		sqlite3_bind_int64(stmt, j++, list[i].chat_id);
 		sqlite3_bind_int64(stmt, j++, list[i].user_id);
 		sqlite3_bind_int(stmt, j++, list[i].is_anonymous);
 		sqlite3_bind_int(stmt, j++, list[i].privileges);
+		sqlite3_bind_int64(stmt, j++, now);
 	}
 
 	if (_sqlite_step_one(stmt) < 0)
@@ -683,13 +690,13 @@ model_cmd_message_set(const ModelCmdMessage *c)
 		goto out1;
 
 	sqlite3_finalize(stmt);
+
 	if (ret == 0) {
-		query = "INSERT INTO Cmd_Message(value, created_by, chat_id, name) "
-			"VALUES(?, ?, ?, ?);";
+		query = "INSERT INTO Cmd_Message(value, created_by, chat_id, name, created_at) "
+			"VALUES(?, ?, ?, ?, ?);";
 	} else {
 		query = "UPDATE Cmd_Message "
-			"	SET value = ?, updated_at = UNIXEPOCH(), "
-			"	    updated_by = ? "
+				"SET value = ?, updated_by = ?, updated_at = ? "
 			"WHERE (chat_id = ?) and (name = ?);";
 	}
 
@@ -699,14 +706,21 @@ model_cmd_message_set(const ModelCmdMessage *c)
 		goto out0;
 	}
 
-	sqlite3_bind_text(stmt, 1, c->value_in, -1, NULL);
-	if (ret == 0)
-		sqlite3_bind_int64(stmt, 2, c->created_by);
-	else
-		sqlite3_bind_int64(stmt, 2, c->updated_by);
+	const time_t now = time(NULL);
 
-	sqlite3_bind_int64(stmt, 3, c->chat_id);
-	sqlite3_bind_text(stmt, 4, c->name_in, -1, NULL);
+	sqlite3_bind_text(stmt, 1, c->value_in, -1, NULL);
+	if (ret == 0) {
+		sqlite3_bind_int64(stmt, 2, c->created_by);
+		sqlite3_bind_int64(stmt, 3, c->chat_id);
+		sqlite3_bind_text(stmt, 4, c->name_in, -1, NULL);
+		sqlite3_bind_int64(stmt, 5, now);
+	} else {
+		sqlite3_bind_int64(stmt, 2, c->updated_by);
+		sqlite3_bind_int64(stmt, 3, now);
+		sqlite3_bind_int64(stmt, 4, c->chat_id);
+		sqlite3_bind_text(stmt, 5, c->name_in, -1, NULL);
+	}
+
 	ret = _sqlite_step_one(stmt);
 	if (ret < 0)
 		goto out1;
@@ -977,7 +991,7 @@ _chat_query(Str *str)
 		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
 		"	chat_id		BIGINT NOT Null,\n"
 		"	flags		INTEGER NOT Null,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null\n"
+		"	created_at	TIMESTAMP NOT Null\n"
 		");"
 	);
 }
@@ -993,7 +1007,7 @@ _admin_query(Str *str)
 		"	user_id		BIGINT NOT Null,\n"
 		"	is_anonymous	BOOLEAN NOT Null,\n"
 		"	privileges	INTEGER NOT NUll,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null\n"
+		"	created_at	TIMESTAMP NOT Null\n"
 		");"
 	);
 }
@@ -1043,9 +1057,9 @@ _cmd_message_query(Str *str)
 		"	name		VARCHAR(%d) NOT Null,\n"
 		"	value		VARCHAR(%d) Null,\n"
 		"	created_by	BIGINT NOT Null,\n"
-		"	created_at	TIMESTAMP DEFAULT (UNIXEPOCH()) NOT Null,\n"
+		"	created_at	TIMESTAMP NOT Null,\n"
 		"	updated_by	BIGINT,\n"
-		"	updated_at	BIGINT\n"
+		"	updated_at	TIMESTAMP\n"
 		");",
 		(MODEL_CMD_MESSAGE_NAME_SIZE - 1), (MODEL_CMD_MESSAGE_VALUE_SIZE - 1)
 	);
