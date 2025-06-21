@@ -24,7 +24,6 @@ static void _parse_json_cmd_extern(Config *c, json_object *root_obj);
 
 /*
  * Public
- * TODO: validate all macro values
  */
 int
 config_load(Config *c, const char path[])

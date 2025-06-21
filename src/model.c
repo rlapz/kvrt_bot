@@ -392,6 +392,7 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 	}
 
 	sqlite3_finalize(stmt);
+	ret = -1;
 
 	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {

@@ -60,6 +60,7 @@ static int  _parse_callback(CmdParam *param, const char req[]);
 int
 cmd_init(void)
 {
+	log_info("cmd: cmd_init: _cmd_builtin_list size: %zu bytes", sizeof(_cmd_builtin_list));
 	if (model_cmd_builtin_clear() < 0)
 		return -1;
 
@@ -134,35 +135,35 @@ cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags)
 static int
 _register_builtin(void)
 {
-	uint32_t count = 0;
-	for (uint32_t i = 0; i < LEN(_cmd_builtin_list); i++) {
+	int count = 0;
+	for (int i = 0; i < (int)LEN(_cmd_builtin_list); i++) {
 		const CmdBuiltin *const p = &_cmd_builtin_list[i];
-		if (cstr_is_empty(p->name) || (p->callback_fn == NULL))
+		if (CSTR_IS_EMPTY_OR(p->name, p->description) || (p->callback_fn == NULL))
 			continue;
 
 		if (strlen(p->name) >= MODEL_CMD_NAME_SIZE) {
-			log_err(0, "cmd: _register_builtin: \"%s\": too long! Max: %u", p->name, MODEL_CMD_NAME_SIZE);
-			continue;
+			log_err(0, "cmd: _register_builtin: '%s': too long! Max: %u", p->name, MODEL_CMD_NAME_SIZE);
+			return -1;
 		}
 
 		if (strlen(p->description) >= MODEL_CMD_DESC_SIZE) {
-			log_err(0, "cmd: _register_builtin: \"%s\": too long! Max: %u", p->description, MODEL_CMD_DESC_SIZE);
-			continue;
+			log_err(0, "cmd: _register_builtin: '%s': too long! Max: %u", p->description, MODEL_CMD_DESC_SIZE);
+			return -1;
 		}
 
 		if (model_cmd_builtin_is_exists(p->name)) {
-			log_err(0, "cmd: _register_builtin: \"%s\": already registered", p->name);
-			continue;
+			log_err(0, "cmd: _register_builtin: '%s': already registered", p->name);
+			return -1;
 		}
 
 		if (model_cmd_message_is_exists(p->name)) {
-			log_err(0, "cmd: _register_builtin: \"%s\": already registered as CMD Message", p->name);
-			continue;
+			log_err(0, "cmd: _register_builtin: '%s': already registered as CMD Message", p->name);
+			return -1;
 		}
 
 		if (model_cmd_extern_is_exists(p->name)) {
-			log_err(0, "cmd: _register_builtin: \"%s\": already registered as Extern CMD", p->name);
-			continue;
+			log_err(0, "cmd: _register_builtin: '%s': already registered as Extern CMD", p->name);
+			return -1;
 		}
 
 		const ModelCmdBuiltin cmd = {
@@ -173,13 +174,13 @@ _register_builtin(void)
 		};
 
 		if (model_cmd_builtin_add(&cmd) < 0)
-			continue;
+			return -1;
 
-		log_info("cmd: _register_builtin: %s: %p: OK", p->name, p->callback_fn);
+		log_info("cmd: _register_builtin: %d. %s: %s", count, p->name, p->description);
 		count++;
 	}
 
-	log_info("cmd: _register_builtin: registered %zu builtin cmd(s)", count);
+	log_info("cmd: _register_builtin: registered %d builtin cmd(s)", count);
 	return 0;
 }
 
