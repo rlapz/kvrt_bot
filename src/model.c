@@ -516,9 +516,9 @@ out0:
 
 
 int
-model_cmd_builtin_get_index(const char name[], int *index)
+model_cmd_builtin_get_index(const char name[])
 {
-	int flags = 0;
+	int ret = -1;
 	sqlite3_stmt *stmt;
 
 	DbConn *const conn = sqlite_pool_get();
@@ -526,9 +526,9 @@ model_cmd_builtin_get_index(const char name[], int *index)
 		return -1;
 
 	const char *const query = "SELECT idx FROM Cmd_Builtin WHERE (name = ?);";
-	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "model: model_cmd_builtin_get_index: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_cmd_builtin_get_index: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -536,13 +536,13 @@ model_cmd_builtin_get_index(const char name[], int *index)
 	if (_sqlite_step_one(stmt) <= 0)
 		goto out1;
 
-	*index = sqlite3_column_int(stmt, 0);
+	ret = sqlite3_column_int(stmt, 0);
 
 out1:
 	sqlite3_finalize(stmt);
 out0:
 	sqlite_pool_put(conn);
-	return flags;
+	return ret;
 }
 
 

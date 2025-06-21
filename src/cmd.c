@@ -175,12 +175,7 @@ _register_builtin(void)
 		if (model_cmd_builtin_add(&cmd) < 0)
 			continue;
 
-#ifdef DEBUG
 		log_info("cmd: _register_builtin: %s: %p: OK", p->name, p->callback_fn);
-#else
-		log_info("cmd: _register_builtin: %s: OK", p->name);
-#endif
-
 		count++;
 	}
 
@@ -192,11 +187,8 @@ _register_builtin(void)
 static int
 _exec_builtin(const CmdParam *c, int chat_flags)
 {
-	int index;
-	if (model_cmd_builtin_get_index(c->name, &index) < 0)
-		return 0;
-
-	if (index >= (int)LEN(_cmd_builtin_list))
+	const int index = model_cmd_builtin_get_index(c->name);
+	if ((index < 0) || (index >= (int)LEN(_cmd_builtin_list)))
 		return 0;
 
 	const CmdBuiltin *const handler = &_cmd_builtin_list[index];
