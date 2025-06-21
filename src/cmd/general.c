@@ -18,10 +18,11 @@ static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_
 /*
  * Public
  */
+/* TODO: parametrized mandatory commands */
 void
 cmd_general_start(const CmdParam *cmd)
 {
-	send_text_plain(cmd->msg, "hello");
+	send_text_plain(cmd->msg, "Hello\nPlase click /help to show command list.");
 }
 
 
