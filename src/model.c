@@ -134,8 +134,8 @@ model_chat_set_flags(int64_t chat_id, int flags)
 		goto out0;
 	}
 
-	sqlite3_bind_int64(stmt, 1, chat_id);
-	sqlite3_bind_int(stmt, 2, flags);
+	sqlite3_bind_int(stmt, 1, flags);
+	sqlite3_bind_int64(stmt, 2, chat_id);
 	if (_sqlite_step_one(stmt) < 0)
 		goto out1;
 

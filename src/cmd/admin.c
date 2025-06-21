@@ -9,6 +9,26 @@
 #include "../tg_api.h"
 
 
+/*
+ * TODO: use database
+ */
+typedef struct param {
+	const char *key;
+} Param;
+
+static const Param _params[] = {
+	{ .key = "cmd_toggle_extern" },
+	{ .key = "cmd_toggle_extra" },
+	{ .key = "cmd_toggle_nsfw" },
+};
+
+static int  _param_list(const CmdParam *cmd);
+static void _cmd_toggle_flags(const CmdParam *cmd, int rflags);
+
+
+/*
+ * Public
+ */
 void
 cmd_admin_reload(const CmdParam *cmd)
 {
@@ -167,8 +187,84 @@ out0:
 }
 
 
+/*
+ * TODO
+ */
 void
 cmd_admin_params(const CmdParam *cmd)
 {
-	send_text_plain(cmd->msg, "TODO");
+	SpaceTokenizer st;
+	const char *next = space_tokenizer_next(&st, cmd->args);
+	if (next == NULL) {
+		_param_list(cmd);
+		return;
+	}
+
+	char buff[256];
+	if (st.len >= LEN(buff)) {
+		send_text_plain(cmd->msg, "argument too long!");
+		return;
+	}
+
+	cstr_copy_n2(buff, LEN(buff), st.value, st.len);
+	if (cstr_casecmp(buff, _params[0].key)) {
+		_cmd_toggle_flags(cmd, MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN);
+		return;
+	}
+
+	if (cstr_casecmp(buff, _params[1].key)) {
+		_cmd_toggle_flags(cmd, MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA);
+		return;
+	}
+
+	if (cstr_casecmp(buff, _params[2].key)) {
+		_cmd_toggle_flags(cmd, MODEL_CHAT_FLAG_ALLOW_CMD_NSFW);
+		return;
+	}
+
+	send_text_plain(cmd->msg, "invalid parameter!");
+}
+
+
+/*
+ * Private
+ */
+static int
+_param_list(const CmdParam *cmd)
+{
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0) {
+		send_text_plain(cmd->msg, "failed to allocate string buffer");
+		return -1;
+	}
+
+	str_set_fmt(&str, "Available parameters:\n```params\n");
+	for (int i = 0; i < (int)LEN(_params); i++) {
+		const Param *const p = &_params[i];
+		str_append_fmt(&str, "%d\\. '%s' \\-> Enable/disable Extern command\n", i + 1, p->key);
+	}
+
+	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /params \\[parameter\\] \\[ARGS\\]\n");
+	str_append(&str, "Example: /params cmd\\_toggle\\_extern\n");
+
+	send_text_format(cmd->msg, str.cstr);
+	return 0;
+}
+
+
+static void
+_cmd_toggle_flags(const CmdParam *cmd, int rflags)
+{
+	const int flags = model_chat_get_flags(cmd->id_chat);
+	if (flags < 0) {
+		send_text_plain(cmd->msg, "failed to get chat flags!");
+		return;
+	}
+
+	if (model_chat_set_flags(cmd->id_chat, (flags ^ rflags)) < 0) {
+		send_text_plain(cmd->msg, "failed to set chat flags!");
+		return;
+	}
+
+	send_text_plain(cmd->msg, "success!");
 }

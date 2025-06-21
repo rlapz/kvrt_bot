@@ -106,7 +106,7 @@ void cmd_test_list(const CmdParam *cmd);
 },										\
 {										\
 	.name = "/params",							\
-	.description = "Set/unset bot parameters",				\
+	.description = "Set/unset bot parameters. See: '/params help'",		\
 	.callback_fn = cmd_admin_params,					\
 	.flags = MODEL_CMD_FLAG_ADMIN | MODEL_CMD_FLAG_CALLBACK,		\
 }
