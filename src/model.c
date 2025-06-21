@@ -325,8 +325,8 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 		"SELECT SUM(size) FROM ( "
 			"SELECT COUNT(1) AS size FROM Cmd_Builtin WHERE ((flags & ?) = 0) "
 				"UNION ALL "
-			"SELECT COUNT(1) AS size FROM Cmd_Extern WHERE ((flags & ?) = 0) "
-			"AND (is_enable = True) "
+			"SELECT COUNT(1) AS size FROM Cmd_Extern "
+			"WHERE (? != 0) AND ((flags & ?) = 0) AND (is_enable = True) "
 		");";
 
 	const char *const query =
@@ -335,24 +335,28 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 				"SELECT 1 AS is_builtin, flags, name, description "
 				"FROM Cmd_Builtin "
 				"WHERE ((flags & ?) = 0) "
+				"ORDER BY name "
 				"LIMIT ? OFFSET ? "
 			") UNION ALL "
 			"SELECT * FROM ( "
 				"SELECT 0 AS is_builtin, flags, name, description "
 				"FROM Cmd_Extern "
-				"WHERE ((flags & ?) = 0) AND (is_enable = True) "
+				"WHERE (? != 0) AND ((flags & ?) = 0) AND (is_enable = True) "
+				"ORDER BY name "
 				"LIMIT ? OFFSET ? "
 			") "
-		") ORDER BY name;";
+		");";
 
 	sqlite3_stmt *stmt;
 	DbConn *const conn = sqlite_pool_get();
 	if (conn == NULL)
 		return -1;
 
+	int show_extern = 0;
+	if (chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN)
+		show_extern = 1;
+
 	int flags = 0;
-	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
-		flags |= MODEL_CMD_FLAG_EXTERN;
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0)
 		flags |= MODEL_CMD_FLAG_EXTRA;
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0)
@@ -366,7 +370,8 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 	}
 
 	sqlite3_bind_int(stmt, 1, flags);
-	sqlite3_bind_int(stmt, 2, flags);
+	sqlite3_bind_int(stmt, 2, show_extern);
+	sqlite3_bind_int(stmt, 3, flags);
 	ret = _sqlite_step_one(stmt);
 	if (ret <= 0)
 		goto out0;
@@ -391,9 +396,11 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 	sqlite3_bind_int(stmt, 1, flags);
 	sqlite3_bind_int(stmt, 2, hlen);
 	sqlite3_bind_int(stmt, 3, hoffset);
-	sqlite3_bind_int(stmt, 4, flags);
-	sqlite3_bind_int(stmt, 5, hlen);
-	sqlite3_bind_int(stmt, 6, hoffset);
+
+	sqlite3_bind_int(stmt, 4, show_extern);
+	sqlite3_bind_int(stmt, 5, flags);
+	sqlite3_bind_int(stmt, 6, hlen);
+	sqlite3_bind_int(stmt, 7, hoffset);
 
 	int count = 0;
 	for (; count < len; count++) {
@@ -407,11 +414,8 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 		}
 
 		ModelCmd *const mc = &list[count];
-		const int is_builtin = sqlite3_column_int(stmt, 0);
+		mc->is_builtin = sqlite3_column_int(stmt, 0);
 		mc->flags = sqlite3_column_int(stmt, 1);
-		if (is_builtin == 0)
-			mc->flags |= MODEL_CMD_FLAG_EXTERN;
-
 		cstr_copy_n(mc->name, LEN(mc->name), (const char *)sqlite3_column_text(stmt, 2));
 		cstr_copy_n(mc->description, LEN(mc->description), (const char *)sqlite3_column_text(stmt, 3));
 	}

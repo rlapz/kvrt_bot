@@ -116,10 +116,14 @@ cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags)
 	if (list_len < 0)
 		return -1;
 
-	pag->has_next_page = ((list_len + offset) < total);
-	pag->page_size = (unsigned)ceil(((double)total) / ((double)len));
+	unsigned psize = (total / len) + 1;
+	if ((flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
+		psize++;
+
+	pag->page_size = psize;
 	pag->items_count = list_len;
 	pag->items_size = total;
+	pag->has_next_page = (pag->page_count < psize);
 	return 0;
 }
 

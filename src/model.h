@@ -51,17 +51,17 @@ int model_admin_get_privilegs(int64_t chat_id, int64_t user_id);
  * ModelCmd
  */
 enum {
-	MODEL_CMD_FLAG_EXTERN   = (1 << 0),
-	MODEL_CMD_FLAG_CALLBACK = (1 << 1),
-	MODEL_CMD_FLAG_ADMIN    = (1 << 2),
-	MODEL_CMD_FLAG_NSFW     = (1 << 3),
-	MODEL_CMD_FLAG_EXTRA    = (1 << 4),
+	MODEL_CMD_FLAG_CALLBACK = (1 << 0),
+	MODEL_CMD_FLAG_ADMIN    = (1 << 1),
+	MODEL_CMD_FLAG_NSFW     = (1 << 2),
+	MODEL_CMD_FLAG_EXTRA    = (1 << 3),
 };
 
 #define MODEL_CMD_NAME_SIZE (32)
 #define MODEL_CMD_DESC_SIZE (256)
 
 typedef struct model_cmd {
+	int  is_builtin;
 	int  flags;
 	char name[MODEL_CMD_NAME_SIZE];
 	char description[MODEL_CMD_DESC_SIZE];
