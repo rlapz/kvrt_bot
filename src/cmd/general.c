@@ -12,7 +12,8 @@ static const char *const _icon_nsfw   = "🔞";
 static const char *const _icon_extra  = "🎲";
 
 
-static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin);
+static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin,
+			  int is_private_chat);
 
 
 /*
@@ -61,16 +62,23 @@ cmd_general_help(const CmdParam *cmd)
 	if (str_init_alloc(&str, 1024) < 0)
 		goto out0;
 
+	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
+
 	str_set_fmt(&str, "%s", "\nBuiltin:\n");
-	if (_cmd_list_body(&str, cmd_list, pag.items_count, 1) < 0)
+	if (_cmd_list_body(&str, cmd_list, pag.items_count, 1, is_private_chat) < 0)
 		goto out1;
 
 	str_append_fmt(&str, "%s", "\nExtern:\n");
-	if (_cmd_list_body(&str, cmd_list, pag.items_count, 0) < 0)
+	if (_cmd_list_body(&str, cmd_list, pag.items_count, 0, is_private_chat) < 0)
 		goto out1;
 
-	str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW```",
-		       _icon_admin, _icon_extra, _icon_nsfw);
+	if (is_private_chat) {
+		str_append_fmt(&str, "\n```Legend:\n%s: Extra, %s: NSFW```",
+			       _icon_extra, _icon_nsfw);
+	} else {
+		str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW```",
+			       _icon_admin, _icon_extra, _icon_nsfw);
+	}
 
 	list.body = str.cstr;
 	is_err = message_list_send(&list, &pag, NULL);
@@ -124,7 +132,7 @@ cmd_general_dump_admin(const CmdParam *cmd)
  * Private
  */
 static int
-_cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin)
+_cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin, int is_private_chat)
 {
 	const char *admin_only;
 	const char *nsfw;
@@ -150,7 +158,10 @@ _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin)
 			return -1;
 		}
 
-		admin_only = (mc->flags & MODEL_CMD_FLAG_ADMIN)? _icon_admin : "";
+		admin_only = "";
+		if ((is_private_chat == 0)&& ((mc->flags & MODEL_CMD_FLAG_ADMIN)) == 0)
+			admin_only = _icon_admin;
+
 		nsfw = (mc->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
 		extra = (mc->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
 		res = str_append_fmt(str, "  %s \\- %s %s%s%s\n", name, desc, admin_only, nsfw, extra);

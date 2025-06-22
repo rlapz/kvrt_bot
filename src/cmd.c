@@ -258,6 +258,9 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_EXTRA) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0))
 		return 0;
 
+	if (c->msg->chat.type == TG_CHAT_TYPE_PRIVATE)
+		return 1;
+
 	if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
 		send_text_plain(c->msg, "Permission denied!");
 		return 0;
