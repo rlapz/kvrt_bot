@@ -196,10 +196,6 @@ _anime_sched_parse(AnimeSched *a, json_object *obj)
 	if (data_list == NULL)
 		return -1;
 
-	if (json_object_object_get_ex(pg_obj, "has_next_page", &tmp_obj) == 0)
-		return -1;
-
-	a->pagination.has_next_page = json_object_get_boolean(tmp_obj);
 	if (json_object_object_get_ex(pg_obj, "current_page", &tmp_obj) == 0)
 		return -1;
 

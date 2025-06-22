@@ -178,7 +178,7 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 
 	TgApiInlineKeyboardButton btns_r[LEN(btns)];
 	unsigned count = 0;
-	if (pag->has_next_page)
+	if (page < pag->page_size)
 		btns_r[count++] = btns[1];
 
 	if (page > 1)

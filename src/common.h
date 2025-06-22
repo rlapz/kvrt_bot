@@ -39,7 +39,6 @@ char *tg_escape(const char src[]);
  * MessageList
  */
 typedef struct message_list_pagination {
-	int      has_next_page;
 	unsigned page_count;
 	unsigned page_size;
 	unsigned items_count;

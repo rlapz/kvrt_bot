@@ -118,7 +118,6 @@ cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags)
 	pag->page_size = psize;
 	pag->items_count = llen;
 	pag->items_size = total;
-	pag->has_next_page = (pag->page_count < psize);
 	return 0;
 }
 
