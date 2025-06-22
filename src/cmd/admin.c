@@ -9,21 +9,37 @@
 #include "../tg_api.h"
 
 
-/*
- * TODO: use database
- */
-typedef struct param {
+
+typedef struct setting {
 	const char *key;
-} Param;
+	const char *description;
+	void       (*callback_fn)(const struct setting *, const CmdParam *);
+} Setting;
 
-static const Param _params[] = {
-	{ .key = "cmd_toggle_extern" },
-	{ .key = "cmd_toggle_extra" },
-	{ .key = "cmd_toggle_nsfw" },
-};
 
-static int  _param_list(const CmdParam *cmd);
+static int  _setting_list(const CmdParam *cmd);
+static void _cmd_toggle_extern(const Setting *s, const CmdParam *param);
+static void _cmd_toggle_extra(const Setting *s, const CmdParam *param);
+static void _cmd_toggle_nsfw(const Setting *s, const CmdParam *param);
 static void _cmd_toggle_flags(const CmdParam *cmd, int rflags);
+
+static const Setting _setting_list_e[] = {
+	{
+		.key = "cmd_toggle_extern",
+		.description = "Enable/disable extern command",
+		.callback_fn = _cmd_toggle_extern,
+	},
+	{
+		.key = "cmd_toggle_extra",
+		.description = "Enable/disable extra command",
+		.callback_fn = _cmd_toggle_extra,
+	},
+	{
+		.key = "cmd_toggle_nsfw",
+		.description = "Enable/disable nsfw command",
+		.callback_fn = _cmd_toggle_nsfw,
+	},
+};
 
 
 /*
@@ -191,12 +207,12 @@ out0:
  * TODO
  */
 void
-cmd_admin_params(const CmdParam *cmd)
+cmd_admin_setting(const CmdParam *cmd)
 {
 	SpaceTokenizer st;
 	const char *next = space_tokenizer_next(&st, cmd->args);
 	if (next == NULL) {
-		_param_list(cmd);
+		_setting_list(cmd);
 		return;
 	}
 
@@ -207,19 +223,12 @@ cmd_admin_params(const CmdParam *cmd)
 	}
 
 	cstr_copy_n2(buff, LEN(buff), st.value, st.len);
-	if (cstr_casecmp(buff, _params[0].key)) {
-		_cmd_toggle_flags(cmd, MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN);
-		return;
-	}
-
-	if (cstr_casecmp(buff, _params[1].key)) {
-		_cmd_toggle_flags(cmd, MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA);
-		return;
-	}
-
-	if (cstr_casecmp(buff, _params[2].key)) {
-		_cmd_toggle_flags(cmd, MODEL_CHAT_FLAG_ALLOW_CMD_NSFW);
-		return;
+	for (int i = 0; i < (int)LEN(_setting_list_e); i++) {
+		const Setting *const s = &_setting_list_e[i];
+		if (cstr_casecmp(buff, s->key)) {
+			s->callback_fn(s, cmd);
+			return;
+		}
 	}
 
 	send_text_plain(cmd->msg, "invalid parameter!");
@@ -229,8 +238,32 @@ cmd_admin_params(const CmdParam *cmd)
 /*
  * Private
  */
+static void
+_cmd_toggle_extern(const Setting *s, const CmdParam *param)
+{
+	_cmd_toggle_flags(param, MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN);
+	(void)s;
+}
+
+
+static void
+_cmd_toggle_extra(const Setting *s, const CmdParam *param)
+{
+	_cmd_toggle_flags(param, MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA);
+	(void)s;
+}
+
+
+static void
+_cmd_toggle_nsfw(const Setting *s, const CmdParam *param)
+{
+	_cmd_toggle_flags(param, MODEL_CHAT_FLAG_ALLOW_CMD_NSFW);
+	(void)s;
+}
+
+
 static int
-_param_list(const CmdParam *cmd)
+_setting_list(const CmdParam *cmd)
 {
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0) {
@@ -239,13 +272,13 @@ _param_list(const CmdParam *cmd)
 	}
 
 	str_set_fmt(&str, "Available parameters:\n```params\n");
-	for (int i = 0; i < (int)LEN(_params); i++) {
-		const Param *const p = &_params[i];
-		str_append_fmt(&str, "%d\\. '%s' \\-> Enable/disable Extern command\n", i + 1, p->key);
+	for (int i = 0; i < (int)LEN(_setting_list_e); i++) {
+		const Setting *const p = &_setting_list_e[i];
+		str_append_fmt(&str, "%d\\. '%s' \\-> %s\n", i + 1, p->key, p->description);
 	}
 
-	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /params \\[parameter\\] \\[ARGS\\]\n");
-	str_append(&str, "Example: /params cmd\\_toggle\\_extern\n");
+	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /setting \\[parameter\\] \\[ARGS\\]\n");
+	str_append(&str, "Example: /setting cmd\\_toggle\\_extern\n");
 
 	send_text_format(cmd->msg, str.cstr);
 	return 0;

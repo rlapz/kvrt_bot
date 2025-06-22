@@ -64,10 +64,7 @@ cmd_init(void)
 	if (model_cmd_builtin_clear() < 0)
 		return -1;
 
-	if (_register_builtin() < 0)
-		return -1;
-
-	return 0;
+	return _register_builtin();
 }
 
 
