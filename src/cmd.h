@@ -29,7 +29,7 @@ typedef struct cmd_param {
 
 int  cmd_init(void);
 void cmd_exec(CmdParam *cmd, const char req[]);
-int  cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags);
+int  cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags, int is_private);
 
 
 typedef struct cmd_builtin {
@@ -88,6 +88,7 @@ void cmd_test_list(const CmdParam *cmd);
 	.name = "/admin_dump",							\
 	.description = "Dump admin list in raw json",				\
 	.callback_fn = cmd_general_dump_admin,					\
+	.flags = MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT,				\
 }
 
 
@@ -96,13 +97,13 @@ void cmd_test_list(const CmdParam *cmd);
 	.name = "/admin_reload",						\
 	.description = "Reload admin list",					\
 	.callback_fn = cmd_admin_reload,					\
-	.flags = MODEL_CMD_FLAG_ADMIN,						\
+	.flags = MODEL_CMD_FLAG_ADMIN | MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT,	\
 },										\
 {										\
 	.name = "/msg_set",							\
 	.description = "Set/unset CMD Message",					\
 	.callback_fn = cmd_admin_cmd_message,					\
-	.flags = MODEL_CMD_FLAG_ADMIN,						\
+	.flags = MODEL_CMD_FLAG_ADMIN | MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT,	\
 },										\
 {										\
 	.name = "/settings",							\

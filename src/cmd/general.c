@@ -38,12 +38,13 @@ cmd_general_help(const CmdParam *cmd)
 		.id_message = cmd->msg->id,
 		.id_callback = cmd->id_callback,
 		.ctx = cmd->name,
-		.title = "Command list",
+		.title = "Command list:",
 	};
 
 	if (message_list_init(&list, cmd->args) < 0)
 		return;
 
+	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
 		if (cstr_is_empty(list.id_callback) == 0)
@@ -55,24 +56,15 @@ cmd_general_help(const CmdParam *cmd)
 
 	ModelCmd cmd_list[CFG_LIST_ITEMS_SIZE];
 	MessageListPagination pag = { .page_count = list.page };
-	if (cmd_get_list(cmd_list, LEN(cmd_list), &pag, cflags) < 0)
+	if (cmd_get_list(cmd_list, LEN(cmd_list), &pag, cflags, is_private_chat) < 0)
 		goto out0;
 
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		goto out0;
 
-	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
 	if (_cmd_list_body(&str, cmd_list, pag.items_count, is_private_chat) < 0)
 		goto out1;
-
-	if (is_private_chat) {
-		str_append_fmt(&str, "\n```Legend:\n%s: Extra, %s: NSFW, %s: Extern```",
-			       _icon_extra, _icon_nsfw, _icon_extern);
-	} else {
-		str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW, %s: Extern```",
-			       _icon_admin, _icon_extra, _icon_nsfw, _icon_extern);
-	}
 
 	list.body = str.cstr;
 	is_err = message_list_send(&list, &pag, NULL);
@@ -132,7 +124,6 @@ _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_cha
 	const char *nsfw;
 	const char *extra;
 	const char *extern_;
-	const char *res;
 	for (unsigned i = 0; i < len; i++) {
 		const ModelCmd *const mc = &list[i];
 		char *const name = tg_escape(mc->name);
@@ -146,20 +137,21 @@ _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_cha
 		}
 
 		admin_only = "";
-		if ((mc->flags & MODEL_CMD_FLAG_ADMIN) && (is_private_chat == 0))
+		if ((is_private_chat == 0) && ((mc->flags & MODEL_CMD_FLAG_ADMIN) == 0))
 			admin_only = _icon_admin;
 
 		nsfw = (mc->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
 		extra = (mc->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
 		extern_ = (mc->is_builtin == 0)? _icon_extern : "";
-		res = str_append_fmt(str, "  %s \\- %s %s%s%s%s\n", name, desc, admin_only, nsfw,
-				     extra, extern_);
+		str_append_fmt(str, "%s \\- %s %s%s%s%s\n", name, desc, admin_only, nsfw, extra, extern_);
 		free(desc);
 		free(name);
-
-		if (res == NULL)
-			return -1;
 	}
 
+	str_append(str, "\n```Legend:\n");
+	if (is_private_chat == 0)
+		str_append_fmt(str, "%s: Admin, ", _icon_admin);
+
+	str_append_fmt(str, "%s: Extra, %s: NSFW, %s: Extern```", _icon_extra, _icon_nsfw, _icon_extern);
 	return 0;
 }

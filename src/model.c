@@ -316,7 +316,7 @@ out0:
  * ModelCmd
  */
 int
-model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_flags)
+model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_flags, int is_private)
 {
 	int ret = -1;
 	const char *const query =
@@ -352,11 +352,12 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 		show_extern = 1;
 
 	int flags = 0;
+	if (is_private)
+		flags |= MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT;
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0)
 		flags |= MODEL_CMD_FLAG_EXTRA;
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0)
 		flags |= MODEL_CMD_FLAG_NSFW;
-
 
 	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {

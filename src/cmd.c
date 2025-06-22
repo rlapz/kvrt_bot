@@ -102,7 +102,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 
 int
-cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags)
+cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags, int is_private)
 {
 	assert(VAL_IS_NULL_OR(list, pag) == 0);
 	if (pag->page_count == 0)
@@ -110,7 +110,7 @@ cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags)
 
 	int total;
 	const int offt = (pag->page_count - 1) * len;
-	const int llen = model_cmd_get_list(list, len, offt, &total, flags);
+	const int llen = model_cmd_get_list(list, len, offt, &total, flags, is_private);
 	if ((llen < 0) || (total <= 0))
 		return -1;
 
@@ -254,6 +254,10 @@ _exec_cmd_message(const CmdParam *c)
 static int
 _verify(const CmdParam *c, int chat_flags, int flags)
 {
+	const int is_private = (c->msg->chat.type == TG_CHAT_TYPE_PRIVATE);
+	if ((is_private) && (flags & MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT))
+		return 0;
+
 	if ((c->id_callback != NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
 		return 0;
 
@@ -263,7 +267,7 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_EXTRA) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0))
 		return 0;
 
-	if (c->msg->chat.type != TG_CHAT_TYPE_PRIVATE) {
+	if (is_private == 0) {
 		if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
 			send_text_plain(c->msg, "Permission denied!");
 			return 0;
