@@ -186,8 +186,13 @@ static int
 _exec_builtin(const CmdParam *c, int chat_flags)
 {
 	const int index = model_cmd_builtin_get_index(c->name);
-	if ((index < 0) || (index >= (int)LEN(_cmd_builtin_list)))
+	if (index == -2)
 		return 0;
+
+	if ((index < 0) || (index >= (int)LEN(_cmd_builtin_list))) {
+		send_text_plain(c->msg, "Failed to get builtin command data");
+		return 1;
+	}
 
 	const CmdBuiltin *const handler = &_cmd_builtin_list[index];
 	if (_verify(c, chat_flags, handler->flags) == 0)
@@ -205,15 +210,17 @@ static int
 _exec_extern(const CmdParam *c, int chat_flags)
 {
 	ModelCmdExtern ce;
-	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
-		return 1;
-
 	const int ret = model_cmd_extern_get(&ce, c->name);
-	if (ret < 0)
+	if (ret < 0) {
+		send_text_plain(c->msg, "Failed to get external command data");
 		return 1;
+	}
 
 	if (ret == 0)
 		return 0;
+
+	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
+		return 1;
 
 	if (_verify(c, chat_flags, ce.flags) == 0)
 		return 1;
@@ -232,8 +239,10 @@ _exec_cmd_message(const CmdParam *c)
 {
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
 	const int ret = model_cmd_message_get_value(c->id_chat, c->name, value, LEN(value));
-	if (ret < 0)
+	if (ret < 0) {
+		send_text_plain(c->msg, "Failed to get command message data");
 		return 1;
+	}
 
 	if (ret == 0)
 		return 0;
@@ -258,12 +267,11 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_EXTRA) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0))
 		return 0;
 
-	if (c->msg->chat.type == TG_CHAT_TYPE_PRIVATE)
-		return 1;
-
-	if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
-		send_text_plain(c->msg, "Permission denied!");
-		return 0;
+	if (c->msg->chat.type != TG_CHAT_TYPE_PRIVATE) {
+		if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
+			send_text_plain(c->msg, "Permission denied!");
+			return 0;
+		}
 	}
 
 	return 1;

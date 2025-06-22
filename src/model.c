@@ -516,8 +516,14 @@ model_cmd_builtin_get_index(const char name[])
 	}
 
 	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (_sqlite_step_one(stmt) <= 0)
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
 		goto out1;
+
+	if (ret == 0) {
+		ret = -2;
+		goto out1;
+	}
 
 	ret = sqlite3_column_int(stmt, 0);
 

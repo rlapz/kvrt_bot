@@ -89,7 +89,13 @@ typedef struct model_cmd_builtin {
 
 int model_cmd_builtin_add(const ModelCmdBuiltin *c);
 int model_cmd_builtin_clear(void);
+
+/* ret: >= 0: valid index
+ *        -1: error
+ *        -2: no data
+ */
 int model_cmd_builtin_get_index(const char name[]);
+
 int model_cmd_builtin_is_exists(const char name[]);
 
 
