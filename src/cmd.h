@@ -45,7 +45,7 @@ typedef struct cmd_builtin {
  */
 void cmd_admin_reload(const CmdParam *cmd);
 void cmd_admin_cmd_message(const CmdParam *cmd);
-void cmd_admin_setting(const CmdParam *cmd);
+void cmd_admin_settings(const CmdParam *cmd);
 
 void cmd_general_start(const CmdParam *cmd);
 void cmd_general_help(const CmdParam *cmd);
@@ -105,9 +105,9 @@ void cmd_test_list(const CmdParam *cmd);
 	.flags = MODEL_CMD_FLAG_ADMIN,						\
 },										\
 {										\
-	.name = "/setting",							\
-	.description = "Set bot configuration",					\
-	.callback_fn = cmd_admin_setting,					\
+	.name = "/settings",							\
+	.description = "Set bot configurations",				\
+	.callback_fn = cmd_admin_settings,					\
 	.flags = MODEL_CMD_FLAG_ADMIN,						\
 }
 

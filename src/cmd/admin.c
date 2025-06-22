@@ -207,7 +207,7 @@ out0:
  * TODO
  */
 void
-cmd_admin_setting(const CmdParam *cmd)
+cmd_admin_settings(const CmdParam *cmd)
 {
 	SpaceTokenizer st;
 	const char *next = space_tokenizer_next(&st, cmd->args);
@@ -271,14 +271,14 @@ _setting_list(const CmdParam *cmd)
 		return -1;
 	}
 
-	str_set_fmt(&str, "Available parameters:\n```params\n");
+	str_set_fmt(&str, "Available parameters:\n```parameter\n");
 	for (int i = 0; i < (int)LEN(_setting_list_e); i++) {
 		const Setting *const p = &_setting_list_e[i];
 		str_append_fmt(&str, "%d\\. '%s' \\-> %s\n", i + 1, p->key, p->description);
 	}
 
-	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /setting \\[parameter\\] \\[ARGS\\]\n");
-	str_append(&str, "Example: /setting cmd\\_toggle\\_extern\n");
+	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /settings \\[parameter\\] \\[ARGS\\]\n");
+	str_append(&str, "Example: /settings cmd\\_toggle\\_extern\n");
 
 	send_text_format(cmd->msg, str.cstr);
 	return 0;
