@@ -28,11 +28,6 @@ static void _parse_json_cmd_extern(Config *c, json_object *root_obj);
 int
 config_load(Config *c, const char path[])
 {
-	if (CFG_LIST_ITEMS_SIZE & 1) {
-		log_err(EINVAL, "config: config_load: invalid 'CFG_LIST_ITEMS_SIZE' value, must an even number!");
-		return -1;
-	}
-
 	if (cstr_is_empty(path)) {
 		log_err(EINVAL, "config: config_load: path is empty");
 		return -1;
