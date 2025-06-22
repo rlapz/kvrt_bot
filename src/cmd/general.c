@@ -137,7 +137,7 @@ _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_cha
 		}
 
 		admin_only = "";
-		if ((is_private_chat == 0) && ((mc->flags & MODEL_CMD_FLAG_ADMIN) == 0))
+		if ((is_private_chat == 0) && (mc->flags & MODEL_CMD_FLAG_ADMIN))
 			admin_only = _icon_admin;
 
 		nsfw = (mc->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
