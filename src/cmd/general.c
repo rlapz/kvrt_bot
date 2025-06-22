@@ -10,10 +10,10 @@
 static const char *const _icon_admin  = "🅰️";
 static const char *const _icon_nsfw   = "🔞";
 static const char *const _icon_extra  = "🎲";
+static const char *const _icon_extern = "📦";
 
 
-static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin,
-			  int is_private_chat);
+static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_chat);
 
 
 /*
@@ -63,21 +63,15 @@ cmd_general_help(const CmdParam *cmd)
 		goto out0;
 
 	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
-
-	str_set_fmt(&str, "%s", "\nBuiltin:\n");
-	if (_cmd_list_body(&str, cmd_list, pag.items_count, 1, is_private_chat) < 0)
-		goto out1;
-
-	str_append_fmt(&str, "%s", "\nExtern:\n");
-	if (_cmd_list_body(&str, cmd_list, pag.items_count, 0, is_private_chat) < 0)
+	if (_cmd_list_body(&str, cmd_list, pag.items_count, is_private_chat) < 0)
 		goto out1;
 
 	if (is_private_chat) {
-		str_append_fmt(&str, "\n```Legend:\n%s: Extra, %s: NSFW```",
-			       _icon_extra, _icon_nsfw);
+		str_append_fmt(&str, "\n```Legend:\n%s: Extra, %s: NSFW, %s: Extern```",
+			       _icon_extra, _icon_nsfw, _icon_extern);
 	} else {
-		str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW```",
-			       _icon_admin, _icon_extra, _icon_nsfw);
+		str_append_fmt(&str, "\n```Legend:\n%s: Admin, %s: Extra, %s: NSFW, %s: Extern```",
+			       _icon_admin, _icon_extra, _icon_nsfw, _icon_extern);
 	}
 
 	list.body = str.cstr;
@@ -132,22 +126,15 @@ cmd_general_dump_admin(const CmdParam *cmd)
  * Private
  */
 static int
-_cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin, int is_private_chat)
+_cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_chat)
 {
 	const char *admin_only;
 	const char *nsfw;
 	const char *extra;
+	const char *extern_;
 	const char *res;
-
-	int is_exists = 0;
 	for (unsigned i = 0; i < len; i++) {
 		const ModelCmd *const mc = &list[i];
-		if (is_builtin && (mc->is_builtin == 0))
-			continue;
-
-		if ((is_builtin == 0) && (mc->is_builtin))
-			continue;
-
 		char *const name = tg_escape(mc->name);
 		if (name == NULL)
 			return -1;
@@ -164,18 +151,15 @@ _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_builtin, in
 
 		nsfw = (mc->flags & MODEL_CMD_FLAG_NSFW)? _icon_nsfw : "";
 		extra = (mc->flags & MODEL_CMD_FLAG_EXTRA)? _icon_extra : "";
-		res = str_append_fmt(str, "  %s \\- %s %s%s%s\n", name, desc, admin_only, nsfw, extra);
+		extern_ = (mc->is_builtin == 0)? _icon_extern : "";
+		res = str_append_fmt(str, "  %s \\- %s %s%s%s%s\n", name, desc, admin_only, nsfw,
+				     extra, extern_);
 		free(desc);
 		free(name);
 
 		if (res == NULL)
 			return -1;
-
-		is_exists = 1;
 	}
-
-	if (is_exists == 0)
-		str_append(str, "  \\[None\\]\n");
 
 	return 0;
 }

@@ -108,18 +108,15 @@ cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags)
 	if (pag->page_count == 0)
 		return -1;
 
-	int total = 0;
-	const int offset = (pag->page_count - 1) * len;
-	const int list_len = model_cmd_get_list(list, len, offset, &total, flags);
-	if (list_len < 0)
+	int total;
+	const int offt = (pag->page_count - 1) * len;
+	const int llen = model_cmd_get_list(list, len, offt, &total, flags);
+	if ((llen < 0) || (total <= 0))
 		return -1;
 
-	unsigned psize = (total / len) + 1;
-	if ((flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN) == 0)
-		psize++;
-
+	const unsigned psize = (unsigned)ceil((double)total / (double)len);
 	pag->page_size = psize;
-	pag->items_count = list_len;
+	pag->items_count = llen;
 	pag->items_size = total;
 	pag->has_next_page = (pag->page_count < psize);
 	return 0;

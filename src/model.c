@@ -327,22 +327,20 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 			"WHERE (? != 0) AND ((flags & ?) = 0) AND (is_enable = True) "
 		") "
 		"UNION ALL "
-		"SELECT 0, is_builtin, flags, name, description FROM ( "
-			"SELECT * FROM ( "
+		"SELECT * FROM ("
+			"SELECT 0, is_builtin, flags, name, description FROM ( "
 				"SELECT 1 AS is_builtin, flags, name, description "
 				"FROM Cmd_Builtin "
 				"WHERE ((flags & ?) = 0) "
-				"ORDER BY name "
-				"LIMIT ? OFFSET ? "
-			") UNION ALL "
-			"SELECT * FROM ( "
+				"UNION ALL "
 				"SELECT 0 AS is_builtin, flags, name, description "
 				"FROM Cmd_Extern "
 				"WHERE (? != 0) AND ((flags & ?) = 0) AND (is_enable = True) "
-				"ORDER BY name "
-				"LIMIT ? OFFSET ? "
-			") "
+			")"
+			"ORDER BY name "
+			"LIMIT ? OFFSET ? "
 		");";
+
 
 	sqlite3_stmt *stmt;
 	DbConn *const conn = sqlite_pool_get();
@@ -369,16 +367,11 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 	sqlite3_bind_int(stmt, 1, flags);
 	sqlite3_bind_int(stmt, 2, show_extern);
 	sqlite3_bind_int(stmt, 3, flags);
-
-	const int hlen = len / 2;
-	const int hoffset = offset / 2;
 	sqlite3_bind_int(stmt, 4, flags);
-	sqlite3_bind_int(stmt, 5, hlen);
-	sqlite3_bind_int(stmt, 6, hoffset);
-	sqlite3_bind_int(stmt, 7, show_extern);
-	sqlite3_bind_int(stmt, 8, flags);
-	sqlite3_bind_int(stmt, 9, hlen);
-	sqlite3_bind_int(stmt, 10, hoffset);
+	sqlite3_bind_int(stmt, 5, show_extern);
+	sqlite3_bind_int(stmt, 6, flags);
+	sqlite3_bind_int(stmt, 7, len);
+	sqlite3_bind_int(stmt, 8, offset);
 
 	ret = _sqlite_step_one(stmt);
 	if (ret <= 0)
