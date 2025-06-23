@@ -8,6 +8,27 @@
 #include "util.h"
 
 
+enum {
+	_DATA_TYPE_NULL = 0,
+	_DATA_TYPE_INT,
+	_DATA_TYPE_INT64,
+	_DATA_TYPE_TEXT,
+};
+
+typedef struct data_text {
+	char *value;
+	int   size;
+} DataText;
+
+typedef struct data {
+	int type;
+	union {
+		int     *int_;
+		int64_t *int64;
+		DataText text;
+	};
+} Data;
+
 static const char *_chat_query(Str *str);
 static const char *_admin_query(Str *str);
 static const char *_cmd_builtin_query(Str *str);
@@ -15,6 +36,8 @@ static const char *_cmd_extern_query(Str *str);
 static const char *_cmd_message_query(Str *str);
 static const char *_sched_message_query(Str *str);
 static int         _sqlite_step_one(sqlite3_stmt *stmt);
+static int         _sqlite_exec_one(const char query[], const Data args[], int args_len,
+				    const Data *out);
 
 
 /*
@@ -71,103 +94,49 @@ out0:
 int
 model_chat_init(int64_t chat_id)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
+	int flags = MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN;
+	int64_t now = time(NULL);
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+		{ .type = _DATA_TYPE_INT, .int_ = &flags },
+		{ .type = _DATA_TYPE_INT64, .int64 = &now },
+		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+	};
 
 	const char *const query =
 		"INSERT INTO Chat(chat_id, flags, created_at) "
 		"SELECT ?, ?, ? "
 		"WHERE NOT EXISTS(SELECT 1 FROM Chat WHERE (chat_id = ?));";
 
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_chat_init: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	sqlite3_bind_int64(stmt, 1, chat_id);
-	sqlite3_bind_int64(stmt, 2, MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN);
-	sqlite3_bind_int64(stmt, 3, time(NULL));
-	sqlite3_bind_int64(stmt, 4, chat_id);
-	ret = _sqlite_step_one(stmt);
-	if (ret < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
 
 
 int
 model_chat_set_flags(int64_t chat_id, int flags)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT, .int_ = &flags },
+		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+	};
 
 	const char *const query = "UPDATE Chat SET flags = ? WHERE (chat_id = ?);";
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_chat_set_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	sqlite3_bind_int(stmt, 1, flags);
-	sqlite3_bind_int64(stmt, 2, chat_id);
-	if (_sqlite_step_one(stmt) < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
 
 
 int
 model_chat_get_flags(int64_t chat_id)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
+	const Data arg = { .type = _DATA_TYPE_INT64, .int64 = &chat_id };
+	const char *const query = "SELECT flags FROM Chat WHERE (chat_id = ?);";
 
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
+	int flags = 0;
+	const Data out = { .type = _DATA_TYPE_INT, .int_ = &flags };
+	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
-	const char *const query = "SELECT flags FROM Chat WHERE (chat_id = ?);";
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_chat_get_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = _sqlite_step_one(stmt);
-	if (ret <= 0)
-		goto out1;
-
-	ret = sqlite3_column_int(stmt, 0);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return flags;
 }
 
 
@@ -278,36 +247,22 @@ out0:
 int
 model_admin_get_privileges(int64_t chat_id, int64_t user_id)
 {
-	int privs = 0;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
-
 	const char *const query =
 		"SELECT privileges "
 		"FROM Admin "
 		"WHERE (chat_id = ?) AND (user_id = ?) "
 		"ORDER BY id DESC LIMIT 1;";
 
-	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "model: model_chat_get_flags: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64 = &user_id },
+	};
 
-	sqlite3_bind_int64(stmt, 1, chat_id);
-	sqlite3_bind_int64(stmt, 2, user_id);
-	if (_sqlite_step_one(stmt) <= 0)
-		goto out1;
+	int privs = 0;
+	const Data out = { .type = _DATA_TYPE_INT, .int_ = &privs };
+	if (_sqlite_exec_one(query, args, LEN(args), &out) < 0)
+		return -1;
 
-	privs = sqlite3_column_int(stmt, 0);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
 	return privs;
 }
 
@@ -414,37 +369,18 @@ out0:
 int
 model_cmd_builtin_add(const ModelCmdBuiltin *c)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT, .int_ = (int *)&c->idx },
+		{ .type = _DATA_TYPE_INT, .int_ = (int *)&c->flags },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)c->name_in } },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)c->description_in } },
+	};
 
 	const char *const query =
 		"INSERT INTO Cmd_Builtin(idx, flags, name, description) "
 		"VALUES(?, ?, ?, ?);";
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_builtin_add: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
 
-	sqlite3_bind_int(stmt, 1, c->idx);
-	sqlite3_bind_int(stmt, 2, c->flags);
-	sqlite3_bind_text(stmt, 3, c->name_in, -1, NULL);
-	sqlite3_bind_text(stmt, 4, c->description_in, -1, NULL);
-	ret = _sqlite_step_one(stmt);
-	if (ret < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
 
 
@@ -495,67 +431,33 @@ out0:
 int
 model_cmd_builtin_get_index(const char name[])
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const char *const query = "SELECT idx FROM Cmd_Builtin WHERE (name = ?);";
 
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
+	int index = 0;
+	const Data out = { .type = _DATA_TYPE_INT, .int_ = &index };
+	const int ret = _sqlite_exec_one(query, &arg, 1, &out);
+	if (ret < 0)
 		return -1;
 
-	const char *const query = "SELECT idx FROM Cmd_Builtin WHERE (name = ?);";
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_builtin_get_index: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	if (ret == 0)
+		return -2;
 
-	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	ret = _sqlite_step_one(stmt);
-	if (ret < 0)
-		goto out1;
-
-	if (ret == 0) {
-		ret = -2;
-		goto out1;
-	}
-
-	ret = sqlite3_column_int(stmt, 0);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return index;
 }
 
 
 int
 model_cmd_builtin_is_exists(const char name[])
 {
-	int is_exists = 0;
-	sqlite3_stmt *stmt;
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const char *const query = "SELECT 1 FROM Cmd_Builtin WHERE (name = ?);";
 
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
+	int is_exists = 0;
+	const Data out = { .type = _DATA_TYPE_INT, .int_ = &is_exists };
+	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
-	const char *const query = "SELECT 1 FROM Cmd_Builtin WHERE (name = ?);";
-	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "model: model_cmd_builtin_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (_sqlite_step_one(stmt) <= 0)
-		goto out1;
-
-	is_exists = sqlite3_column_int(stmt, 0);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
 	return is_exists;
 }
 
@@ -607,30 +509,14 @@ out0:
 int
 model_cmd_extern_is_exists(const char name[])
 {
-	int is_exists = 0;
-	sqlite3_stmt *stmt;
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const char *const query = "SELECT 1 FROM Cmd_Extern WHERE (name = ?);";
 
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
+	int is_exists = 0;
+	const Data out = { .type = _DATA_TYPE_INT, .int_ = &is_exists };
+	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
-	const char *const query = "SELECT 1 FROM Cmd_Extern WHERE (name = ?);";
-	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "model: model_cmd_extern_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (_sqlite_step_one(stmt) <= 0)
-		goto out1;
-
-	is_exists = sqlite3_column_int(stmt, 0);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
 	return is_exists;
 }
 
@@ -713,63 +599,32 @@ out0:
 int
 model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], size_t value_len)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } },
+	};
 
 	const char *const query = "SELECT value FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_message_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data out = {
+		.type = _DATA_TYPE_TEXT,
+		.text = (DataText) { .value = value, .size = value_len },
+	};
 
-	sqlite3_bind_int64(stmt, 1, chat_id);
-	sqlite3_bind_text(stmt, 2, name, -1, NULL);
-	ret = _sqlite_step_one(stmt);
-	if (ret <= 0)
-		goto out1;
-
-	cstr_copy_n(value, value_len, (const char *)sqlite3_column_text(stmt, 0));
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec_one(query, args, LEN(args), &out);
 }
 
 
 int
 model_cmd_message_is_exists(const char name[])
 {
-	int is_exists = 0;
-	sqlite3_stmt *stmt;
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const char *const query = "SELECT 1 FROM Cmd_Message WHERE (name = ?);";
 
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
+	int is_exists = 0;
+	const Data out = { .type = _DATA_TYPE_INT, .int_ = &is_exists };
+	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
-	const char *const query = "SELECT 1 FROM Cmd_Message WHERE (name = ?);";
-	const int ret = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		log_err(0, "model: model_cmd_message_is_exists: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	if (_sqlite_step_one(stmt) <= 0)
-		goto out1;
-
-	is_exists = sqlite3_column_int(stmt, 0);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
 	return is_exists;
 }
 
@@ -914,44 +769,24 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		return -1;
 	}
 
-	int ret = -1;
-	sqlite3_stmt *stmt;
+	int64_t next_run = time(NULL) + interval_s;
+	Data args[] = {
+		{ .type = _DATA_TYPE_INT, .int_ = (int *)&s->type },
+		{ .type = _DATA_TYPE_INT64, .int64 = (int64_t *)&s->chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64 = (int64_t *)&s->message_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)s->value_in } },
+		{ .type = _DATA_TYPE_INT64, .int64 = &next_run },
+		{ .type = _DATA_TYPE_INT64, .int64 = (int64_t *)&s->expire },
+	};
 
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
+	if (type != MODEL_SCHED_MESSAGE_TYPE_SEND)
+		args[3].type = _DATA_TYPE_NULL;
 
 	const char *const query =
 		"INSERT INTO Sched_Message(type, chat_id, message_id, value, next_run, expire) "
 		"VALUES(?, ?, ?, ?, ?, ?);";
 
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		log_err(0, "model: model_sched_message_add: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	int i = 1;
-	sqlite3_bind_int(stmt, i++, s->type);
-	sqlite3_bind_int64(stmt, i++, s->chat_id);
-	sqlite3_bind_int64(stmt, i++, s->message_id);
-	if (type == MODEL_SCHED_MESSAGE_TYPE_SEND)
-		sqlite3_bind_text(stmt, i++, s->value_in, -1, NULL);
-	else
-		sqlite3_bind_null(stmt, i++);
-
-	sqlite3_bind_int64(stmt, i++, time(NULL) + interval_s);
-	sqlite3_bind_int64(stmt, i, s->expire);
-	if (_sqlite_step_one(stmt) < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
 
 
@@ -1072,4 +907,77 @@ _sqlite_step_one(sqlite3_stmt *stmt)
 	}
 
 	return 1;
+}
+
+
+static int
+_sqlite_exec_one(const char query[], const Data args[], int args_len, const Data *out)
+{
+	int ret = -1;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: _sqlite_exec_one: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	for (int i = 0, j = 1; i < args_len; i++, j++) {
+		const Data *const a = &args[i];
+		switch (a->type) {
+		case _DATA_TYPE_INT:
+			sqlite3_bind_int(stmt, j, *a->int_);
+			break;
+		case _DATA_TYPE_INT64:
+			sqlite3_bind_int64(stmt, j, *a->int64);
+			break;
+		case _DATA_TYPE_TEXT:
+			sqlite3_bind_text(stmt, j, a->text.value, -1, NULL);
+			break;
+		case _DATA_TYPE_NULL:
+			sqlite3_bind_null(stmt, j);
+			break;
+		default:
+			log_err(0, "model: _sqlite_exec_one: arg: invalid type: [%d]:%d", i, a->type);
+			goto out1;
+		}
+	}
+
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out1;
+
+	if (out == NULL) {
+		ret = sqlite3_changes(conn->sql);
+		goto out1;
+	}
+
+	if (ret == 0)
+		goto out1;
+
+	switch (out->type) {
+	case _DATA_TYPE_INT:
+		*out->int_ = sqlite3_column_int(stmt, 0);
+		break;
+	case _DATA_TYPE_INT64:
+		*out->int64 = sqlite3_column_int64(stmt, 0);
+		break;
+	case _DATA_TYPE_TEXT:
+		cstr_copy_n(out->text.value, out->text.size, (const char *)sqlite3_column_text(stmt, 0));
+		break;
+	default:
+		log_err(0, "model: _sqlite_exec_one: out: invalid type: %d", out->type);
+		ret = -1;
+		break;
+	}
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return ret;
 }
