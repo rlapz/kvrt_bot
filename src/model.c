@@ -16,16 +16,22 @@ enum {
 };
 
 typedef struct data_text {
-	char *value;
-	int   size;
+	int len;
+	int size;
+	union {
+		const char *value_in;
+		char       *value_out;
+	};
 } DataText;
 
 typedef struct data {
 	int type;
 	union {
-		int     *int_;
-		int64_t *int64;
-		DataText text;
+		int       int_in;
+		int64_t   int64_in;
+		int      *int_out;
+		int64_t  *int64_out;
+		DataText  text;
 	};
 } Data;
 
@@ -37,7 +43,7 @@ static const char *_cmd_message_query(Str *str);
 static const char *_sched_message_query(Str *str);
 static int         _sqlite_step_one(sqlite3_stmt *stmt);
 static int         _sqlite_exec_one(const char query[], const Data args[], int args_len,
-				    const Data *out);
+				    Data *out);
 
 
 /*
@@ -94,13 +100,12 @@ out0:
 int
 model_chat_init(int64_t chat_id)
 {
-	int flags = MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN;
-	int64_t now = time(NULL);
+	const int flags = MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN;
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
-		{ .type = _DATA_TYPE_INT, .int_ = &flags },
-		{ .type = _DATA_TYPE_INT64, .int64 = &now },
-		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
+		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
+		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
 	};
 
 	const char *const query =
@@ -116,8 +121,8 @@ int
 model_chat_set_flags(int64_t chat_id, int flags)
 {
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT, .int_ = &flags },
-		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
+		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
 	};
 
 	const char *const query = "UPDATE Chat SET flags = ? WHERE (chat_id = ?);";
@@ -128,11 +133,11 @@ model_chat_set_flags(int64_t chat_id, int flags)
 int
 model_chat_get_flags(int64_t chat_id)
 {
-	const Data arg = { .type = _DATA_TYPE_INT64, .int64 = &chat_id };
+	const Data arg = { .type = _DATA_TYPE_INT64, .int64_in = chat_id };
 	const char *const query = "SELECT flags FROM Chat WHERE (chat_id = ?);";
 
 	int flags = 0;
-	const Data out = { .type = _DATA_TYPE_INT, .int_ = &flags };
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &flags };
 	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
@@ -254,12 +259,12 @@ model_admin_get_privileges(int64_t chat_id, int64_t user_id)
 		"ORDER BY id DESC LIMIT 1;";
 
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
-		{ .type = _DATA_TYPE_INT64, .int64 = &user_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = user_id },
 	};
 
 	int privs = 0;
-	const Data out = { .type = _DATA_TYPE_INT, .int_ = &privs };
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &privs };
 	if (_sqlite_exec_one(query, args, LEN(args), &out) < 0)
 		return -1;
 
@@ -370,10 +375,10 @@ int
 model_cmd_builtin_add(const ModelCmdBuiltin *c)
 {
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT, .int_ = (int *)&c->idx },
-		{ .type = _DATA_TYPE_INT, .int_ = (int *)&c->flags },
-		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)c->name_in } },
-		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)c->description_in } },
+		{ .type = _DATA_TYPE_INT, .int_in = c->idx },
+		{ .type = _DATA_TYPE_INT, .int_in = c->flags },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = c->name_in, .len = -1 } },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = c->description_in, .len = -1 } },
 	};
 
 	const char *const query =
@@ -431,11 +436,11 @@ out0:
 int
 model_cmd_builtin_get_index(const char name[])
 {
-	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } };
 	const char *const query = "SELECT idx FROM Cmd_Builtin WHERE (name = ?);";
 
 	int index = 0;
-	const Data out = { .type = _DATA_TYPE_INT, .int_ = &index };
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &index };
 	const int ret = _sqlite_exec_one(query, &arg, 1, &out);
 	if (ret < 0)
 		return -1;
@@ -450,11 +455,11 @@ model_cmd_builtin_get_index(const char name[])
 int
 model_cmd_builtin_is_exists(const char name[])
 {
-	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } };
 	const char *const query = "SELECT 1 FROM Cmd_Builtin WHERE (name = ?);";
 
 	int is_exists = 0;
-	const Data out = { .type = _DATA_TYPE_INT, .int_ = &is_exists };
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
 	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
@@ -509,11 +514,11 @@ out0:
 int
 model_cmd_extern_is_exists(const char name[])
 {
-	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } };
 	const char *const query = "SELECT 1 FROM Cmd_Extern WHERE (name = ?);";
 
 	int is_exists = 0;
-	const Data out = { .type = _DATA_TYPE_INT, .int_ = &is_exists };
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
 	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
@@ -600,14 +605,14 @@ int
 model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], size_t value_len)
 {
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT64, .int64 = &chat_id },
-		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } },
+		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } },
 	};
 
 	const char *const query = "SELECT value FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
-	const Data out = {
+	Data out = {
 		.type = _DATA_TYPE_TEXT,
-		.text = (DataText) { .value = value, .size = value_len },
+		.text = (DataText) { .value_out = value, .size = value_len },
 	};
 
 	return _sqlite_exec_one(query, args, LEN(args), &out);
@@ -617,11 +622,11 @@ model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], si
 int
 model_cmd_message_is_exists(const char name[])
 {
-	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)name } };
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } };
 	const char *const query = "SELECT 1 FROM Cmd_Message WHERE (name = ?);";
 
 	int is_exists = 0;
-	const Data out = { .type = _DATA_TYPE_INT, .int_ = &is_exists };
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
 	if (_sqlite_exec_one(query, &arg, 1, &out) < 0)
 		return -1;
 
@@ -769,14 +774,13 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		return -1;
 	}
 
-	int64_t next_run = time(NULL) + interval_s;
 	Data args[] = {
-		{ .type = _DATA_TYPE_INT, .int_ = (int *)&s->type },
-		{ .type = _DATA_TYPE_INT64, .int64 = (int64_t *)&s->chat_id },
-		{ .type = _DATA_TYPE_INT64, .int64 = (int64_t *)&s->message_id },
-		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value = (char *)s->value_in } },
-		{ .type = _DATA_TYPE_INT64, .int64 = &next_run },
-		{ .type = _DATA_TYPE_INT64, .int64 = (int64_t *)&s->expire },
+		{ .type = _DATA_TYPE_INT, .int_in = s->type },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->message_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = s->value_in, .len = -1 } },
+		{ .type = _DATA_TYPE_INT64, .int64_in = (time(NULL) + interval_s) },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->expire },
 	};
 
 	if (type != MODEL_SCHED_MESSAGE_TYPE_SEND)
@@ -911,7 +915,7 @@ _sqlite_step_one(sqlite3_stmt *stmt)
 
 
 static int
-_sqlite_exec_one(const char query[], const Data args[], int args_len, const Data *out)
+_sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out)
 {
 	int ret = -1;
 	sqlite3_stmt *stmt;
@@ -930,13 +934,13 @@ _sqlite_exec_one(const char query[], const Data args[], int args_len, const Data
 		const Data *const a = &args[i];
 		switch (a->type) {
 		case _DATA_TYPE_INT:
-			sqlite3_bind_int(stmt, j, *a->int_);
+			sqlite3_bind_int(stmt, j, a->int_in);
 			break;
 		case _DATA_TYPE_INT64:
-			sqlite3_bind_int64(stmt, j, *a->int64);
+			sqlite3_bind_int64(stmt, j, a->int64_in);
 			break;
 		case _DATA_TYPE_TEXT:
-			sqlite3_bind_text(stmt, j, a->text.value, -1, NULL);
+			sqlite3_bind_text(stmt, j, a->text.value_in, a->text.len, NULL);
 			break;
 		case _DATA_TYPE_NULL:
 			sqlite3_bind_null(stmt, j);
@@ -959,15 +963,22 @@ _sqlite_exec_one(const char query[], const Data args[], int args_len, const Data
 	if (ret == 0)
 		goto out1;
 
+	const int type = sqlite3_column_type(stmt, 0);
+	if (type == SQLITE_NULL) {
+		out->type = _DATA_TYPE_NULL;
+		goto out1;
+	}
+
 	switch (out->type) {
 	case _DATA_TYPE_INT:
-		*out->int_ = sqlite3_column_int(stmt, 0);
+		*out->int_out = sqlite3_column_int(stmt, 0);
 		break;
 	case _DATA_TYPE_INT64:
-		*out->int64 = sqlite3_column_int64(stmt, 0);
+		*out->int64_out = sqlite3_column_int64(stmt, 0);
 		break;
 	case _DATA_TYPE_TEXT:
-		cstr_copy_n(out->text.value, out->text.size, (const char *)sqlite3_column_text(stmt, 0));
+		out->text.len = cstr_copy_n(out->text.value_out, out->text.size,
+					    (const char *)sqlite3_column_text(stmt, 0));
 		break;
 	default:
 		log_err(0, "model: _sqlite_exec_one: out: invalid type: %d", out->type);
