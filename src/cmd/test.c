@@ -89,7 +89,7 @@ cmd_test_list(const CmdParam *cmd)
 	if (message_list_init(&list, cmd->args) < 0)
 		return;
 
-	const MessageListPagination pag = { .page_count = 1, .page_size = 1 };
+	const MessageListPagination pag = { .page_num = 1, .page_size = 1 };
 	message_list_send(&list, &pag, NULL);
 }
 

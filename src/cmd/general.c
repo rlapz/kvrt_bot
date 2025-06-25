@@ -55,7 +55,7 @@ cmd_general_help(const CmdParam *cmd)
 	}
 
 	ModelCmd cmd_list[CFG_LIST_ITEMS_SIZE];
-	MessageListPagination pag = { .page_count = list.page };
+	MessageListPagination pag = { .page_num = list.page };
 	if (cmd_get_list(cmd_list, LEN(cmd_list), &pag, cflags, is_private_chat) < 0)
 		goto out0;
 
@@ -63,7 +63,7 @@ cmd_general_help(const CmdParam *cmd)
 	if (str_init_alloc(&str, 1024) < 0)
 		goto out0;
 
-	if (_cmd_list_body(&str, cmd_list, pag.items_count, is_private_chat) < 0)
+	if (_cmd_list_body(&str, cmd_list, pag.items_len, is_private_chat) < 0)
 		goto out1;
 
 	list.body = str.cstr;

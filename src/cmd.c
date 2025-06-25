@@ -105,19 +105,16 @@ int
 cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags, int is_private)
 {
 	assert(VAL_IS_NULL_OR(list, pag) == 0);
-	if (pag->page_count == 0)
+	if (pag->page_num == 0)
 		return -1;
 
 	int total;
-	const int offt = (pag->page_count - 1) * len;
+	const int offt = (pag->page_num - 1) * len;
 	const int llen = model_cmd_get_list(list, len, offt, &total, flags, is_private);
 	if ((llen < 0) || (total <= 0))
 		return -1;
 
-	const unsigned psize = (unsigned)ceil((double)total / (double)len);
-	pag->page_size = psize;
-	pag->items_count = llen;
-	pag->items_size = total;
+	message_list_pagination_set(pag, pag->page_num, len, llen, total);
 	return 0;
 }
 

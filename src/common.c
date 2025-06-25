@@ -40,6 +40,21 @@ tg_escape(const char src[])
 /*
  * MessageList
  */
+void
+message_list_pagination_set(MessageListPagination *m, unsigned curr_page, unsigned per_page,
+			    unsigned items_len, unsigned items_size)
+{
+	assert(curr_page > 0);
+	assert(per_page > 0);
+	assert(items_len <= items_size);
+
+	m->page_num = curr_page;
+	m->page_size = CEIL(items_size, per_page);
+	m->items_len = items_len;
+	m->items_size = items_size;
+}
+
+
 static char *
 _message_list_add_template(const MessageList *l, const MessageListPagination *pag)
 {
@@ -49,7 +64,7 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 
 	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
 			      cstr_empty_if_null(l->title), cstr_empty_if_null(l->body),
-			      pag->page_count, pag->page_size, pag->items_size);
+			      pag->page_num, pag->page_size, pag->items_size);
 }
 
 
@@ -138,7 +153,7 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 
 	const time_t now = time(NULL);
 	const int64_t created_by = l->created_by;
-	const unsigned page = pag->page_count;
+	const unsigned page = pag->page_num;
 	const TgApiInlineKeyboardButton btns[] = {
 		{
 			.text = "Prev",

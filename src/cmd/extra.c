@@ -181,7 +181,6 @@ out0:
 static int
 _anime_sched_parse(AnimeSched *a, json_object *obj)
 {
-	unsigned per_page = 0;
 	json_object *tmp_obj;
 	memset(a, 0, sizeof(AnimeSched));
 
@@ -199,7 +198,7 @@ _anime_sched_parse(AnimeSched *a, json_object *obj)
 	if (json_object_object_get_ex(pg_obj, "current_page", &tmp_obj) == 0)
 		return -1;
 
-	a->pagination.page_count = (unsigned)json_object_get_uint64(tmp_obj);
+	const int curr_page = (unsigned)json_object_get_uint64(tmp_obj);
 
 	json_object *items_obj;
 	if (json_object_object_get_ex(pg_obj, "items", &items_obj) == 0)
@@ -208,15 +207,15 @@ _anime_sched_parse(AnimeSched *a, json_object *obj)
 	if (json_object_object_get_ex(items_obj, "count", &tmp_obj) == 0)
 		return -1;
 
-	a->pagination.items_count = (unsigned)json_object_get_uint64(tmp_obj);
+	const unsigned items_len = (unsigned)json_object_get_uint64(tmp_obj);
 	if (json_object_object_get_ex(items_obj, "total", &tmp_obj) == 0)
 		return -1;
 
-	a->pagination.items_size = (unsigned)json_object_get_uint64(tmp_obj);
+	const unsigned items_size = (unsigned)json_object_get_uint64(tmp_obj);
 	if (json_object_object_get_ex(items_obj, "per_page", &tmp_obj) == 0)
 		return -1;
 
-	per_page = (unsigned)json_object_get_uint64(tmp_obj);
+	const unsigned per_page = (unsigned)json_object_get_uint64(tmp_obj);
 
 	const size_t data_list_len = array_list_length(data_list);
 	if (data_list_len >= CFG_LIST_ITEMS_SIZE)
@@ -259,7 +258,7 @@ _anime_sched_parse(AnimeSched *a, json_object *obj)
 			_anime_sched_parse_list(tmp_obj, item->demographics, _ANIME_SCHED_ITEM_LIST_SIZE);
 	}
 
-	a->pagination.page_size = (unsigned)ceil(((double)a->pagination.items_size) / ((double)per_page));
+	message_list_pagination_set(&a->pagination, curr_page, per_page, items_len, items_size);
 	return 0;
 }
 
@@ -297,7 +296,7 @@ _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
 	if (str_init_alloc(&str, 1024) < 0)
 		return -1;
 
-	for (unsigned i = 0; i < a->pagination.items_count; i++) {
+	for (unsigned i = 0; i < a->pagination.items_len; i++) {
 		const AnimeSchedItem *const item = &a->items[i];
 		{
 			char *const title = tg_escape(item->title);

@@ -39,11 +39,15 @@ char *tg_escape(const char src[]);
  * MessageList
  */
 typedef struct message_list_pagination {
-	unsigned page_count;
+	unsigned page_num;
 	unsigned page_size;
-	unsigned items_count;
+	unsigned items_len;
 	unsigned items_size;
 } MessageListPagination;
+
+void message_list_pagination_set(MessageListPagination *m, unsigned curr_page, unsigned per_page,
+				 unsigned items_len, unsigned items_size);
+
 
 typedef struct message_list {
 	int64_t     id_user;

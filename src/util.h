@@ -17,6 +17,7 @@
 #define MIN(a, b)                       (((a) < (b)) ? (a) : (b))
 #define LEN(X)                          ((sizeof(X) / sizeof(*X)))
 #define UNSET(X, F)                     ((X) &= ~(F))
+#define CEIL(A, B)                      (ceil((double)(A) / (double)(B)))
 
 #define INT64_DIGITS_LEN  (24)
 #define UINT64_DIGITS_LEN (24)
