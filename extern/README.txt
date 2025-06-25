@@ -29,14 +29,14 @@ Callback:
 	8-n: User data
 
 Standard ENV Variables:
-	ROOT_DIR
-	CONFIG_FILE
+	TG_ROOT_DIR
+	TG_CONFIG_FILE
 	TG_API
-	CMD_PATH
-	OWNER_ID
-	BOT_ID
-	BOT_USERNAME
-	DB_PATH
+	TG_CMD_PATH
+	TG_OWNER_ID
+	TG_BOT_ID
+	TG_BOT_USERNAME
+	TG_DB_PATH
 
 
 ===========================================================================

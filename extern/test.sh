@@ -9,10 +9,12 @@ echo "Message ID     : $5"
 echo "Text           : $6"
 echo "Raw JSON       : $7"
 
+CFG=$TG_CONFIG_FILE
+
 # Example (send plain text)
 #
 #     ./api [Config]        [Type]    [Data]
-RES=$(./api "$CONFIG_FILE"  send_text "{ 'type': 'plain', 'chat_id': $3, 'message_id': $5, 'text': 'hello'}")
+RES=$(./api "$CFG"  send_text "{ 'type': 'plain', 'chat_id': $3, 'message_id': $5, 'text': 'hello'}")
 
 MSG_ID=$(jq '.message_id' <<< "$RES")
 
@@ -21,7 +23,7 @@ echo $RES
 [ -z "$MSG_ID" ] && exit 1
 
 sleep 3
-./api "$CONFIG_FILE" delete_message "{ 'chat_id': $3, 'message_id': $MSG_ID }"
+./api "$CFG" delete_message "{ 'chat_id': $3, 'message_id': $MSG_ID }"
 
 
 echo "$7" | jq
