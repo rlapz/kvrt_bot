@@ -326,8 +326,8 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *
 		str_append_n(&str, "```\n", 4);
 		str_append_fmt(&str, "Japanese : %s\n", cstr_empty_if_null(item->title_japanese));
 		str_append_fmt(&str, "Type     : %s\n", cstr_empty_if_null(item->type));
-		str_append_fmt(&str, "Year     : %u\n", item->year);
-		str_append_fmt(&str, "Episodes : %u\n", item->episodes);
+		str_append_fmt(&str, "Year     : %d\n", item->year);
+		str_append_fmt(&str, "Episodes : %d\n", item->episodes);
 		str_append_fmt(&str, "Source   : %s\n", cstr_empty_if_null(item->source));
 		str_append_fmt(&str, "Duration : %s\n", cstr_empty_if_null(item->duration));
 		str_append_fmt(&str, "Score    : %.2f\n", item->score);
