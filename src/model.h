@@ -79,14 +79,8 @@ typedef struct model_cmd_builtin {
 	int32_t id;
 	int     idx;
 	int     flags;
-	union {
-		const char *name_in;
-		char        name[MODEL_CMD_NAME_SIZE];
-	};
-	union {
-		const char *description_in;
-		char        description[MODEL_CMD_DESC_SIZE];
-	};
+	union { const char *name_in;        char name[MODEL_CMD_NAME_SIZE]; };
+	union { const char *description_in; char description[MODEL_CMD_DESC_SIZE]; };
 } ModelCmdBuiltin;
 
 int model_cmd_builtin_add(const ModelCmdBuiltin *c);
@@ -132,14 +126,8 @@ typedef struct model_cmd_message {
 	time_t  created_at;
 	int64_t updated_by;
 	time_t  updated_at;
-	union {
-		const char *name_in;
-		char        name[MODEL_CMD_MESSAGE_NAME_SIZE];
-	};
-	union {
-		const char *value_in;
-		char        value[MODEL_CMD_MESSAGE_VALUE_SIZE];
-	};
+	union { const char *name_in;  char name[MODEL_CMD_MESSAGE_NAME_SIZE]; };
+	union { const char *value_in; char value[MODEL_CMD_MESSAGE_VALUE_SIZE]; };
 } ModelCmdMessage;
 
 int model_cmd_message_set(const ModelCmdMessage *c);
@@ -164,10 +152,7 @@ typedef struct model_sched_message {
 	int     type;
 	int64_t chat_id;
 	int64_t message_id;	/* 0: no message_id */
-	union {
-		const char *value_in;
-		char        value[MODEL_SCHED_MESSAGE_VALUE_SIZE];
-	};
+	union { const char *value_in; char value[MODEL_SCHED_MESSAGE_VALUE_SIZE]; };
 	time_t  next_run;
 	time_t  expire;
 } ModelSchedMessage;
@@ -181,60 +166,24 @@ int model_sched_message_add(const ModelSchedMessage *s, time_t interval_s);
  * ModelAnimeSched
  */
 typedef struct model_anime_sched {
-	int32_t  id;
-	int32_t  mal_id;
-	double   score;
-	int      episodes;
-	int      year;
-	time_t   created_at;
-	union {
-		const char *filter_in;
-		char        filter[16];
-	};
-	union {
-		const char *url_in;
-		char        url[1024];
-	};
-	union {
-		const char *title_in;
-		char        title[256];
-	};
-	union {
-		const char *title_japanese_in;
-		char        title_japanese[256];
-	};
-	union {
-		const char *type_in;
-		char        type[32];
-	};
-	union {
-		const char *source_in;
-		char        source[32];
-	};
-	union {
-		const char *broadcast_in;
-		char        broadcast[32];
-	};
-	union {
-		const char *duration_in;
-		char        duration[32];
-	};
-	union {
-		const char *rating_in;
-		char        rating[32];
-	};
-	union {
-		const char *genres_in;
-		char        genres[256];
-	};
-	union {
-		const char *themes_in;
-		char        themes[256];
-	};
-	union {
-		const char *demographics_in;
-		char        demographics[256];
-	};
+	int32_t id;
+	int32_t mal_id;
+	double  score;
+	int     episodes;
+	int     year;
+	time_t  created_at;
+	union { const char *filter_in;         char filter[16]; };
+	union { const char *url_in;            char url[1024]; };
+	union { const char *title_in;          char title[256]; };
+	union { const char *title_japanese_in; char title_japanese[256]; };
+	union { const char *type_in;           char type[32]; };
+	union { const char *source_in;         char source[32]; };
+	union { const char *broadcast_in;      char broadcast[32]; };
+	union { const char *duration_in;       char duration[32]; };
+	union { const char *rating_in;         char rating[32]; };
+	union { const char *genres_in;         char genres[256]; };
+	union { const char *themes_in;         char themes[256]; };
+	union { const char *demographics_in;   char demographics[256]; };
 } ModelAnimeSched;
 
 int model_anime_sched_delete_by(const char filter[]);
