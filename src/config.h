@@ -28,7 +28,9 @@
 #define CFG_CONNECTION_TIMEOUT_S (3)
 #define CFG_CHLD_ITEMS_SIZE      (256)
 #define CFG_CHLD_ENVP_SIZE       (128)
+#define CFG_CMD_EXTERN_API_PATH  "extern/api"
 
+#define CFG_ENV_EXE             "TG_EXE"
 #define CFG_ENV_ROOT_DIR        "TG_ROOT_DIR"
 #define CFG_ENV_CONFIG_FILE     "TG_CONFIG_FILE"
 #define CFG_ENV_TELEGRAM_API    "TG_API"

@@ -29,6 +29,7 @@ Callback:
 	8-n: User data
 
 Standard ENV Variables:
+	TG_EXE
 	TG_ROOT_DIR
 	TG_CONFIG_FILE
 	TG_API

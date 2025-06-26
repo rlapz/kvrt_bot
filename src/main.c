@@ -496,6 +496,15 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
 		goto err0;
 
+	const char *const api_exe = realpath(CFG_CMD_EXTERN_API_PATH, buff);
+	if (api_exe == NULL) {
+		log_err(errno, "main: _server_init_chld: '%s'", CFG_CMD_EXTERN_API_PATH);
+		goto err0;
+	}
+
+	if (chld_add_env_kv(CFG_ENV_EXE, api_exe) < 0)
+		goto err0;
+
 	const char *const cfg_file = realpath(s->config_file, buff);
 	if (cfg_file == NULL)
 		goto err0;
