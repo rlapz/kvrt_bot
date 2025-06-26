@@ -213,7 +213,7 @@ typedef struct model_anime_sched {
 	};
 	union {
 		const char *broadcast_in;
-		char        broadcast[64];
+		char        broadcast[32];
 	};
 	union {
 		const char *duration_in;
@@ -221,19 +221,19 @@ typedef struct model_anime_sched {
 	};
 	union {
 		const char *rating_in;
-		char        rating[16];
+		char        rating[32];
 	};
 	union {
 		const char *genres_in;
-		char        genres[128];
+		char        genres[256];
 	};
 	union {
 		const char *themes_in;
-		char        themes[128];
+		char        themes[256];
 	};
 	union {
 		const char *demographics_in;
-		char        demographics[128];
+		char        demographics[256];
 	};
 } ModelAnimeSched;
 
