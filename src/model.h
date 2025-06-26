@@ -177,4 +177,71 @@ int model_sched_message_delete(int32_t list[], int len);
 int model_sched_message_add(const ModelSchedMessage *s, time_t interval_s);
 
 
+/*
+ * ModelAnimeSched
+ */
+typedef struct model_anime_sched {
+	int32_t  id;
+	int32_t  mal_id;
+	double   score;
+	int      episodes;
+	int      year;
+	time_t   created_at;
+	union {
+		const char *filter_in;
+		char        filter[16];
+	};
+	union {
+		const char *url_in;
+		char        url[1024];
+	};
+	union {
+		const char *title_in;
+		char        title[256];
+	};
+	union {
+		const char *title_japanese_in;
+		char        title_japanese[256];
+	};
+	union {
+		const char *type_in;
+		char        type[32];
+	};
+	union {
+		const char *source_in;
+		char        source[32];
+	};
+	union {
+		const char *broadcast_in;
+		char        broadcast[64];
+	};
+	union {
+		const char *duration_in;
+		char        duration[32];
+	};
+	union {
+		const char *rating_in;
+		char        rating[16];
+	};
+	union {
+		const char *genres_in;
+		char        genres[128];
+	};
+	union {
+		const char *themes_in;
+		char        themes[128];
+	};
+	union {
+		const char *demographics_in;
+		char        demographics[128];
+	};
+} ModelAnimeSched;
+
+int model_anime_sched_delete_by(const char filter[]);
+int model_anime_sched_add_list(const ModelAnimeSched list[], int len);
+int model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
+			       int offset, int *total);
+int model_anime_sched_get_creation_time(const char filter[], time_t *cre_dt);
+
+
 #endif

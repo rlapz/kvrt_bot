@@ -10,9 +10,9 @@
 #include "../tg_api.h"
 
 
-#define _ANIME_SCHED_ITEM_LIST_SIZE (16)
 #define _ANIME_SCHED_BASE_URL       "https://api.jikan.moe/v4/schedules"
 #define _ANIME_SCHED_LIMIT_SIZE     (3)
+#define _ANIME_SCHED_EXPIRE         (86400) // default: 1 day
 
 static const char *const _anime_sched_filters[] = {
 	"sunday",
@@ -27,34 +27,12 @@ static const char *const _anime_sched_filters[] = {
 };
 
 
-typedef struct anime_sched_item {
-	const char *url;
-	const char *title;
-	const char *title_japanese;
-	const char *type;
-	const char *source;
-	unsigned    episodes;
-	const char *broadcast;
-	const char *duration;
-	const char *rating;
-	double      score;
-	unsigned    year;
-	const char *genres[_ANIME_SCHED_ITEM_LIST_SIZE];		/* NULL-terminated */
-	const char *themes[_ANIME_SCHED_ITEM_LIST_SIZE];		/* NULL-terminated */
-	const char *demographics[_ANIME_SCHED_ITEM_LIST_SIZE];		/* NULL-terminated */
-} AnimeSchedItem;
-
-typedef struct anime_sched {
-	MessageListPagination pagination;
-	AnimeSchedItem        items[CFG_LIST_ITEMS_SIZE];
-} AnimeSched;
-
 static int  _anime_sched_prep_filter(const char filter[], const char *res[]);
-static int  _anime_sched_get_list(const char filter[], unsigned limit, unsigned page,
-				  int show_nsfw, json_object **res);
-static int  _anime_sched_parse(AnimeSched *a, json_object *obj);
-static void _anime_sched_parse_list(json_object *list_obj, const char *out[], size_t len);
-static int  _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[]);
+static int  _anime_sched_check_cache(const char filter[]);
+static int  _anime_sched_fetch(const char filter[], int show_nsfw);
+static int  _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj);
+static void _anime_sched_parse_list(json_object *list_obj, char *out[]);
+static int  _anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *res[]);
 
 
 /*
@@ -63,7 +41,6 @@ static int  _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[]);
 void
 cmd_extra_anime_sched(const CmdParam *cmd)
 {
-	int is_err = 1;
 	MessageList list = {
 		.ctx = cmd->name,
 		.id_user = cmd->id_user,
@@ -84,33 +61,49 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		return;
 	}
 
-	const int cflags = model_chat_get_flags(cmd->id_chat);
-	const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
-	const unsigned limit = MIN(_ANIME_SCHED_LIMIT_SIZE, CFG_LIST_ITEMS_SIZE);
-	json_object *obj;
-	if (_anime_sched_get_list(filter, limit, list.page, show_nsfw, &obj) < 0)
-		goto out0;
+	if (_anime_sched_check_cache(filter) == 0) {
+		const int cflags = model_chat_get_flags(cmd->id_chat);
+		const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
+		if (_anime_sched_fetch(filter, show_nsfw) < 0)
+			goto err0;
+	} else {
+		log_debug("use cache");
+	}
 
-	AnimeSched anime;
-	if (_anime_sched_parse(&anime, obj) < 0)
-		goto out1;
+	ModelAnimeSched ma_list[_ANIME_SCHED_LIMIT_SIZE];
+	MessageListPagination pag;
 
-	const unsigned start = MIN(((list.page * limit) - limit), anime.pagination.items_size);
-	if (_anime_sched_build_body(&anime, start, (char **)&list.body) < 0)
-		goto out1;
+	int total = 0;
+	const int len = LEN(ma_list);
+	const int offt = (list.page - 1) * len;
+	const int llen = model_anime_sched_get_list(ma_list, len, filter, offt, &total);
+	if ((llen < 0) || (total <= 0))
+		goto err0;
 
-	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)");
-	is_err = message_list_send(&list, &anime.pagination, NULL);
+	message_list_pagination_set(&pag, list.page, len, llen, total);
 
+	const int start = MIN(((list.page * len) - len), pag.items_size);
+	if (_anime_sched_build_body(ma_list, llen, start, (char **)&list.body) < 0)
+		goto err0;
+
+	char upd_buff[256];
+	upd_buff[0] = '\0';
+
+	time_t cre_dt = ma_list[0].created_at;
+	const struct tm *const upd = localtime(&cre_dt);
+	if (upd != NULL)
+		cstr_copy_n(upd_buff, LEN(upd_buff), asctime(upd));
+
+	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", upd_buff);
+
+	const int ret = message_list_send(&list, &pag, NULL);
 	free((char *)list.title);
 	free((char *)list.body);
 
-out1:
-	json_object_put(obj);
-out0:
-	if (is_err == 0)
+	if (ret >= 0)
 		return;
 
+err0:
 	tg_api_answer_callback_query(cmd->id_callback, "Error!", NULL, 1);
 }
 
@@ -146,32 +139,71 @@ _anime_sched_prep_filter(const char filter[], const char *res[])
 }
 
 
+/*
+ *   0: expired/empty
+ *  ~0: valid
+ */
 static int
-_anime_sched_get_list(const char filter[], unsigned limit, unsigned page, int show_nsfw, json_object **res)
+_anime_sched_check_cache(const char filter[])
+{
+	time_t cre_dt;
+	const int ret = model_anime_sched_get_creation_time(filter, &cre_dt);
+	if (ret < 0)
+		return 1;
+
+	if (ret == 0)
+		return 0;
+
+	const time_t now = time(NULL);
+	if ((now - cre_dt) >= _ANIME_SCHED_EXPIRE) {
+		if (model_anime_sched_delete_by(filter) >= 0)
+			return 0;
+	}
+
+	return 1;
+}
+
+
+static int
+_anime_sched_fetch(const char filter[], int show_nsfw)
 {
 	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
+		return -1;
 
-	const char *const req = str_set_fmt(&str, "%s?page=%u&filter=%s&limit=%u&kids=false&sfw=%s",
-					    _ANIME_SCHED_BASE_URL, page, filter, limit,
-					    cstr_from_bool(show_nsfw));
+	const char *const req = str_set_fmt(&str, "%s?filter=%s&kids=false&sfw=%s",
+					    _ANIME_SCHED_BASE_URL, filter, cstr_from_bool(show_nsfw));
 	if (req == NULL)
 		goto out0;
 
-	char *const result = http_send_get(req, "application/json");
-	if (result == NULL)
+	char *const res = http_send_get(req, "application/json");
+	if (res == NULL)
 		goto out0;
 
-	json_object *const obj = json_tokener_parse(result);
-	if (obj != NULL) {
-		*res = obj;
-		ret = 0;
+	json_object *const obj = json_tokener_parse(res);
+	if (obj == NULL)
+		goto out1;
+
+	ModelAnimeSched *list;
+	const int len = _anime_sched_parse(&list, filter, obj);
+	if (len < 0)
+		goto out2;
+
+	ret = model_anime_sched_add_list(list, len);
+
+	for (int i = 0; i < len; i++) {
+		free((char *)list[i].genres_in);
+		free((char *)list[i].themes_in);
+		free((char *)list[i].demographics_in);
 	}
 
-	free(result);
+	free(list);
 
+out2:
+	json_object_put(obj);
+out1:
+	free(res);
 out0:
 	str_deinit(&str);
 	return ret;
@@ -179,15 +211,9 @@ out0:
 
 
 static int
-_anime_sched_parse(AnimeSched *a, json_object *obj)
+_anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj)
 {
 	json_object *tmp_obj;
-	memset(a, 0, sizeof(AnimeSched));
-
-	json_object *pg_obj;
-	if (json_object_object_get_ex(obj, "pagination", &pg_obj) == 0)
-		return -1;
-
 	array_list *data_list = NULL;
 	if (json_object_object_get_ex(obj, "data", &tmp_obj))
 		data_list = json_object_get_array(tmp_obj);
@@ -195,87 +221,72 @@ _anime_sched_parse(AnimeSched *a, json_object *obj)
 	if (data_list == NULL)
 		return -1;
 
-	if (json_object_object_get_ex(pg_obj, "current_page", &tmp_obj) == 0)
-		return -1;
+	size_t data_list_len = array_list_length(data_list);
+	if (data_list_len >= INT_MAX)
+		data_list_len = INT_MAX - 1;
 
-	const int curr_page = (unsigned)json_object_get_uint64(tmp_obj);
-
-	json_object *items_obj;
-	if (json_object_object_get_ex(pg_obj, "items", &items_obj) == 0)
-		return -1;
-
-	if (json_object_object_get_ex(items_obj, "count", &tmp_obj) == 0)
-		return -1;
-
-	const unsigned items_len = (unsigned)json_object_get_uint64(tmp_obj);
-	if (json_object_object_get_ex(items_obj, "total", &tmp_obj) == 0)
-		return -1;
-
-	const unsigned items_size = (unsigned)json_object_get_uint64(tmp_obj);
-	if (json_object_object_get_ex(items_obj, "per_page", &tmp_obj) == 0)
-		return -1;
-
-	const unsigned per_page = (unsigned)json_object_get_uint64(tmp_obj);
-
-	const size_t data_list_len = array_list_length(data_list);
-	if (data_list_len >= CFG_LIST_ITEMS_SIZE)
+	ModelAnimeSched *const items = malloc(sizeof(ModelAnimeSched) * data_list_len);
+	if (items == NULL)
 		return -1;
 
 	for (size_t i = 0; i < data_list_len; i++) {
 		json_object *const _obj = array_list_get_idx(data_list, i);
-		AnimeSchedItem *const item = &a->items[i];
-		if (json_object_object_get_ex(_obj, "url", &tmp_obj))
-			item->url = json_object_get_string(tmp_obj);
-		if (json_object_object_get_ex(_obj, "title", &tmp_obj))
-			item->title = json_object_get_string(tmp_obj);
-		if (json_object_object_get_ex(_obj, "title_japanese", &tmp_obj))
-			item->title_japanese = json_object_get_string(tmp_obj);
-		if (json_object_object_get_ex(_obj, "type", &tmp_obj))
-			item->type = json_object_get_string(tmp_obj);
-		if (json_object_object_get_ex(_obj, "source", &tmp_obj))
-			item->source = json_object_get_string(tmp_obj);
-		if (json_object_object_get_ex(_obj, "episodes", &tmp_obj))
-			item->episodes = (unsigned)json_object_get_int(tmp_obj);
+		ModelAnimeSched *const item = &items[i];
 
+		item->filter_in = filter;
+		if (json_object_object_get_ex(_obj, "mal_id", &tmp_obj))
+			item->mal_id = json_object_get_int(tmp_obj);
+		if (json_object_object_get_ex(_obj, "url", &tmp_obj))
+			item->url_in = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(_obj, "title", &tmp_obj))
+			item->title_in = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(_obj, "title_japanese", &tmp_obj))
+			item->title_japanese_in = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(_obj, "type", &tmp_obj))
+			item->type_in = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(_obj, "source", &tmp_obj))
+			item->source_in = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(_obj, "episodes", &tmp_obj))
+			item->episodes = json_object_get_int(tmp_obj);
 		if (json_object_object_get_ex(_obj, "broadcast", &tmp_obj)) {
 			if (json_object_object_get_ex(tmp_obj, "string", &tmp_obj))
-				item->broadcast = json_object_get_string(tmp_obj);
+				item->broadcast_in = json_object_get_string(tmp_obj);
 		}
-
 		if (json_object_object_get_ex(_obj, "duration", &tmp_obj))
-			item->duration = json_object_get_string(tmp_obj);
+			item->duration_in = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "rating", &tmp_obj))
-			item->rating = json_object_get_string(tmp_obj);
+			item->rating_in = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "score", &tmp_obj))
 			item->score = json_object_get_double(tmp_obj);
 		if (json_object_object_get_ex(_obj, "year", &tmp_obj))
-			item->year = (unsigned)json_object_get_int(tmp_obj);
+			item->year = json_object_get_int(tmp_obj);
+
 		if (json_object_object_get_ex(_obj, "genres", &tmp_obj))
-			_anime_sched_parse_list(tmp_obj, item->genres, _ANIME_SCHED_ITEM_LIST_SIZE);
+			_anime_sched_parse_list(tmp_obj, (char **)&item->genres_in);
 		if (json_object_object_get_ex(_obj, "themes", &tmp_obj))
-			_anime_sched_parse_list(tmp_obj, item->themes, _ANIME_SCHED_ITEM_LIST_SIZE);
+			_anime_sched_parse_list(tmp_obj, (char **)&item->themes_in);
 		if (json_object_object_get_ex(_obj, "demographics", &tmp_obj))
-			_anime_sched_parse_list(tmp_obj, item->demographics, _ANIME_SCHED_ITEM_LIST_SIZE);
+			_anime_sched_parse_list(tmp_obj, (char **)&item->demographics_in);
 	}
 
-	message_list_pagination_set(&a->pagination, curr_page, per_page, items_len, items_size);
-	return 0;
+	*list = items;
+	return (int)data_list_len;
 }
 
 
 static void
-_anime_sched_parse_list(json_object *list_obj, const char *out[], size_t len)
+_anime_sched_parse_list(json_object *list_obj, char *out[])
 {
-	if (len == 0)
-		return;
-
 	array_list *const list = json_object_get_array(list_obj);
 	if (list == NULL)
 		return;
 
-	len--; /* reserve + 1 for NULL terminated pointer */
+	Str str;
+	if (str_init_alloc(&str, 128) < 0)
+		return;
+
 	const size_t list_len = array_list_length(list);
-	for (size_t i = 0, j = 0; (i < list_len) && (j < len); i++) {
+	for (size_t i = 0; i < list_len; i++) {
 		json_object *const obj = array_list_get_idx(list, i);
 		if (obj == NULL)
 			continue;
@@ -284,24 +295,29 @@ _anime_sched_parse_list(json_object *list_obj, const char *out[], size_t len)
 		if (json_object_object_get_ex(obj, "name", &obj_name) == 0)
 			continue;
 
-		out[j++] = json_object_get_string(obj_name);
+		if (str_append_fmt(&str, "%s, ", json_object_get_string(obj_name)) == NULL)
+			break;
 	}
+
+	str_pop(&str, 2);
+
+	*out = str.cstr;
 }
 
 
 static int
-_anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
+_anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *res[])
 {
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		return -1;
 
-	for (unsigned i = 0; i < a->pagination.items_len; i++) {
-		const AnimeSchedItem *const item = &a->items[i];
+	for (int i = 0; i < len; i++) {
+		const ModelAnimeSched *const item = &list[i];
 		{
 			char *const title = tg_escape(item->title);
 			char *const url = tg_escape(item->url);
-			str_append_fmt(&str, "*%u\\. [%s](%s)*\n", (start + i + 1),
+			str_append_fmt(&str, "*%d\\. [%s](%s)*\n", (start + i + 1),
 				       cstr_empty_if_null(title), cstr_empty_if_null(url));
 			free(title);
 			free(url);
@@ -317,37 +333,9 @@ _anime_sched_build_body(AnimeSched *a, unsigned start, char *res[])
 		str_append_fmt(&str, "Score    : %.2f\n", item->score);
 		str_append_fmt(&str, "Broadcast: %s\n", cstr_empty_if_null(item->broadcast));
 		str_append_fmt(&str, "Rating   : %s\n", cstr_empty_if_null(item->rating));
-
-		const char *const *tmp = item->genres;
-		if (*tmp != NULL) {
-			str_append(&str, "Genres   : ");
-			while (*tmp != NULL)
-				str_append_fmt(&str, "%s, ", (*tmp++));
-
-			str_pop(&str, 2);
-			str_append_c(&str, '\n');
-		}
-
-		tmp = item->themes;
-		if (*tmp != NULL) {
-			str_append(&str, "Themes   : ");
-			while (*tmp != NULL)
-				str_append_fmt(&str, "%s, ", (*tmp++));
-
-			str_pop(&str, 2);
-			str_append_c(&str, '\n');
-		}
-
-		tmp = item->demographics;
-		if (*tmp != NULL) {
-			str_append(&str, "Dgraphics: ");
-			while (*tmp != NULL)
-				str_append_fmt(&str, "%s, ", (*tmp++));
-
-			str_pop(&str, 2);
-			str_append_c(&str, '\n');
-		}
-
+		str_append_fmt(&str, "Genres   : %s\n", cstr_empty_if_null(item->genres));
+		str_append_fmt(&str, "Themes   : %s\n", cstr_empty_if_null(item->themes));
+		str_append_fmt(&str, "Dgraphics: %s\n", cstr_empty_if_null(item->demographics));
 		str_append_n(&str, "```\n", 4);
 	}
 

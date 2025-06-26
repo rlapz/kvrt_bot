@@ -41,6 +41,7 @@ static const char *_cmd_builtin_query(Str *str);
 static const char *_cmd_extern_query(Str *str);
 static const char *_cmd_message_query(Str *str);
 static const char *_sched_message_query(Str *str);
+static const char *_anime_sched_query(Str *str);
 static int         _sqlite_step_one(sqlite3_stmt *stmt);
 static int         _sqlite_exec_one(const char query[], const Data args[], int args_len,
 				    Data *out);
@@ -70,6 +71,7 @@ model_init(void)
 		{ "Cmd_Extern", _cmd_extern_query },
 		{ "Cmd_Message", _cmd_message_query },
 		{ "Sched_Message", _sched_message_query },
+		{ "Anime_Sched", _anime_sched_query },
 	};
 
 	DbConn *const conn = sqlite_pool_get();
@@ -795,6 +797,192 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 
 
 /*
+ * ModelAnimeSched
+ */
+int
+model_anime_sched_delete_by(const char filter[])
+{
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = filter, .len = -1 } };
+	const char *const query = "DELETE FROM Anime_Sched WHERE (filter = ?);";
+
+	return _sqlite_exec_one(query, &arg, 1, NULL);
+}
+
+
+int
+model_anime_sched_add_list(const ModelAnimeSched list[], int len)
+{
+	int ret = -1;
+	Str str;
+	if (str_init_alloc(&str, 4096) < 0)
+		return -1;
+
+	const char *const query =
+		"INSERT INTO Anime_Sched(mal_id, filter, url, title, title_ja, type, "
+			"source, broadcast, duration, rating, score, episodes, year, "
+			"genres, themes, demographics, created_at "
+		") VALUES ";
+
+	if (str_set(&str, query) == 0)
+		goto out0;
+
+	for (int i = 0; i < len; i++) {
+		if (str_append(&str, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), ") == NULL)
+			goto out0;
+	}
+
+	str_pop(&str, 2);
+
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		goto out0;
+
+	sqlite3_stmt *stmt;
+	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_anime_sched_add_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out1;
+	}
+
+	const time_t now = time(NULL);
+	for (int i = 0, j = 1; i < len; i++) {
+		sqlite3_bind_int(stmt, j++, list[i].mal_id);
+		sqlite3_bind_text(stmt, j++, list[i].filter_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].url_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].title_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].title_japanese_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].type_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].source_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].broadcast_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].duration_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].rating_in, -1, NULL);
+
+		sqlite3_bind_double(stmt, j++, list[i].score);
+		sqlite3_bind_int(stmt, j++, list[i].episodes);
+		sqlite3_bind_int(stmt, j++, list[i].year);
+
+		sqlite3_bind_text(stmt, j++, list[i].genres_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].themes_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].demographics_in, -1, NULL);
+
+		sqlite3_bind_int64(stmt, j++, now);
+	}
+
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out2;
+
+	ret = sqlite3_changes(conn->sql);
+
+out2:
+	sqlite3_finalize(stmt);
+out1:
+	sqlite_pool_put(conn);
+out0:
+	str_deinit(&str);
+	return ret;
+}
+
+
+int
+model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[], int offset, int *total)
+{
+	int ret = -1;
+	const char *const query =
+		"SELECT COUNT(1), Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, "
+			"Null, Null, Null, Null, Null, Null, Null "
+		"FROM Anime_Sched WHERE (filter = ?) "
+		"UNION ALL "
+		"SELECT * FROM ("
+			"SELECT 0, id, mal_id, filter, url, title, title_ja, type, source, broadcast, "
+				"duration, rating, score, episodes, year, genres, themes, demographics, "
+				"created_at "
+			"FROM Anime_Sched "
+			"WHERE (filter = ?) "
+			"ORDER BY id "
+			"LIMIT ? OFFSET ? "
+		");";
+
+	sqlite3_stmt *stmt;
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
+	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		log_err(0, "model: model_anime_sched_get_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out0;
+	}
+
+	sqlite3_bind_text(stmt, 1, filter, -1, NULL);
+	sqlite3_bind_text(stmt, 2, filter, -1, NULL);
+	sqlite3_bind_int(stmt, 3, len);
+	sqlite3_bind_int(stmt, 4, offset);
+
+	ret = _sqlite_step_one(stmt);
+	if (ret <= 0)
+		goto out1;
+
+	*total = sqlite3_column_int(stmt, 0);
+
+	int count = 0;
+	for (; count < len; count++) {
+		res = sqlite3_step(stmt);
+		if (res == SQLITE_DONE)
+			break;
+
+		if (res != SQLITE_ROW) {
+			log_err(0, "model: model_anime_sched_get_list: sqlite3_step: %s", sqlite3_errstr(res));
+			goto out1;
+		}
+
+		int i = 1;
+		ModelAnimeSched *const ma = &list[count];
+		ma->id = sqlite3_column_int(stmt, i++);
+		ma->mal_id = sqlite3_column_int(stmt, i++);
+		cstr_copy_n(ma->filter, LEN(ma->filter), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->url, LEN(ma->url), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->title, LEN(ma->title), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->title_japanese, LEN(ma->title_japanese), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->type, LEN(ma->type), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->source, LEN(ma->source), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->broadcast, LEN(ma->broadcast), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->duration, LEN(ma->duration), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->rating, LEN(ma->rating), (const char *)sqlite3_column_text(stmt, i++));
+
+		ma->score = sqlite3_column_double(stmt, i++);
+		ma->episodes = sqlite3_column_int(stmt, i++);
+		ma->year = sqlite3_column_int(stmt, i++);
+
+		cstr_copy_n(ma->genres, LEN(ma->genres), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->themes, LEN(ma->themes), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->demographics, LEN(ma->demographics), (const char *)sqlite3_column_text(stmt, i++));
+
+		ma->created_at = sqlite3_column_int64(stmt, i++);
+	}
+
+	ret = count;
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return ret;
+}
+
+
+int
+model_anime_sched_get_creation_time(const char filter[], time_t *cre_dt)
+{
+	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = filter, .len = -1 } };
+	const char *const query = "SELECT created_at FROM Anime_Sched WHERE (filter = ?) LIMIT 1;";
+
+	Data out = { .type = _DATA_TYPE_INT64, .int64_out = cre_dt };
+	return _sqlite_exec_one(query, &arg, 1, &out);
+}
+
+
+/*
  * Private
  */
 static const char *
@@ -894,6 +1082,38 @@ _sched_message_query(Str *str)
 		"	expire		TIMESTAMP NOT Null\n"
 		");",
 		(MODEL_SCHED_MESSAGE_VALUE_SIZE - 1)
+	);
+}
+
+
+static const char *
+_anime_sched_query(Str *str)
+{
+	ModelAnimeSched ma;
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Anime_Sched("
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	mal_id		INTEGER NOT Null,\n"
+		"	filter		VARCHAR(%d) Null,\n"
+		"	url		VARCHAR(%d) Null,\n"
+		"	title		VARCHAR(%d) Null,\n"
+		"	title_ja	VARCHAR(%d) Null,\n"
+		"	type		VARCHAR(%d) Null,\n"
+		"	source		VARCHAR(%d) Null,\n"
+		"	broadcast	VARCHAR(%d) Null,\n"
+		"	duration	VARCHAR(%d) Null,\n"
+		"	rating		VARCHAR(%d) Null,\n"
+		"	score		REAL Null,\n"
+		"	episodes	INTEGER Null,\n"
+		"	year		INTEGER Null,\n"
+		"	genres		VARCHAR(%d) Null,\n"
+		"	themes		VARCHAR(%d) Null,\n"
+		"	demographics	VARCHAR(%d) Null,\n"
+		"	created_at	TIMESTAMP NOT Null\n"
+		");",
+		LEN(ma.filter) -1, LEN(ma.url) -1, LEN(ma.title) -1, LEN(ma.title_japanese) -1,
+		LEN(ma.type) -1, LEN(ma.source) -1, LEN(ma.broadcast) -1, LEN(ma.duration),
+		LEN(ma.rating) -1, LEN(ma.genres) -1, LEN(ma.themes) -1, LEN(ma.demographics) -1
 	);
 }
 
