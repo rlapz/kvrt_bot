@@ -899,7 +899,7 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 				"created_at "
 			"FROM Anime_Sched "
 			"WHERE (filter = ?) "
-			"ORDER BY id "
+			"ORDER BY score DESC "
 			"LIMIT ? OFFSET ? "
 		");";
 
