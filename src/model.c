@@ -1,6 +1,5 @@
 #include <errno.h>
 #include <sqlite3.h>
-#include <unistd.h>
 
 #include "model.h"
 
@@ -221,7 +220,7 @@ _admin_clear(DbConn *conn, int64_t chat_id)
 	}
 
 	sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = _sqlite_step_one_wait(conn->sql, stmt);
+	ret = _sqlite_step_one(stmt);
 
 out0:
 	sqlite3_finalize(stmt);
@@ -1156,7 +1155,7 @@ _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
 		}
 
 		log_err(0, "model: _sqlite_step_one_wait: sqlite3_step: %s", sqlite3_errstr(ret));
-		return -1;
+		break;
 	}
 
 	return -1;
