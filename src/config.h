@@ -26,6 +26,7 @@
 #define CFG_LIST_ITEMS_SIZE      (8)
 #define CFG_LIST_TIMEOUT_S       (3600)
 #define CFG_CONNECTION_TIMEOUT_S (3)
+#define CFG_DB_WAIT              (1000)
 #define CFG_CHLD_ITEMS_SIZE      (256)
 #define CFG_CHLD_ENVP_SIZE       (128)
 #define CFG_CMD_EXTERN_API_PATH  "extern/api"

@@ -89,7 +89,7 @@ _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 	};
 
 	if (model_chat_init(param.id_chat) < 0) {
-		send_text_plain(param.msg, "failed to initialized chat");
+		send_text_plain(param.msg, "failed to initialize chat");
 		return;
 	}
 
@@ -118,7 +118,7 @@ _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 	};
 
 	if (model_chat_init(param.id_chat) < 0) {
-		send_text_plain(param.msg, "failed to initialized chat");
+		send_text_plain(param.msg, "failed to initialize chat");
 		return;
 	}
 

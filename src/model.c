@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <sqlite3.h>
+#include <unistd.h>
 
 #include "model.h"
 
@@ -43,6 +44,7 @@ static const char *_cmd_message_query(Str *str);
 static const char *_sched_message_query(Str *str);
 static const char *_anime_sched_query(Str *str);
 static int         _sqlite_step_one(sqlite3_stmt *stmt);
+static int         _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt);
 static int         _sqlite_exec_one(const char query[], const Data args[], int args_len,
 				    Data *out);
 
@@ -107,14 +109,19 @@ model_chat_init(int64_t chat_id)
 		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
 		{ .type = _DATA_TYPE_INT, .int_in = flags },
 		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
-		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
 	};
 
-	const char *const query =
-		"INSERT INTO Chat(chat_id, flags, created_at) "
-		"SELECT ?, ?, ? "
-		"WHERE NOT EXISTS(SELECT 1 FROM Chat WHERE (chat_id = ?));";
+	int fl = 0;
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &fl };
+	const char *query = "SELECT 1 FROM Chat WHERE (chat_id = ?);";
+	const int ret = _sqlite_exec_one(query, args, 1, &out);
+	if (ret < 0)
+		return -1;
 
+	if (ret > 0)
+		return 0;
+
+	query = "INSERT INTO Chat(chat_id, flags, created_at) VALUES(?, ?, ?);";
 	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
 
@@ -214,7 +221,7 @@ _admin_clear(DbConn *conn, int64_t chat_id)
 	}
 
 	sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = _sqlite_step_one(stmt);
+	ret = _sqlite_step_one_wait(conn->sql, stmt);
 
 out0:
 	sqlite3_finalize(stmt);
@@ -408,7 +415,7 @@ model_cmd_builtin_clear(void)
 		goto out0;
 	}
 
-	ret = _sqlite_step_one(stmt);
+	ret = _sqlite_step_one_wait(conn->sql, stmt);
 	if (ret < 0)
 		goto out1;
 
@@ -421,7 +428,7 @@ model_cmd_builtin_clear(void)
 		goto out0;
 	}
 
-	ret = _sqlite_step_one(stmt);
+	ret = _sqlite_step_one_wait(conn->sql, stmt);
 	if (ret < 0)
 		goto out1;
 
@@ -589,7 +596,7 @@ model_cmd_message_set(const ModelCmdMessage *c)
 		sqlite3_bind_text(stmt, 5, c->name_in, -1, NULL);
 	}
 
-	ret = _sqlite_step_one(stmt);
+	ret = _sqlite_step_one_wait(conn->sql, stmt);
 	if (ret < 0)
 		goto out1;
 
@@ -737,7 +744,7 @@ model_sched_message_delete(int32_t list[], int len)
 	for (int i = 0; i < len; i++)
 		sqlite3_bind_int(stmt, i + 1, list[i]);
 
-	if (_sqlite_step_one(stmt) < 0)
+	if (_sqlite_step_one_wait(conn->sql, stmt) < 0)
 		goto out2;
 
 	ret = sqlite3_changes(conn->sql);
@@ -1121,7 +1128,7 @@ _anime_sched_query(Str *str)
 static int
 _sqlite_step_one(sqlite3_stmt *stmt)
 {
-	int ret = sqlite3_step(stmt);
+	const int ret = sqlite3_step(stmt);
 	if (ret == SQLITE_DONE)
 		return 0;
 
@@ -1131,6 +1138,28 @@ _sqlite_step_one(sqlite3_stmt *stmt)
 	}
 
 	return 1;
+}
+
+
+static int
+_sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
+{
+	while (ev_is_alive()) {
+		const int ret = sqlite3_step(stmt);
+		switch (ret) {
+		case SQLITE_BUSY:
+			log_info("model: _sqlite_step_one_wait: sqlite3_step: %s", sqlite3_errstr(ret));
+			sqlite3_busy_timeout(sql, CFG_DB_WAIT);
+			continue;
+		case SQLITE_DONE: return 0;
+		case SQLITE_ROW: return 1;
+		}
+
+		log_err(0, "model: _sqlite_step_one_wait: sqlite3_step: %s", sqlite3_errstr(ret));
+		return -1;
+	}
+
+	return -1;
 }
 
 

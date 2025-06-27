@@ -27,12 +27,12 @@ static const char *const _anime_sched_filters[] = {
 };
 
 
-static int  _anime_sched_prep_filter(const char filter[], const char *res[]);
-static int  _anime_sched_check_cache(const char filter[]);
-static int  _anime_sched_fetch(const char filter[], int show_nsfw);
-static int  _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj);
-static void _anime_sched_parse_list(json_object *list_obj, char *out[]);
-static int  _anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *res[]);
+static int   _anime_sched_prep_filter(const char filter[], const char *res[]);
+static int   _anime_sched_check_cache(const char filter[]);
+static int   _anime_sched_fetch(const char filter[], int show_nsfw);
+static int   _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj);
+static void  _anime_sched_parse_list(json_object *list_obj, char *out[]);
+static char *_anime_sched_build_body(const ModelAnimeSched list[], int len, int start);
 
 
 /*
@@ -81,7 +81,8 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	message_list_pagination_set(&pag, list.page, len, llen, total);
 
 	const int start = MIN(((list.page * len) - len), pag.items_size);
-	if (_anime_sched_build_body(ma_list, llen, start, (char **)&list.body) < 0)
+	char *const body = _anime_sched_build_body(ma_list, llen, start);
+	if (body == NULL)
 		goto err0;
 
 	char upd_buff[256];
@@ -93,10 +94,11 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		cstr_copy_n(upd_buff, LEN(upd_buff), asctime(upd));
 
 	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", upd_buff);
+	list.body = body;
 
 	const int ret = message_list_send(&list, &pag, NULL);
 	free((char *)list.title);
-	free((char *)list.body);
+	free(body);
 
 	if (ret >= 0)
 		return;
@@ -303,12 +305,12 @@ _anime_sched_parse_list(json_object *list_obj, char *out[])
 }
 
 
-static int
-_anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *res[])
+static char *
+_anime_sched_build_body(const ModelAnimeSched list[], int len, int start)
 {
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
-		return -1;
+		return NULL;
 
 	start++;
 	for (int i = 0; i < len; i++, start++) {
@@ -336,6 +338,5 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *
 	}
 
 	str_pop(&str, 1);
-	*res = str.cstr;
-	return 0;
+	return str.cstr;
 }

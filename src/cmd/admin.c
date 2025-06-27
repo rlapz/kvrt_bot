@@ -26,17 +26,17 @@ static void _cmd_toggle_flags(const CmdParam *cmd, int rflags);
 static const Setting _setting_list_e[] = {
 	{
 		.key = "cmd_toggle_extern",
-		.description = "Enable/disable extern command",
+		.description = "Enable/disable Extern command",
 		.callback_fn = _cmd_toggle_extern,
 	},
 	{
 		.key = "cmd_toggle_extra",
-		.description = "Enable/disable extra command",
+		.description = "Enable/disable Extra command",
 		.callback_fn = _cmd_toggle_extra,
 	},
 	{
 		.key = "cmd_toggle_nsfw",
-		.description = "Enable/disable nsfw command",
+		.description = "Enable/disable NSFW command",
 		.callback_fn = _cmd_toggle_nsfw,
 	},
 };
