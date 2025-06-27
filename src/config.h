@@ -12,7 +12,8 @@
 #define CFG_DEF_SYS_IMPORT_SYS_ENVP (0)
 #define CFG_DEF_SYS_WORKER_SIZE     4
 #define CFG_DEF_SYS_DB_PATH         "./db.sqlite"
-#define CFG_DEF_CMD_EXTERN_PATH     "./extern"
+#define CFG_DEF_CMD_EXTERN_API      "./extern/api"
+#define CFG_DEF_CMD_EXTERN_WORKDIR  "./extern"
 #define CFG_DEF_CMD_EXTERN_LOG_FILE "./extern/log.txt"
 #define CFG_DEF_DB_CONN_POOL_SIZE   (4)
 
@@ -50,7 +51,8 @@
 #define CFG_BOT_USERNAME_SIZE        (64)
 #define CFG_LISTEN_HOST_SIZE         (64)
 #define CFG_DB_FILE_SIZE             (4096)
-#define CFG_CMD_EXTERN_PATH_SIZE     (4096)
+#define CFG_CMD_EXTERN_API_SIZE      (4096)
+#define CFG_CMD_EXTERN_WORKDIR_SIZE  (4096)
 #define CFG_CMD_EXTERN_LOG_FILE_SIZE (4096)
 
 
@@ -69,7 +71,8 @@ typedef struct config {
 	uint16_t worker_size;
 	uint16_t db_pool_conn_size;
 	char     db_path[CFG_DB_FILE_SIZE];
-	char     cmd_extern_path[CFG_CMD_EXTERN_PATH_SIZE];
+	char     cmd_extern_api[CFG_CMD_EXTERN_API_SIZE];
+	char     cmd_extern_workdir[CFG_CMD_EXTERN_WORKDIR_SIZE];
 	char     cmd_extern_log_file[CFG_CMD_EXTERN_LOG_FILE_SIZE];
 } Config;
 

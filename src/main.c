@@ -473,7 +473,7 @@ static int
 _server_init_chld(Server *s, const char api[], char *envp[])
 {
 	const Config *const config = &s->config;
-	if (chld_init(config->cmd_extern_path, config->cmd_extern_log_file) < 0) {
+	if (chld_init(config->cmd_extern_workdir, config->cmd_extern_log_file) < 0) {
 		log_err(0, "main: _server_init_chld: chld_init: failed");
 		return -1;
 	}

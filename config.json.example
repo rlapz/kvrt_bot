@@ -23,7 +23,8 @@
         "port": 8007
     },
     "cmd_extern": {
-        "path": "./extern",
+        "api": "./extern/api",
+        "workdir": "./extern",
         "log_file": "./extern/log.txt"
     }
 }

@@ -78,7 +78,8 @@ config_dump(const Config *c)
 	printf("Owner ID             : %" PRIi64 "\n", c->owner_id);
 	printf("Bot ID               : %" PRIi64 "\n", c->bot_id);
 	printf("Bot username         : %s\n", c->bot_username);
-	printf("External cmd path    : %s\n", c->cmd_extern_path);
+	printf("External cmd api     : %s\n", c->cmd_extern_api);
+	printf("External cmd workdir : %s\n", c->cmd_extern_workdir);
 	printf("External cmd log file: %s\n", c->cmd_extern_log_file);
 	puts("---[CONFIG]---");
 }
@@ -362,7 +363,8 @@ out0:
 static void
 _parse_json_cmd_extern(Config *c, json_object *root_obj)
 {
-	const char *cmd_extern_path = CFG_DEF_CMD_EXTERN_PATH;
+	const char *cmd_extern_api = CFG_DEF_CMD_EXTERN_API;
+	const char *cmd_extern_workdir = CFG_DEF_CMD_EXTERN_WORKDIR;
 	const char *cmd_extern_log_file = CFG_DEF_CMD_EXTERN_LOG_FILE;
 
 	json_object *cmd_extern_obj;
@@ -370,10 +372,16 @@ _parse_json_cmd_extern(Config *c, json_object *root_obj)
 		goto out0;
 
 	json_object *tmp_obj;
-	if (json_object_object_get_ex(cmd_extern_obj, "path", &tmp_obj) != 0) {
-		const char *const _path = json_object_get_string(tmp_obj);
-		if (cstr_is_empty(_path) == 0)
-			cmd_extern_path = _path;
+	if (json_object_object_get_ex(cmd_extern_obj, "api", &tmp_obj) != 0) {
+		const char *const _api = json_object_get_string(tmp_obj);
+		if (cstr_is_empty(_api) == 0)
+			cmd_extern_api = _api;
+	}
+
+	if (json_object_object_get_ex(cmd_extern_obj, "workdir", &tmp_obj) != 0) {
+		const char *const _wrk = json_object_get_string(tmp_obj);
+		if (cstr_is_empty(_wrk) == 0)
+			cmd_extern_workdir = _wrk;
 	}
 
 	if (json_object_object_get_ex(cmd_extern_obj, "log_file", &tmp_obj) != 0) {
@@ -383,6 +391,7 @@ _parse_json_cmd_extern(Config *c, json_object *root_obj)
 	}
 
 out0:
-	cstr_copy_n(c->cmd_extern_path, LEN(c->cmd_extern_path), cmd_extern_path);
+	cstr_copy_n(c->cmd_extern_api, LEN(c->cmd_extern_api), cmd_extern_api);
+	cstr_copy_n(c->cmd_extern_workdir, LEN(c->cmd_extern_workdir), cmd_extern_workdir);
 	cstr_copy_n(c->cmd_extern_log_file, LEN(c->cmd_extern_log_file), cmd_extern_log_file);
 }
