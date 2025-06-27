@@ -299,5 +299,8 @@ _cmd_toggle_flags(const CmdParam *cmd, int rflags)
 		return;
 	}
 
-	send_text_plain(cmd->msg, "success!");
+	if (flags & rflags)
+		send_text_plain(cmd->msg, "Disabled");
+	else
+		send_text_plain(cmd->msg, "Enabled");
 }

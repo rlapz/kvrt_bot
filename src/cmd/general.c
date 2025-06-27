@@ -13,7 +13,8 @@ static const char *const _icon_extra  = "🎲";
 static const char *const _icon_extern = "📦";
 
 
-static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_chat);
+static int _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int flags,
+			  int is_private_chat);
 
 
 /*
@@ -63,7 +64,7 @@ cmd_general_help(const CmdParam *cmd)
 	if (str_init_alloc(&str, 1024) < 0)
 		goto out0;
 
-	if (_cmd_list_body(&str, cmd_list, pag.items_len, is_private_chat) < 0)
+	if (_cmd_list_body(&str, cmd_list, pag.items_len, cflags, is_private_chat) < 0)
 		goto out1;
 
 	list.body = str.cstr;
@@ -118,7 +119,7 @@ cmd_general_dump_admin(const CmdParam *cmd)
  * Private
  */
 static int
-_cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_chat)
+_cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int flags, int is_private_chat)
 {
 	const char *admin_only;
 	const char *nsfw;
@@ -149,9 +150,23 @@ _cmd_list_body(Str *str, const ModelCmd list[], unsigned len, int is_private_cha
 	}
 
 	str_append(str, "\n```Legend:\n");
+
+	const size_t old_len = str->len;
 	if (is_private_chat == 0)
 		str_append_fmt(str, "%s: Admin, ", _icon_admin);
+	if (flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA)
+		str_append_fmt(str, "%s: Extra, ", _icon_extra);
+	if (flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW)
+		str_append_fmt(str, "%s: NSFW, ", _icon_nsfw);
+	if (flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN)
+		str_append_fmt(str, "%s: Extern, ", _icon_extern);
 
-	str_append_fmt(str, "%s: Extra, %s: NSFW, %s: Extern```", _icon_extra, _icon_nsfw, _icon_extern);
+	if (str->len > old_len) {
+		str_pop(str, 2);
+		str_append_n(str, "```", 3);
+	} else {
+		str_append_n(str, "None```", 7);
+	}
+
 	return 0;
 }
