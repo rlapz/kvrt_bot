@@ -4,7 +4,7 @@
 
 
 ===========================================================================
-								CHILD PROCESS
+                                CHILD PROCESS
 ===========================================================================
 Child process argument list:
 CMD:
@@ -29,11 +29,10 @@ Callback:
 	8-n: User data
 
 Standard ENV Variables:
-	TG_EXE
-	TG_ROOT_DIR
-	TG_CONFIG_FILE
-	TG_API
-	TG_CMD_PATH
+	TG_API                  -> kvrt_bot api executable file
+	TG_ROOT_DIR             -> workdir of external command
+	TG_CONFIG_FILE          -> api config file (binary)
+	TG_API_URL              -> telegram api
 	TG_OWNER_ID
 	TG_BOT_ID
 	TG_BOT_USERNAME
@@ -41,7 +40,7 @@ Standard ENV Variables:
 
 
 ===========================================================================
-									API
+                                   API
 ===========================================================================
 API Argument list (to send a request):
  [0]: Config File
@@ -53,15 +52,15 @@ Data list:
  	send_text
  req:
  	{
- 		"type": "plain",		    -> "plain" or "format"
+ 		"type": "plain",            -> "plain" or "format"
  		"chat_id": 00000,
- 		"message_id": 111111,		-> 0: no reply
+ 		"message_id": 111111,       -> 0: no reply
  		"text": ""
  	}
 
  resp:
  	{
- 		"error": "",			    -> empty: success
+ 		"error": "",                -> empty: success
  		"message_id": 777777777
  	}
 
@@ -71,13 +70,13 @@ Data list:
  	{
  		"id": "xxxxxx",
  		"is_text": false,
- 		"value": "xxxxxx",		    -> text or URL
+ 		"value": "xxxxxx",          -> text or URL
  		"show_alert": true
  	}
 
  resp:
  	{
- 		"error": "",			    -> empty: success
+ 		"error": "",                -> empty: success
  	}
 
  --------------------------------------------------------------------------
@@ -90,24 +89,24 @@ Data list:
 
  resp:
  	{
- 		"error": "",			    -> empty: success
+ 		"error": "",                -> empty: success
  	}
 
  --------------------------------------------------------------------------
  	sched_send_message
  req:
  	{
- 		"type": "send_text",		-> "send_text" or "delete"
+ 		"type": "send_text",        -> "send_text" or "delete"
  		"chat_id": 00000,
  		"message_id": 000000,
- 		"message": "test123",		-> type: "delete" = empty
- 		"timeout": 10,			    -> in seconds
- 		"expire": 5			        -> in seconds
+ 		"message": "test123",       -> type: "delete" = empty
+ 		"timeout": 10,              -> in seconds
+ 		"expire": 5                 -> in seconds
  	}
 
  resp:
  	{
- 		"error": "",			    -> empty: success
+ 		"error": "",                -> empty: success
  	}
 
 

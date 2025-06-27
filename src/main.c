@@ -473,7 +473,7 @@ static int
 _server_init_chld(Server *s, const char api[], char *envp[])
 {
 	const Config *const config = &s->config;
-	if (chld_init(config->cmd_extern_workdir, config->cmd_extern_log_file) < 0) {
+	if (chld_init(config->cmd_extern_root_dir, config->cmd_extern_log_file) < 0) {
 		log_err(0, "main: _server_init_chld: chld_init: failed");
 		return -1;
 	}
@@ -496,13 +496,13 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
 		goto err0;
 
-	const char *const api_exe = realpath(CFG_CMD_EXTERN_API_PATH, buff);
+	const char *const api_exe = realpath(config->cmd_extern_api, buff);
 	if (api_exe == NULL) {
-		log_err(errno, "main: _server_init_chld: '%s'", CFG_CMD_EXTERN_API_PATH);
+		log_err(errno, "main: _server_init_chld: '%s'", config->cmd_extern_api);
 		goto err0;
 	}
 
-	if (chld_add_env_kv(CFG_ENV_EXE, api_exe) < 0)
+	if (chld_add_env_kv(CFG_ENV_API, api_exe) < 0)
 		goto err0;
 
 	const char *const cfg_file = realpath(s->config_file, buff);
