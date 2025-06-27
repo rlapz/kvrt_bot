@@ -66,8 +66,6 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
 		if (_anime_sched_fetch(filter, show_nsfw) < 0)
 			goto err0;
-	} else {
-		log_debug("use cache");
 	}
 
 	ModelAnimeSched ma_list[_ANIME_SCHED_LIMIT_SIZE];
@@ -312,16 +310,12 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *
 	if (str_init_alloc(&str, 1024) < 0)
 		return -1;
 
-	for (int i = 0; i < len; i++) {
+	start++;
+	for (int i = 0; i < len; i++, start++) {
 		const ModelAnimeSched *const item = &list[i];
-		{
-			char *const title = tg_escape(item->title);
-			char *const url = tg_escape(item->url);
-			str_append_fmt(&str, "*%d\\. [%s](%s)*\n", (start + i + 1),
-				       cstr_empty_if_null(title), cstr_empty_if_null(url));
-			free(title);
-			free(url);
-		}
+		char *const title = tg_escape(item->title);
+		str_append_fmt(&str, "*%d\\. [%s](%s)*\n", start, cstr_empty_if_null(title),
+			       cstr_empty_if_null(item->url));
 
 		str_append_n(&str, "```\n", 4);
 		str_append_fmt(&str, "Japanese : %s\n", cstr_empty_if_null(item->title_japanese));
@@ -337,6 +331,8 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start, char *
 		str_append_fmt(&str, "Themes   : %s\n", cstr_empty_if_null(item->themes));
 		str_append_fmt(&str, "Dgraphics: %s\n", cstr_empty_if_null(item->demographics));
 		str_append_n(&str, "```\n", 4);
+
+		free(title);
 	}
 
 	str_pop(&str, 1);
