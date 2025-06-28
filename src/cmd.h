@@ -51,6 +51,7 @@ void cmd_general_start(const CmdParam *cmd);
 void cmd_general_help(const CmdParam *cmd);
 void cmd_general_dump(const CmdParam *cmd);
 void cmd_general_dump_admin(const CmdParam *cmd);
+void cmd_general_schedule_message(const CmdParam *cmd);
 
 void cmd_extra_anime_sched(const CmdParam *cmd);
 
@@ -89,6 +90,11 @@ void cmd_test_list(const CmdParam *cmd);
 	.description = "Dump admin list in raw json",				\
 	.callback_fn = cmd_general_dump_admin,					\
 	.flags = MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT,				\
+},										\
+{										\
+	.name = "/sched",							\
+	.description = "Schedule message",					\
+	.callback_fn = cmd_general_schedule_message,				\
 }
 
 

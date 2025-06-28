@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <ctype.h>
 #include <math.h>
 
 #include "../cmd.h"
@@ -90,7 +91,7 @@ cmd_general_dump(const CmdParam *cmd)
 void
 cmd_general_dump_admin(const CmdParam *cmd)
 {
-	const TgMessage *msg = cmd->msg;
+	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
 		send_text_plain(msg, "There are no administrators in the private chat!");
 		return;
@@ -109,6 +110,83 @@ cmd_general_dump_admin(const CmdParam *cmd)
 
 	cmd_general_dump(&_cmd);
 	json_object_put(json);
+}
+
+
+void
+cmd_general_schedule_message(const CmdParam *cmd)
+{
+	const TgMessage *const msg = cmd->msg;
+	SpaceTokenizer st_deadline;
+	const char *const next = space_tokenizer_next(&st_deadline, cmd->args);
+	if (next == NULL)
+		goto out0;
+
+	SpaceTokenizer st_message;
+	if (space_tokenizer_next(&st_message, next) == NULL)
+		goto out0;
+
+	char deadline[24];
+	if (st_deadline.len >= LEN(deadline) + 1)
+		goto out0;
+
+	if (st_message.len == 0)
+		goto out0;
+
+	unsigned deadline_len = 0;
+	for (unsigned i = 0; i < st_deadline.len; i++) {
+		if (isalpha(st_deadline.value[i]))
+			continue;
+
+		deadline[deadline_len++] = st_deadline.value[i];
+	}
+
+	deadline[deadline_len] = '\0';
+	if ((st_deadline.len - deadline_len) != 1)
+		goto out0;
+
+	int64_t deadline_tm = 0;
+	if (cstr_to_int64(deadline, &deadline_tm) < 0)
+		goto out0;
+
+	int mul;
+	const char suffix = st_deadline.value[deadline_len];
+	switch (suffix) {
+	case 's': mul = 1; break;
+	case 'm': mul = 60; break;
+	case 'h': mul = 3600; break;
+	case 'd': mul = 86400; break;
+	default: goto out0;
+	}
+
+	int64_t deadline_res;
+	if (__builtin_mul_overflow(deadline_tm, mul, &deadline_res)) {
+		send_text_plain(msg, "Overflow: Deadline value is too big!");
+		goto out0;
+	}
+
+	ModelSchedMessage sch = {
+		.type = MODEL_SCHED_MESSAGE_TYPE_SEND,
+		.chat_id = msg->chat.id,
+		.message_id = msg->id,
+		.value_in = st_message.value,
+		.expire = 5,
+	};
+
+	if (model_sched_message_add(&sch, deadline_res) <= 0)
+		send_text_plain(msg, "Failed to set sechedule message");
+	else
+		send_text_plain(msg, "Success");
+
+	return;
+
+out0:
+	send_text_plain(msg,
+		"/sched [Deadline] [Message]\n"
+		"Allowed Deadline suffixes: \n"
+		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
+		"Example: \n"
+		"  /sched 10s Hello world!");
 }
 
 
