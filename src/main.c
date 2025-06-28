@@ -478,6 +478,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		return -1;
 	}
 
+	char buffer[PATH_MAX];
 	if (config->import_sys_envp) {
 		char **envp_ptr = envp;
 		while (*envp_ptr != NULL) {
@@ -488,15 +489,14 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		}
 	}
 
-	char buff[PATH_MAX];
-	const char *const root_dir = getcwd(buff, LEN(buff));
+	const char *const root_dir = realpath(config->cmd_extern_root_dir, buffer);
 	if (root_dir == NULL)
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
 		goto err0;
 
-	const char *const api_exe = realpath(config->cmd_extern_api, buff);
+	const char *const api_exe = realpath(config->cmd_extern_api, buffer);
 	if (api_exe == NULL) {
 		log_err(errno, "main: _server_init_chld: '%s'", config->cmd_extern_api);
 		goto err0;
@@ -505,9 +505,11 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_API, api_exe) < 0)
 		goto err0;
 
-	const char *const cfg_file = realpath(s->config_file, buff);
-	if (cfg_file == NULL)
+	const char *const cfg_file = realpath(s->config_file, buffer);
+	if (cfg_file == NULL) {
+		log_err(errno, "main: _server_init_chld: '%s'", s->config_file);
 		goto err0;
+	}
 
 	if (chld_add_env_kv(CFG_ENV_CONFIG_FILE, cfg_file) < 0)
 		goto err0;
@@ -515,24 +517,19 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0)
 		goto err0;
 
-	char owner_id[24];
-	if (snprintf(owner_id, LEN(owner_id), "%" PRIi64, config->owner_id) < 0)
+	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->owner_id) < 0)
 		goto err0;
 
-	if (chld_add_env_kv(CFG_ENV_OWNER_ID, owner_id) < 0)
+	if (chld_add_env_kv(CFG_ENV_OWNER_ID, buffer) < 0)
 		goto err0;
 
-	char bot_id[24];
-	if (snprintf(bot_id, LEN(bot_id), "%" PRIi64, config->bot_id) < 0)
+	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->bot_id) < 0)
 		goto err0;
 
-	if (chld_add_env_kv(CFG_ENV_BOT_ID, bot_id) < 0)
+	if (chld_add_env_kv(CFG_ENV_BOT_ID, buffer) < 0)
 		goto err0;
 
 	if (chld_add_env_kv(CFG_ENV_BOT_USERNAME, config->bot_username) < 0)
-		goto err0;
-
-	if (chld_add_env_kv(CFG_ENV_DB_PATH, config->db_path) < 0)
 		goto err0;
 
 	return 0;

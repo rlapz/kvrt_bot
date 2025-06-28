@@ -38,7 +38,6 @@
 #define CFG_ENV_OWNER_ID        "TG_OWNER_ID"
 #define CFG_ENV_BOT_ID          "TG_BOT_ID"
 #define CFG_ENV_BOT_USERNAME    "TG_BOT_USERNAME"
-#define CFG_ENV_DB_PATH         "TG_DB_PATH"
 
 /* config.json */
 #define CFG_API_URL_SIZE             (4096)

@@ -1201,6 +1201,16 @@ out0:
 }
 
 
+int
+is_valid_index(int val, size_t max_items)
+{
+	if ((val < 0) || ((size_t)val >= max_items))
+		return 0;
+
+	return 1;
+}
+
+
 /*
  * Http
  */

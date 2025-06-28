@@ -36,7 +36,6 @@ Standard ENV Variables:
 	TG_OWNER_ID
 	TG_BOT_ID
 	TG_BOT_USERNAME
-	TG_DB_PATH
 
 
 ===========================================================================

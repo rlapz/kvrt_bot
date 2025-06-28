@@ -182,7 +182,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 	if (index == -2)
 		return 0;
 
-	if ((index < 0) || (index >= (int)LEN(_cmd_builtin_list))) {
+	if (is_valid_index(index, LEN(_cmd_builtin_list)) == 0) {
 		send_text_plain(c->msg, "Failed to get builtin command data");
 		return 1;
 	}

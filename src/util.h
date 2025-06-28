@@ -162,6 +162,8 @@ int64_is_bool(int64_t val)
 int file_read_all(const char path[], char buffer[], size_t *len);
 int file_write_all(const char path[], const char buffer[], size_t *len);
 
+int is_valid_index(int val, size_t max_items);
+
 
 /*
  * Chld
