@@ -7,7 +7,7 @@
 #include "util.h"
 
 
-#define ALLOWED_UPDATES "[\"message\",\"callback_query\",\"inline_query\",\"chat_member\"]"
+#define ALLOWED_UPDATES "[\"message\",\"callback_query\",\"inline_query\"]"
 
 
 static void _print_json(const char raw[]);
