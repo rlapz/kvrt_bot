@@ -767,6 +767,16 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		return -1;
 	}
 
+	if (s->chat_id == 0) {
+		log_err(0, "model: model_sched_message_add: invalid chat_id");
+		return -1;
+	}
+
+	if ((type == MODEL_SCHED_MESSAGE_TYPE_DELETE) && (s->message_id == 0)) {
+		log_err(0, "model: model_sched_message_add: invalid message_id");
+		return -1;
+	}
+
 	if (s->expire < 5) {
 		log_err(0, "model: model_sched_message_add: invalid expiration time");
 		return -1;
@@ -781,6 +791,7 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		log_err(0, "model: model_sched_message_add: value is empty");
 		return -1;
 	}
+
 
 	Data args[] = {
 		{ .type = _DATA_TYPE_INT, .int_in = s->type },
