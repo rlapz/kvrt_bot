@@ -460,7 +460,7 @@ _server_init(Server *s, const char config_file[])
 static void
 _server_deinit(Server *s)
 {
-	DListNode *node;
+	const DListNode *node;
 	while ((node = dlist_pop(&s->clients)) != NULL) {
 		Client *const client = FIELD_PARENT_PTR(Client, node, node);
 		close(client->ctx.fd);
@@ -664,15 +664,15 @@ _server_on_signal(void *udata, uint32_t signo, int err)
 static void
 _server_on_timer(void *udata, int err)
 {
-	Server *const s = (Server *)udata;
+	const Server *const s = (Server *)udata;
 	if (err != 0) {
 		log_err(err, "main: _server_on_timer");
 		return;
 	}
 
-	DListNode *node = s->clients.first;
+	const DListNode *node = s->clients.first;
 	while (node != NULL) {
-		Client *const client = FIELD_PARENT_PTR(Client, node, node);
+		const Client *const client = FIELD_PARENT_PTR(Client, node, node);
 		node = node->next;
 
 		const time_t now = time(NULL);
@@ -787,13 +787,14 @@ _server_handle_update(void *ctx, void *udata)
 	json_object *const json = (json_object *)udata;
 	const Config *const config = &s->config;
 
-	Update update = {
+	const Update update = {
 		.id_bot = config->bot_id,
 		.id_owner = config->owner_id,
 		.username = config->bot_username,
+		.resp = json,
 	};
 
-	update_handle(&update, json);
+	update_handle(&update);
 	json_object_put(json);
 }
 

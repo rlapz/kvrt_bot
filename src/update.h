@@ -7,12 +7,13 @@
 
 
 typedef struct update {
-	int64_t     id_bot;
-	int64_t     id_owner;
-	const char *username;
+	int64_t      id_bot;
+	int64_t      id_owner;
+	const char  *username;
+	json_object *resp;
 } Update;
 
-void update_handle(Update *u, json_object *json);
+void update_handle(const Update *u);
 
 
 #endif

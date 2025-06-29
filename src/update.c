@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <strings.h>
 #include <stdint.h>
 
@@ -8,11 +9,11 @@
 #include "util.h"
 
 
-static void _handle_message(Update *u, const TgMessage *msg, json_object *json);
-static void _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json);
-static void _handle_message_command(Update *u, const TgMessage *msg, json_object *json);
-static void _handle_member_new(Update *u, const TgMessage *msg);
-static void _handle_member_leave(Update *u, const TgMessage *msg);
+static void _handle_message(const Update *u, const TgMessage *msg);
+static void _handle_callback(const Update *u, const TgCallbackQuery *cb);
+static void _handle_message_command(const Update *u, const TgMessage *msg);
+static void _handle_member_new(const Update *u, const TgMessage *msg);
+static void _handle_member_leave(const Update *u, const TgMessage *msg);
 static void _admin_load(const TgMessage *msg);
 
 
@@ -20,20 +21,20 @@ static void _admin_load(const TgMessage *msg);
  * Update
  */
 void
-update_handle(Update *u, json_object *json)
+update_handle(const Update *u)
 {
 	TgUpdate tgu;
-	if (tg_update_parse(&tgu, json) < 0) {
+	if (tg_update_parse(&tgu, u->resp) < 0) {
 		log_err(0, "update: update_handle: tg_update_parse: failed");
 		return;
 	}
 
 	switch (tgu.type) {
 	case TG_UPDATE_TYPE_MESSAGE:
-		_handle_message(u, &tgu.message, json);
+		_handle_message(u, &tgu.message);
 		break;
 	case TG_UPDATE_TYPE_CALLBACK_QUERY:
-		_handle_callback(u, &tgu.callback_query, json);
+		_handle_callback(u, &tgu.callback_query);
 		break;
 	}
 
@@ -45,7 +46,7 @@ update_handle(Update *u, json_object *json)
  * Private
  */
 static void
-_handle_message(Update *u, const TgMessage *msg, json_object *json)
+_handle_message(const Update *u, const TgMessage *msg)
 {
 	log_debug("update: _handle_message: %zu", msg->id);
 	if (msg->from == NULL) {
@@ -55,7 +56,7 @@ _handle_message(Update *u, const TgMessage *msg, json_object *json)
 
 	switch (msg->type) {
 	case TG_MESSAGE_TYPE_COMMAND:
-		_handle_message_command(u, msg, json);
+		_handle_message_command(u, msg);
 		break;
 	case TG_MESSAGE_TYPE_NEW_MEMBER:
 		_handle_member_new(u, msg);
@@ -68,7 +69,7 @@ _handle_message(Update *u, const TgMessage *msg, json_object *json)
 
 
 static void
-_handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
+_handle_callback(const Update *u, const TgCallbackQuery *cb)
 {
 	log_debug("update: _handle_callback");
 	if (VAL_IS_NULL_OR(cb->message, cb->data)) {
@@ -85,7 +86,7 @@ _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 		.id_callback = cb->id,
 		.bot_username = u->username,
 		.msg = cb->message,
-		.json = json,
+		.json = u->resp,
 	};
 
 	if (model_chat_init(param.id_chat) < 0) {
@@ -98,7 +99,7 @@ _handle_callback(Update *u, const TgCallbackQuery *cb, json_object *json)
 
 
 static void
-_handle_message_command(Update *u, const TgMessage *msg, json_object *json)
+_handle_message_command(const Update *u, const TgMessage *msg)
 {
 	log_debug("update: _handle_message_command");
 	if (cstr_is_empty(msg->text.cstr)) {
@@ -114,7 +115,7 @@ _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 		.id_message = msg->id,
 		.bot_username = u->username,
 		.msg = msg,
-		.json = json,
+		.json = u->resp,
 	};
 
 	if (model_chat_init(param.id_chat) < 0) {
@@ -127,7 +128,7 @@ _handle_message_command(Update *u, const TgMessage *msg, json_object *json)
 
 
 static void
-_handle_member_new(Update *u, const TgMessage *msg)
+_handle_member_new(const Update *u, const TgMessage *msg)
 {
 	log_debug("update: _handle_member_new");
 
@@ -195,7 +196,7 @@ out0:
 
 
 static void
-_handle_member_leave(Update *u, const TgMessage *msg)
+_handle_member_leave(const Update *u, const TgMessage *msg)
 {
 	log_debug("update: _handle_member_leave");
 	if (msg->left_chat_member.id == u->id_bot)

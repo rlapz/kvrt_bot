@@ -138,7 +138,7 @@ out0:
 static void
 _jobs_destroy(ThrdPool *t)
 {
-	DListNode *node;
+	const DListNode *node;
 	while ((node = dlist_pop(&t->jobs_queue)) != NULL)
 		free(FIELD_PARENT_PTR(ThrdPoolJob, node, node));
 }
@@ -192,7 +192,7 @@ _jobs_enqueue(ThrdPool *t, ThrdPoolFn func, void *ctx, void *udata)
 static ThrdPoolJob *
 _jobs_dequeue(ThrdPool *t)
 {
-	DListNode *const node = dlist_pop(&t->jobs_queue);
+	const DListNode *const node = dlist_pop(&t->jobs_queue);
 	if (node == NULL)
 		return NULL;
 
