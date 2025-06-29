@@ -77,6 +77,11 @@ _handle_callback(const Update *u, const TgCallbackQuery *cb)
 		return;
 	}
 
+	if (model_chat_init(cb->message->chat.id) < 0) {
+		send_text_plain(cb->message, "Failed to initialize chat");
+		return;
+	}
+
 	CmdParam param = {
 		.id_bot = u->id_bot,
 		.id_owner = u->id_owner,
@@ -88,11 +93,6 @@ _handle_callback(const Update *u, const TgCallbackQuery *cb)
 		.msg = cb->message,
 		.json = u->resp,
 	};
-
-	if (model_chat_init(param.id_chat) < 0) {
-		send_text_plain(param.msg, "failed to initialize chat");
-		return;
-	}
 
 	cmd_exec(&param, cb->data);
 }
@@ -107,6 +107,11 @@ _handle_message_command(const Update *u, const TgMessage *msg)
 		return;
 	}
 
+	if (model_chat_init(msg->chat.id) < 0) {
+		send_text_plain(msg, "Failed to initialize chat");
+		return;
+	}
+
 	CmdParam param = {
 		.id_bot = u->id_bot,
 		.id_owner = u->id_owner,
@@ -117,11 +122,6 @@ _handle_message_command(const Update *u, const TgMessage *msg)
 		.msg = msg,
 		.json = u->resp,
 	};
-
-	if (model_chat_init(param.id_chat) < 0) {
-		send_text_plain(param.msg, "failed to initialize chat");
-		return;
-	}
 
 	cmd_exec(&param, msg->text.cstr);
 }
@@ -155,27 +155,20 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 	if (user->is_bot)
 		return;
 
-	char *const message_e = tg_escape("hello");
-	if (message_e == NULL)
-		return;
-
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
-		goto out0;
-
-	if (str_set_fmt(&str, "%s\n", message_e) == NULL)
-		goto out1;
+		return;
 
 	char *const fname_e = tg_escape(user->first_name);
 	if (fname_e == NULL)
-		goto out1;
+		goto out0;
 
-	if (str_append_fmt(&str, "[%s](tg://user?id=%" PRIi64 ")", fname_e, user->id) == NULL)
-		goto out2;
+	if (str_set_fmt(&str, "Hello [%s](tg://user?id=%" PRIi64 ") \\:3", fname_e, user->id) == NULL)
+		goto out1;
 
 	int64_t ret_id;
 	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, 0, str.cstr, &ret_id) < 0)
-		goto out2;
+		goto out1;
 
 	const ModelSchedMessage schd = {
 		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
@@ -186,12 +179,10 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 
 	model_sched_message_add(&schd, 10);
 
-out2:
-	free(fname_e);
 out1:
-	str_deinit(&str);
+	free(fname_e);
 out0:
-	free(message_e);
+	str_deinit(&str);
 }
 
 

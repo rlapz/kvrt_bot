@@ -16,7 +16,7 @@
 /*
  * tg_api wrappers
  */
-static int
+int
 send_text_plain_fmt(const TgMessage *msg, const char fmt[], ...)
 {
 	int ret;
@@ -50,7 +50,7 @@ out0:
 }
 
 
-static int
+int
 send_text_format_fmt(const TgMessage *msg, const char fmt[], ...)
 {
 	int ret;

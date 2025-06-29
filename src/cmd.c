@@ -71,9 +71,6 @@ cmd_init(void)
 void
 cmd_exec(CmdParam *cmd, const char req[])
 {
-	log_debug("cmd_exec: chat_id: %lld, user_id: %lld, owner_id: %lld, bot_id: %lld",
-		  cmd->id_chat, cmd->id_user, cmd->id_owner, cmd->id_bot);
-
 	const int is_cb = (cmd->id_callback != NULL);
 	const int ret = (is_cb)? _parse_callback(cmd, req) : _parse_cmd(cmd, req);
 	if (ret < 0)

@@ -1211,6 +1211,28 @@ is_valid_index(int val, size_t max_items)
 }
 
 
+const char *
+epoch_to_str(char buffer[], size_t size, time_t time)
+{
+	const struct tm *const tm = localtime(&time);
+	if (tm == NULL)
+		return NULL;
+
+	const char *const res = asctime(tm);
+	if (res == NULL)
+		return NULL;
+
+	size_t res_len = strlen(res);
+
+	// skip '\n'
+	if (res[res_len - 1] == '\n')
+		res_len--;
+
+	cstr_copy_n2(buffer, size, res, res_len);
+	return buffer;
+}
+
+
 /*
  * Http
  */
@@ -1361,25 +1383,8 @@ static mtx_t   _log_mutex;
 static const char *
 _log_datetime_now(char dest[], size_t size)
 {
-	const time_t tm_r = time(NULL);
-	struct tm *const tm = localtime(&tm_r);
-	if (tm == NULL)
-		goto out0;
-
-	const char *const res = asctime(tm);
-	if (res == NULL)
-		goto out0;
-
-	const size_t res_len = strlen(res);
-	if ((res_len == 0) || (res_len >= size))
-		goto out0;
-
-	memcpy(dest, res, res_len - 1);
-	dest[res_len - 1] = '\0';
-	return dest;
-
-out0:
-	return "???";
+	const char *const ret = epoch_to_str(dest, size, time(NULL));
+	return (ret != NULL)? ret : "???";
 }
 
 

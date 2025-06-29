@@ -75,12 +75,6 @@ char *cstr_concat_n(size_t count, ...);
 
 #define CSTR_CONCAT(...) cstr_concat_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 
-static inline const char *
-cstr_from_bool(int cond)
-{
-	return (cond != 0)? "true" : "false";
-}
-
 int cstr_to_bool(const char cstr[]);
 
 
@@ -163,6 +157,14 @@ int file_read_all(const char path[], char buffer[], size_t *len);
 int file_write_all(const char path[], const char buffer[], size_t *len);
 
 int is_valid_index(int val, size_t max_items);
+
+static inline const char *
+bool_to_cstr(int cond)
+{
+	return (cond != 0)? "true" : "false";
+}
+
+const char *epoch_to_str(char buffer[], size_t size, time_t time);
 
 
 /*

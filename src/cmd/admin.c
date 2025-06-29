@@ -48,19 +48,18 @@ static const Setting _setting_list_e[] = {
 void
 cmd_admin_reload(const CmdParam *cmd)
 {
-	const char *resp = "Unknown error!";
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		resp = "There are no administrators in the private chat!";
-		goto out0;
+		send_text_plain(msg, "There are no administrators in the private chat!");
+		return;
 	}
 
 	json_object *json;
 	TgChatAdminList admin_list;
 	const int64_t chat_id = msg->chat.id;
 	if (tg_api_get_admin_list(chat_id, &admin_list, &json) < 0) {
-		resp = "Failed to get admin list";
-		goto out0;
+		send_text_plain(msg, "Failed to get admin list!");
+		return;
 	}
 
 	int is_priv = 0;
@@ -85,61 +84,57 @@ cmd_admin_reload(const CmdParam *cmd)
 	}
 
 	if ((from_id != cmd->id_owner) && (is_priv == 0)) {
-		resp = "Permission denied!";
-		goto out1;
+		send_text_plain(msg, "Permission denied!");
+		goto out0;
 	}
 
 	if (model_admin_reload(db_admin_list, db_admin_list_len) < 0) {
-		resp = "Failed to reload admin list DB";
-		goto out1;
+		send_text_plain(msg, "Failed to reload admin list DB!");
+		goto out0;
 	}
 
-	Str str;
-	char buff[1024];
-	str_init(&str, buff, LEN(buff));
-	resp = str_set_fmt(&str, "Done! %d admin(s) loaded", db_admin_list_len);
+	send_text_plain_fmt(msg, "Done! %d admin(s) loaded", db_admin_list_len);
 
-out1:
+out0:
 	json_object_put(json);
 	tg_chat_admin_list_free(&admin_list);
-out0:
-	send_text_plain(msg, resp);
 }
 
 
 void
 cmd_admin_cmd_message(const CmdParam *cmd)
 {
-	const char *resp;
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		resp = "Not supported in private chat";
-		goto out0;
+		send_text_plain(msg, "Not supported in private chat");
+		return;
 	}
 
 	SpaceTokenizer st_name;
 	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
-		resp = "Invalid argument!\n"
-			"  Set:   [command_name] message ...\n"
-			"  Unset: [command_name] [EMPTY]\n\n"
+		send_text_plain_fmt(msg,
+			"Invalid argument!\n"
+			"  Set:   %s [command_name] message ...\n"
+			"  Unset: %s [command_name] [EMPTY]\n\n"
 			"Example:\n"
-			"  Set:   /hello Hello world!\n"
-			"  Unset: /hello";
-		goto out0;
+			"  Set:   %s hello Hello world!\n"
+			"  Unset: %s hello",
+			cmd->name, cmd->name, cmd->name, cmd->name);
+		return;
 	}
 
 	char name[MODEL_CMD_NAME_SIZE];
 	if (st_name.len >= LEN(name)) {
-		resp = "Command name is too long";
-		goto out0;
+		send_text_plain(msg, "Command name is too long");
+		return;
 	}
 
 	for (unsigned i = 0; i < st_name.len; i++) {
 		const int _name = st_name.value[i];
 		if ((_name != '_') && (isalnum(_name) == 0)) {
-			resp = "Invalid command name";
-			goto out0;
+			send_text_plain(msg, "Invalid command name");
+			return;
 		}
 	}
 
@@ -148,8 +143,8 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	if (space_tokenizer_next(&st_args, next) != NULL) {
 		/* real length */
 		if (strlen(st_args.value) >= MODEL_CMD_MESSAGE_VALUE_SIZE) {
-			resp = "Message is too long";
-			goto out0;
+			send_text_plain(msg, "Message is too long");
+			return;
 		}
 
 		msg_text = st_args.value;
@@ -161,24 +156,24 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	int ret = model_cmd_builtin_is_exists(name);
 	if (ret < 0) {
-		resp = "Failed to check builtin cmd";
-		goto out0;
+		send_text_plain(msg, "Failed to check builtin cmd");
+		return;
 	}
 
 	if (ret > 0) {
-		resp = "Cannot modify builtin cmd";
-		goto out0;
+		send_text_plain(msg, "Cannot modify builtin cmd");
+		return;
 	}
 
 	ret = model_cmd_extern_is_exists(name);
 	if (ret < 0) {
-		resp = "Failed to check extern cmd";
-		goto out0;
+		send_text_plain(msg, "Failed to check extern cmd");
+		return;
 	}
 
 	if (ret > 0) {
-		resp = "Cannot modify extern cmd";
-		goto out0;
+		send_text_plain(msg, "Cannot modify extern cmd");
+		return;
 	}
 
 
@@ -192,19 +187,19 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	ret = model_cmd_message_set(&cmd_msg);
 	if (ret < 0) {
-		resp = "Failed to set command message";
-		goto out0;
+		send_text_plain(msg, "Failed to set command message");
+		return;
 	}
 
 	if (ret == 0) {
-		resp = "No such command message";
-		goto out0;
+		send_text_plain(msg, "No such command message");
+		return;
 	}
 
-	resp = (msg_text == NULL)? "removed" : "ok";
-
-out0:
-	send_text_plain(msg, resp);
+	if (msg_text == NULL)
+		send_text_plain_fmt(msg, "'%s': Removed", name);
+	else
+		send_text_plain_fmt(msg, "'%s': Added/updated", name);
 }
 
 
@@ -223,7 +218,7 @@ cmd_admin_settings(const CmdParam *cmd)
 
 	char buff[256];
 	if (st.len >= LEN(buff)) {
-		send_text_plain(cmd->msg, "argument too long!");
+		send_text_plain(cmd->msg, "Argument too long!");
 		return;
 	}
 
@@ -236,7 +231,7 @@ cmd_admin_settings(const CmdParam *cmd)
 		}
 	}
 
-	send_text_plain(cmd->msg, "invalid parameter!");
+	send_text_plain(cmd->msg, "Invalid parameter!");
 }
 
 
@@ -272,7 +267,7 @@ _setting_list(const CmdParam *cmd)
 {
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0) {
-		send_text_plain(cmd->msg, "failed to allocate string buffer");
+		send_text_plain(cmd->msg, "Failed to allocate string buffer");
 		return -1;
 	}
 
@@ -295,12 +290,12 @@ _cmd_toggle_flags(const CmdParam *cmd, int rflags)
 {
 	const int flags = model_chat_get_flags(cmd->id_chat);
 	if (flags < 0) {
-		send_text_plain(cmd->msg, "failed to get chat flags!");
+		send_text_plain(cmd->msg, "Failed to get chat flags!");
 		return;
 	}
 
 	if (model_chat_set_flags(cmd->id_chat, (flags ^ rflags)) < 0) {
-		send_text_plain(cmd->msg, "failed to set chat flags!");
+		send_text_plain(cmd->msg, "Failed to set chat flags!");
 		return;
 	}
 

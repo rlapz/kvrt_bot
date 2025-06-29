@@ -176,17 +176,17 @@ cmd_general_schedule_message(const CmdParam *cmd)
 	if (model_sched_message_add(&sch, deadline_res) <= 0)
 		send_text_plain(msg, "Failed to set sechedule message");
 	else
-		send_text_plain(msg, "Success");
+		send_text_plain_fmt(msg, "Success! Scheduled in: %s%c", deadline, suffix);
 
 	return;
 
 out0:
-	send_text_plain(msg,
-		"/sched [Deadline] [Message]\n"
+	send_text_plain_fmt(msg,
+		"%s [Deadline] [Message]\n"
 		"Allowed Deadline suffixes: \n"
 		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
 		"Example: \n"
-		"  /sched 10s Hello world!");
+		"  %s 10s Hello world!", cmd->name, cmd->name);
 }
 
 

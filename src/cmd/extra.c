@@ -85,15 +85,9 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	if (body == NULL)
 		goto err0;
 
-	char upd_buff[256];
-	upd_buff[0] = '\0';
-
-	time_t cre_dt = ma_list[0].created_at;
-	const struct tm *const upd = localtime(&cre_dt);
-	if (upd != NULL)
-		cstr_copy_n(upd_buff, LEN(upd_buff), asctime(upd));
-
-	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", upd_buff);
+	char buff[256];
+	const char *const chc_str = epoch_to_str(buff, LEN(buff), ma_list[0].created_at);
+	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", chc_str, "\n");
 	list.body = body;
 
 	const int ret = message_list_send(&list, &pag, NULL);
@@ -173,7 +167,7 @@ _anime_sched_fetch(const char filter[], int show_nsfw)
 		return -1;
 
 	const char *const req = str_set_fmt(&str, "%s?filter=%s&kids=false&sfw=%s",
-					    _ANIME_SCHED_BASE_URL, filter, cstr_from_bool(show_nsfw));
+					    _ANIME_SCHED_BASE_URL, filter, bool_to_cstr(show_nsfw));
 	if (req == NULL)
 		goto out0;
 
