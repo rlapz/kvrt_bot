@@ -120,7 +120,12 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	SpaceTokenizer st_name;
 	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
-		resp = "Invalid argument!\nSet: [command_name] message ...\nUnset: [command_name] [EMPTY]";
+		resp = "Invalid argument!\n"
+			"  Set:   [command_name] message ...\n"
+			"  Unset: [command_name] [EMPTY]\n\n"
+			"Example:\n"
+			"  Set:   /hello Hello world!\n"
+			"  Unset: /hello";
 		goto out0;
 	}
 

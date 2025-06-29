@@ -1,6 +1,8 @@
 #include <assert.h>
+#include <stdarg.h>
 #include <string.h>
 #include <time.h>
+#include <stdlib.h>
 #include <math.h>
 
 #include "common.h"
@@ -9,6 +11,77 @@
 #include "model.h"
 #include "tg_api.h"
 #include "util.h"
+
+
+/*
+ * tg_api wrappers
+ */
+static int
+send_text_plain_fmt(const TgMessage *msg, const char fmt[], ...)
+{
+	int ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = vsnprintf(NULL, 0, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		return -1;
+
+	const size_t str_len = ((size_t)ret) + 1;
+	char *const str = malloc(str_len);
+	if (str == NULL)
+		return -1;
+
+	va_start(va, fmt);
+	ret = vsnprintf(str, str_len, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		goto out0;
+
+	str[ret] = '\0';
+	ret = tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, str, NULL);
+
+out0:
+	free(str);
+	return ret;
+}
+
+
+static int
+send_text_format_fmt(const TgMessage *msg, const char fmt[], ...)
+{
+	int ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = vsnprintf(NULL, 0, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		return -1;
+
+	const size_t str_len = ((size_t)ret) + 1;
+	char *const str = malloc(str_len);
+	if (str == NULL)
+		return -1;
+
+	va_start(va, fmt);
+	ret = vsnprintf(str, str_len, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		goto out0;
+
+	str[ret] = '\0';
+	ret = tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, msg->id, str, NULL);
+
+out0:
+	free(str);
+	return ret;
+}
 
 
 /*
