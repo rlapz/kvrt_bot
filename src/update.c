@@ -1,6 +1,6 @@
 #include <assert.h>
-#include <strings.h>
 #include <stdint.h>
+#include <strings.h>
 
 #include "update.h"
 

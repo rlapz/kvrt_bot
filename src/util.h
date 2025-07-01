@@ -29,6 +29,7 @@
 size_t cstr_copy(char dest[], const char src[]);
 size_t cstr_copy_n(char dest[], size_t size, const char src[]);
 size_t cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
+size_t cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len);
 
 /* ret: ~0: equals */
 int cstr_cmp_n2(const char a[], size_t a_len, const char b[], size_t b_len);
@@ -38,8 +39,6 @@ int cstr_casecmp_n2(const char a[], size_t a_len, const char b[], size_t b_len);
 
 char *cstr_trim_l(char dest[]);
 char *cstr_escape(const char escape[], char c, const char src[]);
-
-char *cstr_to_lower_n(char dest[], size_t len);
 
 int cstr_to_int64(const char cstr[], int64_t *ret);
 int cstr_to_int64_n(const char cstr[], size_t len, int64_t *ret);

@@ -5,7 +5,6 @@
 #include <json.h>
 #include <stdint.h>
 #include <time.h>
-#include <math.h>
 
 #include "config.h"
 #include "tg.h"

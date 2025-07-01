@@ -2,8 +2,8 @@
 #include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>

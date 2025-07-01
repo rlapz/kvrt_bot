@@ -1,6 +1,6 @@
 #include <errno.h>
-#include <stdint.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 #include "../src/config.h"
 #include "../src/common.h"

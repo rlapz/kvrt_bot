@@ -2,8 +2,8 @@
 #include <errno.h>
 #include <json.h>
 #include <limits.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <strings.h>
 #include <time.h>

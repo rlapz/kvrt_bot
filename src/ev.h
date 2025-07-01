@@ -2,9 +2,9 @@
 #define __EV_H__
 
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <stdbool.h>
 
 #include <sys/epoll.h>
 

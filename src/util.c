@@ -2,23 +2,23 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <json.h>
 #include <limits.h>
+#include <spawn.h>
 #include <stdarg.h>
-#include <stdio.h>
 #include <string.h>
 #include <strings.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <threads.h>
 #include <time.h>
 #include <unistd.h>
-#include <spawn.h>
-#include <json.h>
 
-#include <sys/wait.h>
 #include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include <curl/curl.h>
 
@@ -72,6 +72,22 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 	memcpy(dest, src, len);
 	dest[len] = '\0';
 	return len;
+}
+
+
+size_t
+cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len)
+{
+	assert(dest != NULL);
+	if (size <= len)
+		len = size - 1;
+
+	size_t i = 0;
+	for (; i < len; i++)
+		dest[i] = (char)tolower(src[i]);
+
+	dest[i] = '\0';
+	return i;
 }
 
 
@@ -185,20 +201,6 @@ cstr_escape(const char escape[], const char c, const char src[])
 err0:
 	str_deinit(&str);
 	return NULL;
-}
-
-
-char *
-cstr_to_lower_n(char dest[], size_t len)
-{
-	for (size_t i = 0; i < len; i++) {
-		if (dest[i] == '\0')
-			break;
-
-		dest[i] = (char)tolower(dest[i]);
-	}
-
-	return dest;
 }
 
 
