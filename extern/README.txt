@@ -112,14 +112,16 @@ Data list:
 **************************************************************************
 Example:
     send_text
-	    [0]: "config.json"
+	    [0]: "config.json.bin"
 	    [1]: "send_text"
 	    [2]: { "type": "plain", "chat_id": 9999999, "message_id": 0, "text": "test" }
 
-        ./api config.json send_text '{"type": "plain", "chat_id": 9999999, "message_id": 0, "text": "test" }'
+        ./api config.json.bin send_text '{"type": "plain", "chat_id": 9999999, "message_id": 0, "text": "test" }'
 
         response:
          	[Success]: { "error": "", "message_id": xxxxxxx }
         	[Error]:   { "error": "Some error", "message_id": 0 }
+
+	See: 'test.sh' file
 
     TODO
