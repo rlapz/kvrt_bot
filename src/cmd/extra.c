@@ -14,6 +14,9 @@
 #define _ANIME_SCHED_LIMIT_SIZE     (3)
 #define _ANIME_SCHED_EXPIRE         (86400) // default: 1 day
 
+#define _NEKO_BASE_URL "https://api.nekosia.cat/api/v1"
+
+
 static const char *const _anime_sched_filters[] = {
 	"sunday",
 	"monday",
@@ -27,12 +30,34 @@ static const char *const _anime_sched_filters[] = {
 };
 
 
+static const char *_neko_filters[] = {
+	"random", "catgirl", "foxgirl", "wolf-girl", "animal-ears", "tail", "tail-with-ribbon",
+	"tail-from-under-skirt", "cute", "cuteness-is-justice", "blue-archive", "girl", "young-girl",
+	"maid", "maid-uniform", "vtuber", "w-sitting", "lying-down", "hands-forming-a-heart",
+	"wink", "valentine", "headphones", "thigh-high-socks", "knee-high-socks", "white-tights",
+	"black-tights", "heterochromia", "uniform", "sailor-uniform", "hoodie", "ribbon", "white-hair",
+	"blue-hair", "long-hair", "blonde", "blue-eyes", "purple-eyes",
+};
+
+typedef struct neko {
+	const char  *compressed_url;
+	const char  *original_url;
+	const char  *artist_username;
+	const char  *artist_profile_url;
+	const char  *source_url;
+	json_object *json;
+} Neko;
+
+
 static int   _anime_sched_prep_filter(const char filter[], const char *res[]);
 static int   _anime_sched_check_cache(const char filter[]);
 static int   _anime_sched_fetch(const char filter[], int show_nsfw);
 static int   _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj);
 static void  _anime_sched_parse_list(json_object *list_obj, char *out[]);
 static char *_anime_sched_build_body(const ModelAnimeSched list[], int len, int start);
+
+static int _neko_prep_filter(const char filter[], const char *res[]);
+static int _neko_fetch(Neko *n, const char filter[]);
 
 
 /*
@@ -99,6 +124,25 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 
 err0:
 	tg_api_answer_callback_query(cmd->id_callback, "Error!", NULL, 1);
+}
+
+
+void
+cmd_extra_neko(const CmdParam *cmd)
+{
+	const char *filter;
+	if (_neko_prep_filter(cmd->args, &filter) < 0) {
+		send_text_plain(cmd->msg, "Invalid argument!");
+		return;
+	}
+
+	Neko neko;
+	if (_neko_fetch(&neko, filter) < 0)
+		return;
+
+	send_text_plain(cmd->msg, neko.compressed_url);
+
+	json_object_put(neko.json);
 }
 
 
@@ -333,4 +377,83 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start)
 
 	str_pop(&str, 1);
 	return str.cstr;
+}
+
+
+static int
+_neko_prep_filter(const char filter[], const char *res[])
+{
+	if (cstr_is_empty(filter)) {
+		*res = "random";
+		return 0;
+	}
+
+	for (int i = 0; i < (int)LEN(_neko_filters); i++) {
+		if (cstr_casecmp(filter, _neko_filters[i])) {
+			*res = _neko_filters[i];
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+
+static int
+_neko_fetch(Neko *n, const char filter[])
+{
+	int ret = -1;
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return -1;
+
+	const char *const req = str_set_fmt(&str, "%s/images/%s", _NEKO_BASE_URL, filter);
+	if (req == NULL)
+		goto out0;
+
+	char *const res = http_send_get(req, NULL);
+	if (res == NULL)
+		goto out0;
+
+	json_object *const obj = json_tokener_parse(res);
+	if (obj == NULL)
+		goto out1;
+
+	json_object *tmp_obj;
+	if (json_object_object_get_ex(obj, "success", &tmp_obj) == 0)
+		goto out2;
+
+	if (json_object_get_boolean(tmp_obj) == 0)
+		goto out2;
+
+	json_object *img_obj;
+	if (json_object_object_get_ex(obj, "image", &img_obj) == 0)
+		goto out2;
+
+	if (json_object_object_get_ex(img_obj, "original", &tmp_obj) == 0)
+		goto out2;
+
+	if (json_object_object_get_ex(tmp_obj, "url", &tmp_obj) == 0)
+		goto out2;
+
+	n->original_url = json_object_get_string(tmp_obj);
+	if (json_object_object_get_ex(img_obj, "compressed", &tmp_obj) == 0)
+		goto out2;
+
+	if (json_object_object_get_ex(tmp_obj, "url", &tmp_obj) == 0)
+		goto out2;
+
+	n->compressed_url = json_object_get_string(tmp_obj);
+
+	n->json = obj;
+	ret = 0;
+
+out2:
+	if (ret < 0)
+		json_object_put(obj);
+out1:
+	free(res);
+out0:
+	str_deinit(&str);
+	return ret;
 }

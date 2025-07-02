@@ -55,6 +55,7 @@ void cmd_general_schedule_message(const CmdParam *cmd);
 void cmd_general_deleter(const CmdParam *cmd);
 
 void cmd_extra_anime_sched(const CmdParam *cmd);
+void cmd_extra_neko(const CmdParam *cmd);
 
 
 #ifdef DEBUG
@@ -131,6 +132,12 @@ void cmd_test_list(const CmdParam *cmd);
 	.description = "Get anime schedule list",				\
 	.callback_fn = cmd_extra_anime_sched,					\
 	.flags = MODEL_CMD_FLAG_EXTRA | MODEL_CMD_FLAG_CALLBACK,		\
+},										\
+{										\
+	.name = "/neko",							\
+	.description = "Get neko-girl images",					\
+	.callback_fn = cmd_extra_neko,						\
+	.flags = MODEL_CMD_FLAG_EXTRA,						\
 }
 
 
