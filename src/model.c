@@ -319,7 +319,7 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 	if (chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN)
 		show_extern = 1;
 
-	int flags = 0;
+	int flags = MODEL_CMD_FLAG_HIDDEN;
 	if (is_private)
 		flags |= MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT;
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0)

@@ -129,13 +129,9 @@ static void
 _run_task(void *ctx, void *udata)
 {
 	ModelSchedMessage *const msg = (ModelSchedMessage *)ctx;
-
-	char *msg_value;
 	switch (msg->type) {
 	case MODEL_SCHED_MESSAGE_TYPE_SEND:
-		msg_value = tg_escape(msg->value);
-		tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat_id, msg->message_id, msg_value, NULL);
-		free(msg_value);
+		tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat_id, msg->message_id, msg->value, NULL);
 		break;
 	case MODEL_SCHED_MESSAGE_TYPE_DELETE:
 		tg_api_delete_message(msg->chat_id, msg->message_id);

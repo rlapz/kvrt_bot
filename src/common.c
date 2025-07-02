@@ -17,7 +17,7 @@
  * tg_api wrappers
  */
 int
-send_text_plain_fmt(const TgMessage *msg, const char fmt[], ...)
+send_text_plain_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
 {
 	int ret;
 	va_list va;
@@ -42,7 +42,29 @@ send_text_plain_fmt(const TgMessage *msg, const char fmt[], ...)
 		goto out0;
 
 	str[ret] = '\0';
-	ret = tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, str, NULL);
+	if (deletable == 0) {
+		ret = tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, str, NULL);
+		goto out0;
+	}
+
+	const TgApiInlineKeyboard kbd = {
+		.buttons = &(TgApiInlineKeyboardButton) {
+			.text = "Delete",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+			},
+			.data_len = 2,
+		},
+		.len = 1,
+	};
+
+	char *const _str = tg_escape(str);
+	if (_str == NULL)
+		goto out0;
+
+	ret = tg_api_send_inline_keyboard(msg->chat.id, msg->id, _str, &kbd, 1, NULL);
+	free(_str);
 
 out0:
 	free(str);
@@ -51,7 +73,7 @@ out0:
 
 
 int
-send_text_format_fmt(const TgMessage *msg, const char fmt[], ...)
+send_text_format_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
 {
 	int ret;
 	va_list va;
@@ -76,7 +98,24 @@ send_text_format_fmt(const TgMessage *msg, const char fmt[], ...)
 		goto out0;
 
 	str[ret] = '\0';
-	ret = tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, msg->id, str, NULL);
+	if (deletable == 0) {
+		ret = tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, msg->id, str, NULL);
+		goto out0;
+	}
+
+	const TgApiInlineKeyboard kbd = {
+		.buttons = &(TgApiInlineKeyboardButton) {
+			.text = "Delete",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+			},
+			.data_len = 2,
+		},
+		.len = 1,
+	};
+
+	ret = tg_api_send_inline_keyboard(msg->chat.id, msg->id, str, &kbd, 1, NULL);
 
 out0:
 	free(str);

@@ -25,7 +25,7 @@ static char *_cmd_list_body(const ModelCmd list[], unsigned len, int flags,
 void
 cmd_general_start(const CmdParam *cmd)
 {
-	send_text_plain(cmd->msg, "Hello! :3\nPlease click /help to show command list.");
+	send_text_plain_fmt(cmd->msg, 1, "Hello! :3\nPlease click /help to show command list.");
 }
 
 
@@ -52,7 +52,7 @@ cmd_general_help(const CmdParam *cmd)
 		if (cstr_is_empty(list.id_callback) == 0)
 			goto out0;
 
-		send_text_plain(cmd->msg, "Falied to get chat flags");
+		send_text_plain(cmd->msg, "Falied to get chat flags!");
 		return;
 	}
 
@@ -83,7 +83,7 @@ cmd_general_dump(const CmdParam *cmd)
 {
 	const char *const json_str = json_object_to_json_string_ext(cmd->json, JSON_C_TO_STRING_PRETTY);
 	char *const resp = CSTR_CONCAT("```json\n", json_str, "```");
-	send_text_format(cmd->msg, resp);
+	send_text_format_fmt(cmd->msg, 1, "%s", resp);
 	free(resp);
 }
 
@@ -99,7 +99,7 @@ cmd_general_dump_admin(const CmdParam *cmd)
 
 	json_object *json;
 	if (tg_api_get_admin_list(cmd->id_chat, NULL, &json) < 0) {
-		send_text_plain(msg, "Failed to get admin list");
+		send_text_plain(msg, "Failed to get admin list!");
 		return;
 	}
 
@@ -151,12 +151,26 @@ cmd_general_schedule_message(const CmdParam *cmd)
 
 	int mul;
 	const char suffix = st_deadline.value[deadline_len];
+	const char *desc;
 	switch (suffix) {
-	case 's': mul = 1; break;
-	case 'm': mul = 60; break;
-	case 'h': mul = 3600; break;
-	case 'd': mul = 86400; break;
-	default: goto out0;
+	case 's':
+		mul = 1;
+		desc = "second(s)";
+		break;
+	case 'm':
+		mul = 60;
+		desc = "minute(s)";
+		break;
+	case 'h':
+		mul = 3600;
+		desc = "hour(s)";
+		break;
+	case 'd':
+		mul = 86400;
+		desc = "day(s)";
+		break;
+	default:
+		goto out0;
 	}
 
 	int64_t deadline_res;
@@ -174,19 +188,45 @@ cmd_general_schedule_message(const CmdParam *cmd)
 	};
 
 	if (model_sched_message_add(&sch, deadline_res) <= 0)
-		send_text_plain(msg, "Failed to set sechedule message");
+		send_text_plain(msg, "Failed to set sechedule message!");
 	else
-		send_text_plain_fmt(msg, "Success! Scheduled in: %s%c", deadline, suffix);
+		send_text_plain_fmt(msg, 1, "Success! Scheduled in: %s %s", deadline, desc);
 
 	return;
 
 out0:
-	send_text_plain_fmt(msg,
+	send_text_plain_fmt(msg, 1,
 		"%s [Deadline] [Message]\n"
 		"Allowed Deadline suffixes: \n"
 		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
 		"Example: \n"
 		"  %s 10s Hello world!", cmd->name, cmd->name);
+}
+
+
+void
+cmd_general_deleter(const CmdParam *cmd)
+{
+	if (cmd->id_callback == NULL)
+		return;
+
+	int64_t from_id = 0;
+	if (cstr_to_int64(cmd->args, &from_id) < 0) {
+		tg_api_answer_callback_query(cmd->id_callback, "Invalid callback!", NULL, 0);
+		return;
+	}
+
+	int can_delete = 1;
+	if (cmd->id_user != from_id)
+		can_delete = is_admin(cmd->id_user, cmd->id_chat, cmd->id_owner);
+
+	if (can_delete) {
+		tg_api_answer_callback_query(cmd->id_callback, "Deleted", NULL, 0);
+		tg_api_delete_message(cmd->id_chat, cmd->id_message);
+		return;
+	}
+
+	tg_api_answer_callback_query(cmd->id_callback, "Permission denied!", NULL, 0);
 }
 
 

@@ -93,7 +93,7 @@ cmd_admin_reload(const CmdParam *cmd)
 		goto out0;
 	}
 
-	send_text_plain_fmt(msg, "Done! %d admin(s) loaded", db_admin_list_len);
+	send_text_plain_fmt(msg, 1, "Done! %d admin(s) loaded", db_admin_list_len);
 
 out0:
 	json_object_put(json);
@@ -106,14 +106,14 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		send_text_plain(msg, "Not supported in private chat");
+		send_text_plain(msg, "Not supported in private chat!");
 		return;
 	}
 
 	SpaceTokenizer st_name;
 	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
-		send_text_plain_fmt(msg,
+		send_text_plain_fmt(msg, 1,
 			"Invalid argument!\n"
 			"  Set:   %s [command_name] message ...\n"
 			"  Unset: %s [command_name] [EMPTY]\n\n"
@@ -126,14 +126,14 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	char name[MODEL_CMD_NAME_SIZE];
 	if (st_name.len >= LEN(name)) {
-		send_text_plain(msg, "Command name is too long");
+		send_text_plain(msg, "Command name is too long!");
 		return;
 	}
 
 	for (unsigned i = 0; i < st_name.len; i++) {
 		const int _name = st_name.value[i];
 		if ((_name != '_') && (isalnum(_name) == 0)) {
-			send_text_plain(msg, "Invalid command name");
+			send_text_plain(msg, "Invalid command name!");
 			return;
 		}
 	}
@@ -143,7 +143,7 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	if (space_tokenizer_next(&st_args, next) != NULL) {
 		/* real length */
 		if (strlen(st_args.value) >= MODEL_CMD_MESSAGE_VALUE_SIZE) {
-			send_text_plain(msg, "Message is too long");
+			send_text_plain(msg, "Message is too long!");
 			return;
 		}
 
@@ -156,23 +156,23 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	int ret = model_cmd_builtin_is_exists(name);
 	if (ret < 0) {
-		send_text_plain(msg, "Failed to check builtin cmd");
+		send_text_plain(msg, "Failed to check builtin cmd!");
 		return;
 	}
 
 	if (ret > 0) {
-		send_text_plain(msg, "Cannot modify builtin cmd");
+		send_text_plain(msg, "Cannot modify builtin cmd!");
 		return;
 	}
 
 	ret = model_cmd_extern_is_exists(name);
 	if (ret < 0) {
-		send_text_plain(msg, "Failed to check extern cmd");
+		send_text_plain(msg, "Failed to check extern cmd!");
 		return;
 	}
 
 	if (ret > 0) {
-		send_text_plain(msg, "Cannot modify extern cmd");
+		send_text_plain(msg, "Cannot modify extern cmd!");
 		return;
 	}
 
@@ -187,19 +187,19 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	ret = model_cmd_message_set(&cmd_msg);
 	if (ret < 0) {
-		send_text_plain(msg, "Failed to set command message");
+		send_text_plain(msg, "Failed to set command message!");
 		return;
 	}
 
 	if (ret == 0) {
-		send_text_plain(msg, "No such command message");
+		send_text_plain(msg, "No such command message!");
 		return;
 	}
 
 	if (msg_text == NULL)
-		send_text_plain_fmt(msg, "'%s': Removed", name);
+		send_text_plain_fmt(msg, 1, "'%s': Removed", name);
 	else
-		send_text_plain_fmt(msg, "'%s': Added/updated", name);
+		send_text_plain_fmt(msg, 1, "'%s': Added/updated", name);
 }
 
 
@@ -267,7 +267,7 @@ _setting_list(const CmdParam *cmd)
 {
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0) {
-		send_text_plain(cmd->msg, "Failed to allocate string buffer");
+		send_text_plain(cmd->msg, "Failed to allocate string buffer!");
 		return -1;
 	}
 

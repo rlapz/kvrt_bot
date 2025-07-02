@@ -78,7 +78,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		send_text_plain(cmd->msg, "Failed to get chat flags");
+		send_text_plain(cmd->msg, "Failed to get chat flags!");
 		return;
 	}
 
@@ -208,7 +208,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 		return 0;
 
 	if (is_valid_index(index, LEN(_cmd_builtin_list)) == 0) {
-		send_text_plain(c->msg, "Failed to get builtin command data");
+		send_text_plain(c->msg, "Failed to get builtin command data!");
 		return 1;
 	}
 
@@ -230,7 +230,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	ModelCmdExtern ce;
 	const int ret = model_cmd_extern_get(&ce, c->name);
 	if (ret < 0) {
-		send_text_plain(c->msg, "Failed to get external command data");
+		send_text_plain(c->msg, "Failed to get external command data!");
 		return 1;
 	}
 
@@ -247,7 +247,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 		 c->id_chat, c->id_user, c->id_message, ce.name, ce.file_name);
 
 	if (_spawn_child_process(c, ce.file_name) < 0) {
-		send_text_plain(c->msg, "Failed to execute external command");
+		send_text_plain(c->msg, "Failed to execute external command!");
 		return 1;
 	}
 
@@ -264,7 +264,7 @@ _exec_cmd_message(const CmdParam *c)
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
 	const int ret = model_cmd_message_get_value(c->id_chat, c->name, value, LEN(value));
 	if (ret < 0) {
-		send_text_plain(c->msg, "Failed to get command message data");
+		send_text_plain(c->msg, "Failed to get command message data!");
 		return 1;
 	}
 

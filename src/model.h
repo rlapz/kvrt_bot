@@ -56,6 +56,7 @@ enum {
 	MODEL_CMD_FLAG_NSFW                  = (1 << 2),
 	MODEL_CMD_FLAG_EXTRA                 = (1 << 3),
 	MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT = (1 << 4),
+	MODEL_CMD_FLAG_HIDDEN                = (1 << 5),
 };
 
 #define MODEL_CMD_NAME_SIZE (32)
