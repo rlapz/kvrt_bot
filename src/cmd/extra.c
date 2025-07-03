@@ -135,7 +135,21 @@ cmd_extra_neko(const CmdParam *cmd)
 {
 	const char *filter;
 	if (_neko_prep_filter(cmd->args, &filter) < 0) {
-		send_text_plain(cmd->msg, "Invalid argument!");
+		Str str;
+		if (str_init_alloc(&str, 1024) < 0) {
+			send_text_plain(cmd->msg, "Invalid argument!");
+			return;
+		}
+
+		str_set(&str, "Invalid argument\\!\nAvailable arguments:`\n");
+		for (int i = 0; i < (int)LEN(_neko_filters); i++)
+			str_append_fmt(&str, "%s, ", _neko_filters[i]);
+
+		str_pop(&str, 2);
+		str_append_c(&str, '`');
+
+		send_text_format(cmd->msg, str.cstr);
+		str_deinit(&str);
 		return;
 	}
 
