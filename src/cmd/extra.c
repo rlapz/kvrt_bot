@@ -45,6 +45,9 @@ typedef struct neko {
 	const char  *artist_username;
 	const char  *artist_profile_url;
 	const char  *source_url;
+	const char  *anime_char_name;
+	const char  *anime_name;
+	const char  *category;
 	json_object *json;
 } Neko;
 
@@ -140,8 +143,24 @@ cmd_extra_neko(const CmdParam *cmd)
 	if (_neko_fetch(&neko, filter) < 0)
 		return;
 
-	send_text_plain(cmd->msg, neko.compressed_url);
+	char *const source_url = tg_escape(neko.source_url);
+	char *const artist = tg_escape(neko.artist_username);
+	send_text_format_fmt(cmd->msg, 1,
+		"`URL     :`  [Compressed](%s) \\- [Original](%s)\n"
+		"`Name    : %s` from `%s`\n"
+		"`Artist  :`  [%s](%s)\n"
+		"`Source  :`  %s\n"
+		"`Category: %s`",
+		neko.compressed_url, neko.original_url,
+		((neko.anime_char_name == NULL)? "[Unknown]" : neko.anime_char_name),
+		((neko.anime_name == NULL)? "[Unknown]" : neko.anime_name),
+		cstr_empty_if_null(artist),
+		cstr_empty_if_null(neko.artist_profile_url),
+		cstr_empty_if_null(source_url),
+		neko.category);
 
+	free(source_url);
+	free(artist);
 	json_object_put(neko.json);
 }
 
@@ -415,6 +434,7 @@ _neko_fetch(Neko *n, const char filter[])
 	if (res == NULL)
 		goto out0;
 
+	memset(n, 0, sizeof(*n));
 	json_object *const obj = json_tokener_parse(res);
 	if (obj == NULL)
 		goto out1;
@@ -444,6 +464,40 @@ _neko_fetch(Neko *n, const char filter[])
 		goto out2;
 
 	n->compressed_url = json_object_get_string(tmp_obj);
+
+	json_object *attr;
+	if (json_object_object_get_ex(obj, "attribution", &attr) == 0)
+		goto out2;
+
+	json_object *source;
+	if (json_object_object_get_ex(obj, "source", &source) == 0)
+		goto out2;
+
+	if (json_object_object_get_ex(source, "url", &tmp_obj))
+		n->source_url = json_object_get_string(tmp_obj);
+
+	json_object *artist;
+	if (json_object_object_get_ex(attr, "artist", &artist)) {
+		if (json_object_object_get_ex(artist, "username", &tmp_obj))
+			n->artist_username = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(artist, "profile", &tmp_obj))
+			n->artist_profile_url = json_object_get_string(tmp_obj);
+	}
+
+	json_object *anime;
+	if (json_object_object_get_ex(obj, "anime", &anime) == 0)
+		goto out2;
+
+	if (json_object_object_get_ex(anime, "title", &tmp_obj))
+		n->anime_name = json_object_get_string(tmp_obj);
+	if (json_object_object_get_ex(anime, "character", &tmp_obj))
+		n->anime_char_name = json_object_get_string(tmp_obj);
+
+	json_object *category;
+	if (json_object_object_get_ex(obj, "category", &category) == 0)
+		goto out2;
+
+	n->category = json_object_get_string(category);
 
 	n->json = obj;
 	ret = 0;
