@@ -196,7 +196,6 @@ cmd_extra_waifu(const CmdParam *cmd)
 			}
 		}
 
-		Str str;
 		if (str_init_alloc(&str, 1024) < 0) {
 			send_text_plain(cmd->msg, "Invalid argument!");
 			return;
@@ -234,7 +233,7 @@ out0:
 	if (json_object_object_get_ex(obj, "url", &url) == 00)
 		goto out2;
 
-	send_text_plain(cmd->msg, json_object_get_string(url));
+	send_text_plain_fmt(cmd->msg, 1, "%s", json_object_get_string(url));
 	json_object_put(obj);
 
 out2:
