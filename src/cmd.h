@@ -56,6 +56,7 @@ void cmd_general_deleter(const CmdParam *cmd);
 
 void cmd_extra_anime_sched(const CmdParam *cmd);
 void cmd_extra_neko(const CmdParam *cmd);
+void cmd_extra_waifu(const CmdParam *cmd);
 
 
 #ifdef DEBUG
@@ -137,6 +138,12 @@ void cmd_test_list(const CmdParam *cmd);
 	.name = "/neko",							\
 	.description = "Get neko-girl images",					\
 	.callback_fn = cmd_extra_neko,						\
+	.flags = MODEL_CMD_FLAG_EXTRA,						\
+},										\
+{										\
+	.name = "/waifu",							\
+	.description = "Get waifu images",					\
+	.callback_fn = cmd_extra_waifu,						\
 	.flags = MODEL_CMD_FLAG_EXTRA,						\
 }
 

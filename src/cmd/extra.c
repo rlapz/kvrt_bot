@@ -16,21 +16,17 @@
 
 #define _NEKO_BASE_URL "https://api.nekosia.cat/api/v1"
 
+/* TODO: enable NSFW type */
+#define _WAIFU_BASE_URL "https://api.waifu.pics/sfw"
+
 
 static const char *const _anime_sched_filters[] = {
-	"sunday",
-	"monday",
-	"tuesday",
-	"wednesday",
-	"thursday",
-	"friday",
-	"saturday",
-	"unknown",
-	"other",
+	"sunday", "monday", "tuesday", "wednesday", "thursday", "friday",
+	"saturday", "unknown", "other",
 };
 
 
-static const char *_neko_filters[] = {
+static const char *const _neko_filters[] = {
 	"random", "catgirl", "foxgirl", "wolf-girl", "animal-ears", "tail", "tail-with-ribbon",
 	"tail-from-under-skirt", "cute", "cuteness-is-justice", "blue-archive", "girl", "young-girl",
 	"maid", "maid-uniform", "vtuber", "w-sitting", "lying-down", "hands-forming-a-heart",
@@ -38,6 +34,14 @@ static const char *_neko_filters[] = {
 	"black-tights", "heterochromia", "uniform", "sailor-uniform", "hoodie", "ribbon", "white-hair",
 	"blue-hair", "long-hair", "blonde", "blue-eyes", "purple-eyes",
 };
+
+
+static const char *const _waifu_filters[] = {
+	"waifu", "neko", "shinobu", "megumin", "bully", "cuddle", "cry", "hug", "awoo", "kiss", "lick",
+	"pat", "smug", "bonk", "yeet", "blush", "smile", "wave", "highfive", "handhold", "nom", "bite",
+	"glomp", "slap", "kill", "kick", "happy", "wink", "poke", "dance", "cringe",
+};
+
 
 typedef struct neko {
 	const char  *compressed_url;
@@ -176,6 +180,67 @@ cmd_extra_neko(const CmdParam *cmd)
 	free(source_url);
 	free(artist);
 	json_object_put(neko.json);
+}
+
+
+void
+cmd_extra_waifu(const CmdParam *cmd)
+{
+	Str str;
+	const char *filter = "waifu";
+	if (cstr_is_empty(cmd->args) == 0) {
+		for (int i = 0; i < (int)LEN(_waifu_filters); i++) {
+			if (cstr_casecmp(cmd->args, _waifu_filters[i])) {
+				filter = _waifu_filters[i];
+				goto out0;
+			}
+		}
+
+		Str str;
+		if (str_init_alloc(&str, 1024) < 0) {
+			send_text_plain(cmd->msg, "Invalid argument!");
+			return;
+		}
+
+		str_set(&str, "Invalid argument\\!\nAvailable arguments:`\n");
+		for (int i = 0; i < (int)LEN(_waifu_filters); i++)
+			str_append_fmt(&str, "%s, ", _waifu_filters[i]);
+
+		str_pop(&str, 2);
+		str_append_c(&str, '`');
+
+		send_text_format(cmd->msg, str.cstr);
+		str_deinit(&str);
+		return;
+	}
+
+out0:
+	if (str_init_alloc(&str, 1024) < 0)
+		return;
+
+	const char *const req = str_set_fmt(&str, "%s/%s", _WAIFU_BASE_URL, filter);
+	if (req == NULL)
+		goto out1;
+
+	char *const res = http_send_get(req, NULL);
+	if (res == NULL)
+		goto out1;
+
+	json_object *const obj = json_tokener_parse(res);
+	if (obj == NULL)
+		goto out2;
+
+	json_object *url;
+	if (json_object_object_get_ex(obj, "url", &url) == 00)
+		goto out2;
+
+	send_text_plain(cmd->msg, json_object_get_string(url));
+	json_object_put(obj);
+
+out2:
+	free(res);
+out1:
+	str_deinit(&str);
 }
 
 
