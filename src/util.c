@@ -92,7 +92,7 @@ size_t cstr_copy_lower_n(char dest[], size_t size, const char src[])
 
 	size_t i = 0;
 	for (; i < slen; i++)
-		dest[i] = (char)tolower(src[i]);
+		dest[i] = (char)tolower((unsigned char)src[i]);
 
 	dest[i] = '\0';
 	return i;
@@ -108,7 +108,7 @@ cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len)
 
 	size_t i = 0;
 	for (; i < len; i++)
-		dest[i] = (char)tolower(src[i]);
+		dest[i] = (char)tolower((unsigned char)src[i]);
 
 	dest[i] = '\0';
 	return i;
