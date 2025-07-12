@@ -244,7 +244,6 @@ ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t 
 	*e = (EvTimer) {
 		.callback_fn = callback_fn,
 		.udata = udata,
-		.timeout_s = timeout_s,
 		.ctx = (EvCtx) {
 			.fd = fd,
 			.callback_fn = _timer_handler,

@@ -41,7 +41,6 @@ typedef struct ev_listener {
 	EvCtx  ctx;
 	void   (*callback_fn)(void *udata, int fd);
 	void  *udata;
-	int    fd;
 } EvListener;
 
 int  ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int),
@@ -50,10 +49,9 @@ void ev_listener_deinit(const EvListener *e);
 
 
 typedef struct ev_timer {
-	EvCtx   ctx;
-	time_t  timeout_s;
-	void    (*callback_fn)(void *udata, int err);
-	void   *udata;
+	EvCtx  ctx;
+	void   (*callback_fn)(void *udata, int err);
+	void  *udata;
 } EvTimer;
 
 int  ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t timeout_s);
