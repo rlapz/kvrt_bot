@@ -237,8 +237,8 @@ _parse_json_hook(Config *c, json_object *root_obj)
 		return -1;
 	}
 
-	cstr_copy_n(c->hook_url, LEN(c->hook_url), url);
-	cstr_copy_n(c->hook_path, LEN(c->hook_path), path);
+	cstr_copy_lower_n(c->hook_url, LEN(c->hook_url), url);
+	cstr_copy_lower_n(c->hook_path, LEN(c->hook_path), path);
 	return 0;
 }
 
@@ -288,7 +288,7 @@ _parse_json_tg(Config *c, json_object *root_obj)
 		return -1;
 	}
 
-	cstr_copy_n(c->bot_username, LEN(c->bot_username), bot_username);
+	cstr_copy_lower_n(c->bot_username, LEN(c->bot_username), bot_username);
 	return 0;
 }
 

@@ -75,6 +75,30 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 }
 
 
+size_t cstr_copy_lower_n(char dest[], size_t size, const char src[])
+{
+	assert(dest != NULL);
+	if (size == 0)
+		return 0;
+
+	if ((size == 1) || (src == NULL)) {
+		dest[0] = '\0';
+		return 0;
+	}
+
+	size_t slen = strlen(src);
+	if (slen >= size)
+		slen = size - 1;
+
+	size_t i = 0;
+	for (; i < slen; i++)
+		dest[i] = (char)tolower(src[i]);
+
+	dest[i] = '\0';
+	return i;
+}
+
+
 size_t
 cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len)
 {

@@ -60,5 +60,7 @@ clean:
 	rm -f $(OBJ) $(TARGET)
 	rm -f config.json.bin
 
+config:
+	rm -f config.json.bin
 
-.PHONY: build clean cmd options run
+.PHONY: build clean cmd config options run
