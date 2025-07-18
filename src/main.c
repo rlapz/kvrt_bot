@@ -61,7 +61,7 @@ static int _client_state_resp(Client *c);
 static int  _client_header_parse(Client *c, size_t last_len);
 static int  _client_header_validate(Client *c, HttpRequest *req, size_t *content_len);
 static void _client_body_parse(Client *c);
-static int  _client_resp_prep(Client *c);
+static int  _client_resp_send(Client *c);
 
 
 /*
@@ -173,27 +173,26 @@ _client_state_req_header(Client *c)
 	const int ret = _client_header_parse(c, recvd);
 	switch (ret) {
 	case -3:
+		/* TODO: allocate new buffer */
 		log_err(0, "main: _client_state_req_header: %d: _client_header_parse: buffer full", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	case -2:
+		/* header: incomplete */
 		return _CLIENT_STATE_REQ_HEADER;
 	case -1:
 		log_err(0, "main: _client_state_req_header: %d: _client_header_parse: invalid request header",
 			c->ctx.fd);
-		if (_client_resp_prep(c) < 0)
-			return _CLIENT_STATE_FINISH;
-
-		return _CLIENT_STATE_RESP;
+		return _client_resp_send(c);
 	case 0:
 		_client_body_parse(c);
-		if (_client_resp_prep(c) < 0)
-			return _CLIENT_STATE_FINISH;
-
-		return _CLIENT_STATE_RESP;
+		return _client_resp_send(c);
+	case 1:
+		/* body: incomplete */
+		return _client_state_req_body(c);
 	}
 
-	/* body: incomplete */
-	return _CLIENT_STATE_REQ_BODY;
+	/* BUG: must not reach this line! */
+	assert(0);
 }
 
 
@@ -202,35 +201,29 @@ _client_state_req_body(Client *c)
 {
 	size_t recvd = c->bytes;
 	const size_t len = c->body_len;
-	if (recvd < len) {
-		const ssize_t rv = recv(c->ctx.fd, c->buffer + recvd, len - recvd, 0);
-		if (rv < 0) {
-			if (errno == EAGAIN)
-				return _CLIENT_STATE_REQ_BODY;
+	const ssize_t rv = recv(c->ctx.fd, c->buffer + recvd, len - recvd, 0);
+	if (rv < 0) {
+		if (errno == EAGAIN)
+			return _CLIENT_STATE_REQ_BODY;
 
-			log_err(errno, "main: _client_state_req_body: %d: recv", c->ctx.fd);
-			return _CLIENT_STATE_FINISH;
-		}
-
-		if (rv == 0) {
-			log_err(0, "main: _client_state_req_body: %d: recv: EOF", c->ctx.fd);
-			return _CLIENT_STATE_FINISH;
-		}
-
-		recvd += (size_t)rv;
-		c->bytes = recvd;
+		log_err(errno, "main: _client_state_req_body: %d: recv", c->ctx.fd);
+		return _CLIENT_STATE_FINISH;
 	}
 
+	if (rv == 0) {
+		log_err(0, "main: _client_state_req_body: %d: recv: EOF", c->ctx.fd);
+		return _CLIENT_STATE_FINISH;
+	}
+
+	recvd += (size_t)rv;
+	c->bytes = recvd;
 	if (recvd < len)
 		return _CLIENT_STATE_REQ_BODY;
 
 	if (recvd == len)
 		_client_body_parse(c);
 
-	if (_client_resp_prep(c) < 0)
-		return _CLIENT_STATE_FINISH;
-
-	return _CLIENT_STATE_RESP;
+	return _client_resp_send(c);
 }
 
 
@@ -243,25 +236,22 @@ _client_state_resp(Client *c)
 						   sizeof(CFG_HTTP_RESPONSE_ERROR) - 1;
 
 	size_t sent = c->bytes;
-	if (sent < buff_len) {
-		const ssize_t sn = send(c->ctx.fd, buff + sent, buff_len - sent, 0);
-		if (sn < 0) {
-			if (errno == EAGAIN)
-				return _CLIENT_STATE_RESP;
+	const ssize_t sn = send(c->ctx.fd, buff + sent, buff_len - sent, 0);
+	if (sn < 0) {
+		if (errno == EAGAIN)
+			return _CLIENT_STATE_RESP;
 
-			log_err(errno, "main: _client_state_resp: %d: send", c->ctx.fd);
-			goto out0;
-		}
-
-		if (sn == 0) {
-			log_err(0, "main: _client_state_resp: %d: send: EOF", c->ctx.fd);
-			goto out0;
-		}
-
-		sent += (size_t)sn;
-		c->bytes = sent;
+		log_err(errno, "main: _client_state_resp: %d: send", c->ctx.fd);
+		goto out0;
 	}
 
+	if (sn == 0) {
+		log_err(0, "main: _client_state_resp: %d: send: EOF", c->ctx.fd);
+		goto out0;
+	}
+
+	sent += (size_t)sn;
+	c->bytes = sent;
 	if (sent < buff_len)
 		return _CLIENT_STATE_RESP;
 
@@ -392,6 +382,7 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 	if (cstr_to_uint64_n(scontent_len, scontent_len_len, &clen) < 0)
 		return -1;
 
+	/* TODO: properly handle content length; don't panic! */
 	assert(clen < SIZE_MAX);
 
 	*content_len = (size_t)clen;
@@ -414,17 +405,17 @@ _client_body_parse(Client *c)
 
 
 static int
-_client_resp_prep(Client *c)
+_client_resp_send(Client *c)
 {
 	c->ctx.event.events = EPOLLOUT;
 	const int ret = ev_ctx_mod(&c->ctx);
 	if (ret < 0) {
-		log_err(ret, "main: _client_resp_prep: ev_ctx_mod");
-		return -1;
+		log_err(ret, "main: _client_resp_send: ev_ctx_mod");
+		return _CLIENT_STATE_FINISH;
 	}
 
 	c->bytes = 0;
-	return 0;
+	return _client_state_resp(c);;
 }
 
 
