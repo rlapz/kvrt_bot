@@ -34,6 +34,13 @@ tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[],
 	assert(_base_api != NULL);
 
 	int ret = -1;
+	const char *arg_key;
+	switch (type) {
+	case TG_API_TEXT_TYPE_PLAIN: arg_key = "&text"; break;
+	case TG_API_TEXT_TYPE_FORMAT: arg_key = "&parse_mode=MarkdownV2&text"; break;
+	default: return ret;
+	}
+
 	if (cstr_is_empty(text))
 		return ret;
 
@@ -51,16 +58,7 @@ tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[],
 	if (new_text == NULL)
 		goto out0;
 
-	const char *req = NULL;
-	switch (type) {
-	case TG_API_TEXT_TYPE_PLAIN:
-		req = str_append_fmt(&str, "&text=%s", new_text);
-		break;
-	case TG_API_TEXT_TYPE_FORMAT:
-		req = str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s", new_text);
-		break;
-	}
-
+	const char *const req = str_append_fmt(&str, "%s=%s", arg_key, new_text);
 	if (req == NULL)
 		goto out1;
 
@@ -241,14 +239,9 @@ tg_api_answer_callback_query(int type, const char id[], const char arg[], int sh
 	int ret = -1;
 	const char *arg_key;
 	switch (type) {
-	case TG_API_ANSWER_CALLBACK_TYPE_TEXT:
-		arg_key = "&text";
-		break;
-	case TG_API_ANSWER_CALLBACK_TYPE_URL:
-		arg_key = "&url";
-		break;
-	default:
-		return ret;
+	case TG_API_ANSWER_CALLBACK_TYPE_TEXT: arg_key = "&text"; break;
+	case TG_API_ANSWER_CALLBACK_TYPE_URL: arg_key = "&url"; break;
+	default: return ret;
 	}
 
 	if (CSTR_IS_EMPTY(id, arg))
