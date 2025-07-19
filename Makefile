@@ -12,7 +12,7 @@ IS_DEBUG ?= 0
 VALGRIND ?= 0
 PREFIX   := /usr
 CC       := cc
-CFLAGS   := -std=c11 -Wall -Wextra -Wpedantic -pedantic -I/usr/include/json-c -D_GNU_SOURCE
+CFLAGS   := -std=c11 -Wall -Wextra -Wpedantic -pedantic -Wshadow -I/usr/include/json-c -D_GNU_SOURCE
 LFLAGS   := -lcurl -ljson-c -lsqlite3 -lm
 
 SRC := src/cmd.c src/common.c src/config.c src/sqlite_pool.c src/ev.c src/main.c src/model.c \
