@@ -230,8 +230,11 @@ message_list_init(MessageList *l, const char args[])
 			should_delete = is_admin(l->id_user, l->id_chat, l->id_owner);
 
 		if (should_delete) {
-			tg_api_answer_callback_query(l->id_callback, "Deleted", NULL, 0);
-			tg_api_delete_message(l->id_chat, l->id_message);
+			if (tg_api_delete_message(l->id_chat, l->id_message) < 0)
+				tg_api_answer_callback_query(l->id_callback, "Failed", NULL, 0);
+			else
+				tg_api_answer_callback_query(l->id_callback, "Deleted", NULL, 0);
+
 			return -3;
 		}
 

@@ -221,8 +221,11 @@ cmd_general_deleter(const CmdParam *cmd)
 		can_delete = is_admin(cmd->id_user, cmd->id_chat, cmd->id_owner);
 
 	if (can_delete) {
-		tg_api_answer_callback_query(cmd->id_callback, "Deleted", NULL, 0);
-		tg_api_delete_message(cmd->id_chat, cmd->id_message);
+		if (tg_api_delete_message(cmd->id_chat, cmd->id_message) < 0)
+			tg_api_answer_callback_query(cmd->id_callback, "Failed", NULL, 0);
+		else
+			tg_api_answer_callback_query(cmd->id_callback, "Deleted", NULL, 0);
+
 		return;
 	}
 

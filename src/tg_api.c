@@ -12,10 +12,10 @@
 static const char *_base_api = NULL;
 
 
-static int _response_get_message_id(const char resp[], int64_t *ret_id);
 static int _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len,
 				  char *ret_str[]);
-static int _parse_response(json_object *root, json_object **res_obj);
+static int _parse_response(const char resp[], json_object **res_obj);
+static int _response_get_message_id(json_object *obj, int64_t *ret_id);
 
 
 /*
@@ -65,11 +65,19 @@ tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[],
 		goto out1;
 
 	char *const resp = http_send_get(req, "application/json");
-	if (ret_id != NULL)
-		ret = _response_get_message_id(resp, ret_id);
-	else
-		ret = 0;
+	if (resp == NULL)
+		goto out1;
 
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out2;
+
+	ret = _response_get_message_id(res_obj, ret_id);
+
+	json_object_put(res_obj);
+
+out2:
 	free(resp);
 out1:
 	curl_free(new_text);
@@ -86,19 +94,28 @@ tg_api_delete_message(int64_t chat_id, int64_t message_id)
 
 	int ret = -1;
 	if ((chat_id == 0) || (message_id == 0))
-		return ret;
+		return -1;
 
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
+		return -1;
 
 	const char *const req = str_set_fmt(&str, "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64,
 					    _base_api, chat_id, message_id);
 	char *const resp = http_send_get(req, "application/json");
-	if (resp != NULL)
-		ret = 0;
+	if (resp == NULL)
+		goto out0;
 
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out1;
+
+	json_object_put(res_obj);
+
+out1:
 	free(resp);
+out0:
 	str_deinit(&str);
 	return ret;
 }
@@ -137,13 +154,20 @@ tg_api_send_inline_keyboard(int64_t chat_id, int64_t reply_to, const char text[]
 		goto out2;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
-	if (ret_id != NULL)
-		ret = _response_get_message_id(resp, ret_id);
-	else
-		ret = 0;
+	if (resp == NULL)
+		goto out2;
 
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out3;
+
+	ret = _response_get_message_id(res_obj, ret_id);
+
+	json_object_put(res_obj);
+
+out3:
 	free(resp);
-
 out2:
 	str_deinit(&str);
 out1:
@@ -185,13 +209,20 @@ tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
 		goto out2;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
-	if (ret_id != NULL)
-		ret = _response_get_message_id(resp, ret_id);
-	else
-		ret = 0;
+	if (resp == NULL)
+		goto out2;
 
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out3;
+
+	ret = _response_get_message_id(res_obj, ret_id);
+
+	json_object_put(res_obj);
+
+out3:
 	free(resp);
-
 out2:
 	str_deinit(&str);
 out1:
@@ -244,8 +275,18 @@ tg_api_answer_callback_query(const char id[], const char text[], const char url[
 		goto out0;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
-	free(resp);
+	if (resp == NULL)
+		goto out0;
 
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out1;
+
+	json_object_put(res_obj);
+
+out1:
+	free(resp);
 out0:
 	str_deinit(&str);
 	return ret;
@@ -269,16 +310,16 @@ tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_
 	if (resp == NULL)
 		goto out0;
 
-	json_object *const json = json_tokener_parse(resp);
-	if (json == NULL)
+	json_object *json;
+	if (_parse_response(resp, &json) < 0)
 		goto out1;
 
 	if (list != NULL) {
-		json_object *res;
-		if (_parse_response(json, &res) < 0)
+		json_object *_res_obj;
+		if (json_object_object_get_ex(json, "result", &_res_obj) == 0)
 			goto out2;
 
-		if (tg_chat_admin_list_parse(list, res) < 0)
+		if (tg_chat_admin_list_parse(list, _res_obj) < 0)
 			goto out2;
 	}
 
@@ -300,44 +341,6 @@ out0:
 /*
  * Private
  */
-static int
-_response_get_message_id(const char resp[], int64_t *ret_id)
-{
-	int ret = -1;
-	if (resp == NULL)
-		return ret;
-
-	json_object *const root_obj = json_tokener_parse(resp);
-	if (root_obj == NULL)
-		return ret;
-
-	dump_json_obj("tg_api: _response_get_message_id", root_obj);
-
-	json_object *ok_obj;
-	if (json_object_object_get_ex(root_obj, "ok", &ok_obj) == 0)
-		goto out0;
-
-	const int is_ok = json_object_get_boolean(ok_obj);
-	if (is_ok != 1)
-		goto out0;
-
-	json_object *result_obj;
-	if (json_object_object_get_ex(root_obj, "result", &result_obj) == 0)
-		goto out0;
-
-	json_object *id_obj;
-	if (json_object_object_get_ex(result_obj, "message_id", &id_obj) == 0)
-		goto out0;
-
-	*ret_id = json_object_get_int64(id_obj);
-	ret = 0;
-
-out0:
-	json_object_put(root_obj);
-	return ret;
-}
-
-
 static int
 _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char *ret_str[])
 {
@@ -422,18 +425,44 @@ out0:
 
 
 static int
-_parse_response(json_object *root, json_object **res_obj)
+_parse_response(const char resp[], json_object **res_obj)
 {
+	dump_json_str("_parse_response", resp);
+
+	json_object *const root_obj = json_tokener_parse(resp);
+	if (root_obj == NULL)
+		return -1;
+
 	json_object *ok_obj;
-	if (json_object_object_get_ex(root, "ok", &ok_obj) == 0)
+	if (json_object_object_get_ex(root_obj, "ok", &ok_obj) == 0)
+		goto err0;
+
+	if (json_object_get_boolean(ok_obj) == 0)
+		goto err0;
+
+	*res_obj = root_obj;
+	return 0;
+
+err0:
+	json_object_put(root_obj);
+	return -1;
+}
+
+
+static int
+_response_get_message_id(json_object *obj, int64_t *ret_id)
+{
+	if (ret_id == NULL)
+		return 0;
+
+	json_object *res_obj;
+	if (json_object_object_get_ex(obj, "result", &res_obj) == 0)
 		return -1;
 
-	const int is_ok = json_object_get_boolean(ok_obj);
-	if (is_ok == 0)
+	json_object *id_obj;
+	if (json_object_object_get_ex(res_obj, "message_id", &id_obj) == 0)
 		return -1;
 
-	if (json_object_object_get_ex(root, "result", res_obj) == 0)
-		return -1;
-
+	*ret_id = json_object_get_int64(id_obj);
 	return 0;
 }
