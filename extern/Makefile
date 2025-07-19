@@ -15,7 +15,7 @@ CFLAGS   := -std=c11 -Wall -Wextra -pedantic -I/usr/include/json-c -D_GNU_SOURCE
 LFLAGS   := -lcurl -ljson-c -lsqlite3 -lm
 
 SRC := api.c ../src/config.c ../src/util.c ../src/tg.c ../src/tg_api.c ../src/common.c \
-	   ../src/model.c ../src/sqlite_pool.c
+	   ../src/model.c ../src/sqlite_pool.c ../src/ev.c
 OBJ := $(SRC:.c=.o)
 
 ifeq ($(IS_DEBUG), 1)
