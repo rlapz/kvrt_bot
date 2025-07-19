@@ -835,7 +835,7 @@ model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 		return -1;
 
 	const char *const query =
-		"INSERT INTO Anime_Sched(mal_id, filter, url, title, title_ja, type, "
+		"INSERT INTO Anime_Sched(mal_id, filter, url, title, title_ja, title_en, type, "
 			"source, broadcast, duration, rating, score, episodes, year, "
 			"genres, themes, demographics, created_at "
 		") VALUES ";
@@ -844,7 +844,7 @@ model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 		goto out0;
 
 	for (int i = 0; i < len; i++) {
-		if (str_append(&str, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), ") == NULL)
+		if (str_append(&str, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), ") == NULL)
 			goto out0;
 	}
 
@@ -868,6 +868,7 @@ model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 		sqlite3_bind_text(stmt, j++, list[i].url_in, -1, NULL);
 		sqlite3_bind_text(stmt, j++, list[i].title_in, -1, NULL);
 		sqlite3_bind_text(stmt, j++, list[i].title_japanese_in, -1, NULL);
+		sqlite3_bind_text(stmt, j++, list[i].title_english_in, -1, NULL);
 		sqlite3_bind_text(stmt, j++, list[i].type_in, -1, NULL);
 		sqlite3_bind_text(stmt, j++, list[i].source_in, -1, NULL);
 		sqlite3_bind_text(stmt, j++, list[i].broadcast_in, -1, NULL);
@@ -907,13 +908,13 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 	int ret = -1;
 	const char *const query =
 		"SELECT COUNT(1), Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, "
-			"Null, Null, Null, Null, Null, Null, Null "
+			"Null, Null, Null, Null, Null, Null, Null, Null "
 		"FROM Anime_Sched WHERE (filter = ?) "
 		"UNION ALL "
 		"SELECT * FROM ("
-			"SELECT 0, id, mal_id, filter, url, title, title_ja, type, source, broadcast, "
-				"duration, rating, score, episodes, year, genres, themes, demographics, "
-				"created_at "
+			"SELECT 0, id, mal_id, filter, url, title, title_ja, title_en, type, source, "
+				"broadcast, duration, rating, score, episodes, year, genres, themes, "
+				"demographics, created_at "
 			"FROM Anime_Sched "
 			"WHERE (filter = ?) "
 			"ORDER BY score DESC "
@@ -961,6 +962,7 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 		cstr_copy_n(ma->url, LEN(ma->url), (const char *)sqlite3_column_text(stmt, i++));
 		cstr_copy_n(ma->title, LEN(ma->title), (const char *)sqlite3_column_text(stmt, i++));
 		cstr_copy_n(ma->title_japanese, LEN(ma->title_japanese), (const char *)sqlite3_column_text(stmt, i++));
+		cstr_copy_n(ma->title_english, LEN(ma->title_english), (const char *)sqlite3_column_text(stmt, i++));
 		cstr_copy_n(ma->type, LEN(ma->type), (const char *)sqlite3_column_text(stmt, i++));
 		cstr_copy_n(ma->source, LEN(ma->source), (const char *)sqlite3_column_text(stmt, i++));
 		cstr_copy_n(ma->broadcast, LEN(ma->broadcast), (const char *)sqlite3_column_text(stmt, i++));
@@ -1115,6 +1117,7 @@ _anime_sched_query(Str *str)
 		"	url		VARCHAR(%d) Null,\n"
 		"	title		VARCHAR(%d) Null,\n"
 		"	title_ja	VARCHAR(%d) Null,\n"
+		"	title_en	VARCHAR(%d) Null,\n"
 		"	type		VARCHAR(%d) Null,\n"
 		"	source		VARCHAR(%d) Null,\n"
 		"	broadcast	VARCHAR(%d) Null,\n"
@@ -1129,8 +1132,9 @@ _anime_sched_query(Str *str)
 		"	created_at	TIMESTAMP NOT Null\n"
 		");",
 		LEN(ma.filter) -1, LEN(ma.url) -1, LEN(ma.title) -1, LEN(ma.title_japanese) -1,
-		LEN(ma.type) -1, LEN(ma.source) -1, LEN(ma.broadcast) -1, LEN(ma.duration),
-		LEN(ma.rating) -1, LEN(ma.genres) -1, LEN(ma.themes) -1, LEN(ma.demographics) -1
+		LEN(ma.title_english) - 1, LEN(ma.type) -1, LEN(ma.source) -1,
+		LEN(ma.broadcast) -1, LEN(ma.duration), LEN(ma.rating) -1, LEN(ma.genres) -1,
+		LEN(ma.themes) -1, LEN(ma.demographics) -1
 	);
 }
 

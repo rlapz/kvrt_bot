@@ -377,6 +377,8 @@ _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *ob
 			item->title_in = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "title_japanese", &tmp_obj))
 			item->title_japanese_in = json_object_get_string(tmp_obj);
+		if (json_object_object_get_ex(_obj, "title_english", &tmp_obj))
+			item->title_english_in = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "type", &tmp_obj))
 			item->type_in = json_object_get_string(tmp_obj);
 		if (json_object_object_get_ex(_obj, "source", &tmp_obj))
@@ -456,6 +458,7 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start)
 
 		str_append_n(&str, "```\n", 4);
 		str_append_fmt(&str, "Japanese : %s\n", cstr_empty_if_null(item->title_japanese));
+		str_append_fmt(&str, "English  : %s\n", cstr_empty_if_null(item->title_english));
 		str_append_fmt(&str, "Type     : %s\n", cstr_empty_if_null(item->type));
 		str_append_fmt(&str, "Year     : %d\n", item->year);
 		str_append_fmt(&str, "Episodes : %d\n", item->episodes);

@@ -177,6 +177,7 @@ typedef struct model_anime_sched {
 	union { const char *url_in;            char url[1024]; };
 	union { const char *title_in;          char title[256]; };
 	union { const char *title_japanese_in; char title_japanese[256]; };
+	union { const char *title_english_in;  char title_english[256]; };
 	union { const char *type_in;           char type[32]; };
 	union { const char *source_in;         char source[32]; };
 	union { const char *broadcast_in;      char broadcast[32]; };
