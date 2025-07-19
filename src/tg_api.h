@@ -18,6 +18,12 @@ enum {
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT,
 };
 
+enum {
+	TG_API_ANSWER_CALLBACK_TYPE_TEXT,
+	TG_API_ANSWER_CALLBACK_TYPE_URL,
+};
+
+
 typedef struct tg_api_inline_keyboard_button_data {
 	int type;
 	union {
@@ -55,7 +61,7 @@ int  tg_api_send_inline_keyboard(int64_t chat_id, int64_t reply_to, const char t
 				 const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id);
 int  tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
 				 const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id);
-int  tg_api_answer_callback_query(const char id[], const char text[], const char url[], int show_alert);
+int  tg_api_answer_callback_query(int type, const char id[], const char arg[], int show_alert);
 int  tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj);
 
 

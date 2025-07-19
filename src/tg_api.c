@@ -234,12 +234,24 @@ out0:
 
 
 int
-tg_api_answer_callback_query(const char id[], const char text[], const char url[], int show_alert)
+tg_api_answer_callback_query(int type, const char id[], const char arg[], int show_alert)
 {
 	assert(_base_api != NULL);
 
 	int ret = -1;
-	if (CSTR_IS_EMPTY(id, text, url))
+	const char *arg_key;
+	switch (type) {
+	case TG_API_ANSWER_CALLBACK_TYPE_TEXT:
+		arg_key = "&text";
+		break;
+	case TG_API_ANSWER_CALLBACK_TYPE_URL:
+		arg_key = "&url";
+		break;
+	default:
+		return ret;
+	}
+
+	if (CSTR_IS_EMPTY(id, arg))
 		return ret;
 
 	Str str;
@@ -249,24 +261,14 @@ tg_api_answer_callback_query(const char id[], const char text[], const char url[
 	if (str_set_fmt(&str, "%s/answerCallbackQuery?callback_query_id=%s", _base_api, id) == NULL)
 		goto out0;
 
-	if (text != NULL) {
-		char *const new_text = curl_easy_escape(NULL, text, 0);
-		if (new_text == NULL)
+	{
+		char *const _new_arg = curl_easy_escape(NULL, arg, 0);
+		if (_new_arg == NULL)
 			goto out0;
 
-		const char *const _ret = str_append_fmt(&str, "&text=%s", new_text);
-		curl_free(new_text);
+		const char *const _ret = str_append_fmt(&str, "%s=%s", arg_key, _new_arg);
 
-		if (_ret == NULL)
-			goto out0;
-	} else if (url != NULL) {
-		char *const new_url = curl_easy_escape(NULL, url, 0);
-		if (new_url == NULL)
-			goto out0;
-
-		const char *const _ret = str_append_fmt(&str, "&url=%s", new_url);
-		curl_free(new_url);
-
+		curl_free(_new_arg);
 		if (_ret == NULL)
 			goto out0;
 	}
@@ -427,8 +429,6 @@ out0:
 static int
 _parse_response(const char resp[], json_object **res_obj)
 {
-	dump_json_str("_parse_response", resp);
-
 	json_object *const root_obj = json_tokener_parse(resp);
 	if (root_obj == NULL)
 		return -1;

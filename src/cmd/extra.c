@@ -130,7 +130,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		return;
 
 err0:
-	tg_api_answer_callback_query(cmd->id_callback, "Error!", NULL, 1);
+	answer_callback_query_text(cmd->id_callback, "Error!", 1);
 }
 
 

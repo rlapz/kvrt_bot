@@ -74,7 +74,7 @@ out0:
 	if (is_err == 0)
 		return;
 
-	tg_api_answer_callback_query(list.id_callback, "Error!", NULL, 1);
+	answer_callback_query_text(list.id_callback, "Error!", 1);
 }
 
 
@@ -207,29 +207,31 @@ out0:
 void
 cmd_general_deleter(const CmdParam *cmd)
 {
+	const char *text;
 	if (cmd->id_callback == NULL)
 		return;
 
 	int64_t from_id = 0;
 	if (cstr_to_int64(cmd->args, &from_id) < 0) {
-		tg_api_answer_callback_query(cmd->id_callback, "Invalid callback!", NULL, 0);
-		return;
+		text = "Invalid callback!";
+		goto out0;
 	}
 
 	int can_delete = 1;
 	if (cmd->id_user != from_id)
 		can_delete = is_admin(cmd->id_user, cmd->id_chat, cmd->id_owner);
 
-	if (can_delete) {
-		if (tg_api_delete_message(cmd->id_chat, cmd->id_message) < 0)
-			tg_api_answer_callback_query(cmd->id_callback, "Failed", NULL, 0);
-		else
-			tg_api_answer_callback_query(cmd->id_callback, "Deleted", NULL, 0);
-
-		return;
+	if (can_delete == 0) {
+		text = "Permission denied!";
+		goto out0;
 	}
 
-	tg_api_answer_callback_query(cmd->id_callback, "Permission denied!", NULL, 0);
+	text = "Deleted";
+	if (tg_api_delete_message(cmd->id_chat, cmd->id_message) < 0)
+		text = "Failed";
+
+out0:
+	answer_callback_query_text(cmd->id_callback, text, 0);
 }
 
 

@@ -354,11 +354,11 @@ _answer_callback(const Arg *arg)
 	}
 
 	const int show_alert = json_object_get_int(show_alert_obj);
+	int answ_type = TG_API_ANSWER_CALLBACK_TYPE_URL;
 	if (is_text)
-		ret = tg_api_answer_callback_query(id, value, NULL, show_alert);
-	else
-		ret = tg_api_answer_callback_query(id, NULL, value, show_alert);
+		answ_type = TG_API_ANSWER_CALLBACK_TYPE_TEXT;
 
+	ret = tg_api_answer_callback_query(answ_type, id, value, show_alert);
 	if (ret < 0)
 		resp = "failed to answer callback query";
 

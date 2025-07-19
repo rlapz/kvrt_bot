@@ -225,26 +225,26 @@ message_list_init(MessageList *l, const char args[])
 		goto err0;
 
 	if (timer == 0) {
-		int should_delete = 1;
+		int _should_delete = 1;
 		if (l->id_user != from_id)
-			should_delete = is_admin(l->id_user, l->id_chat, l->id_owner);
+			_should_delete = is_admin(l->id_user, l->id_chat, l->id_owner);
 
-		if (should_delete) {
+		if (_should_delete) {
+			const char *_text = "Deleted";
 			if (tg_api_delete_message(l->id_chat, l->id_message) < 0)
-				tg_api_answer_callback_query(l->id_callback, "Failed", NULL, 0);
-			else
-				tg_api_answer_callback_query(l->id_callback, "Deleted", NULL, 0);
+				_text = "Failed";
 
+			answer_callback_query_text(l->id_callback, _text, 0);
 			return -3;
 		}
 
-		tg_api_answer_callback_query(l->id_callback, "Permission denied!", NULL, 1);
+		answer_callback_query_text(l->id_callback, "Permission denied!", 1);
 		return -1;
 	}
 
 	const time_t diff = time(NULL) - timer;
 	if (diff >= CFG_LIST_TIMEOUT_S) {
-		tg_api_answer_callback_query(l->id_callback, "Expired!", NULL, 1);
+		answer_callback_query_text(l->id_callback, "Expired!", 1);
 		return -2;
 	}
 
@@ -254,7 +254,7 @@ message_list_init(MessageList *l, const char args[])
 	return 0;
 
 err0:
-	tg_api_answer_callback_query(l->id_callback, "Invalid callback!", NULL, 0);
+	answer_callback_query_text(l->id_callback, "Invalid callback!", 0);
 	return -1;
 }
 
