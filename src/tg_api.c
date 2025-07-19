@@ -14,6 +14,7 @@ static const char *_base_api = NULL;
 
 static int _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len,
 				  char *ret_str[]);
+static int _build_inline_keyboard_button(const TgApiInlineKeyboardButton *btn, Str *str);
 static int _parse_response(const char resp[], json_object **res_obj);
 static int _response_get_message_id(json_object *obj, int64_t *ret_id);
 
@@ -353,44 +354,7 @@ _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char
 
 		const TgApiInlineKeyboard *const kbd = &kbds[i];
 		for (unsigned j = 0; j < kbd->len; j++) {
-			const TgApiInlineKeyboardButton *const btn = &kbd->buttons[j];
-			if (str_append_fmt(&str, "{\"text\": \"%s\"", btn->text) == NULL)
-				goto out0;
-
-			if (btn->data != NULL) {
-				if (str_append_n(&str, ", \"callback_data\": \"", 20) == NULL)
-					goto out0;
-
-				for (unsigned k = 0; k < btn->data_len; k++) {
-					const char *_ret = NULL;
-					const TgApiInlineKeyboardButtonData *const d = &btn->data[k];
-					switch (d->type) {
-					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT:
-						_ret = str_append_fmt(&str, "%" PRIi64 " ", d->int_);
-						break;
-					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT:
-						_ret = str_append_fmt(&str, "%" PRIu64 " ", d->uint);
-						break;
-					case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
-						_ret = str_append_fmt(&str, "%s ", cstr_empty_if_null(d->text));
-						break;
-					}
-
-					if (_ret == NULL)
-						goto out0;
-				}
-
-				if (btn->data_len > 0)
-					str_pop(&str, 1);
-
-				if (str_append_c(&str, '"') == NULL)
-					goto out0;
-			} else if (btn->url != NULL) {
-				if (str_append_fmt(&str, ", \"url\": \"%s\"", btn->url) == NULL)
-					goto out0;
-			}
-
-			if (str_append_n(&str, "}, ", 3) == NULL)
+			if (_build_inline_keyboard_button(&kbd->buttons[j], &str) < 0)
 				goto out0;
 		}
 
@@ -416,6 +380,52 @@ _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char
 out0:
 	str_deinit(&str);
 	return ret;
+}
+
+
+static int
+_build_inline_keyboard_button(const TgApiInlineKeyboardButton *btn, Str *str)
+{
+	if (str_append_fmt(str, "{\"text\": \"%s\"", btn->text) == NULL)
+		return -1;
+
+	if (btn->data != NULL) {
+		if (str_append_n(str, ", \"callback_data\": \"", 20) == NULL)
+			return -1;
+
+		for (unsigned k = 0; k < btn->data_len; k++) {
+			const char *_ret = NULL;
+			const TgApiInlineKeyboardButtonData *const d = &btn->data[k];
+			switch (d->type) {
+			case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT:
+				_ret = str_append_fmt(str, "%" PRIi64 " ", d->int_);
+				break;
+			case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT:
+				_ret = str_append_fmt(str, "%" PRIu64 " ", d->uint);
+				break;
+			case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
+				_ret = str_append_fmt(str, "%s ", cstr_empty_if_null(d->text));
+				break;
+			}
+
+			if (_ret == NULL)
+				return -1;
+		}
+
+		if (btn->data_len > 0)
+			str_pop(str, 1);
+
+		if (str_append_c(str, '"') == NULL)
+			return -1;
+	} else if (btn->url != NULL) {
+		if (str_append_fmt(str, ", \"url\": \"%s\"", btn->url) == NULL)
+			return -1;
+	}
+
+	if (str_append_n(str, "}, ", 3) == NULL)
+		return -1;
+
+	return 0;
 }
 
 
