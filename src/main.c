@@ -307,15 +307,7 @@ _client_header_parse(Client *c, size_t last_len)
 static int
 _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 {
-	const char *secret = NULL;
-	size_t secret_len = 0;
-	const char *scontent_len = NULL;
-	size_t scontent_len_len = 0;
-	const char *host = NULL;
-	size_t host_len = 0;
-	const char *content_type = NULL;
-	size_t content_type_len = 0;
-	const Config *const config = &c->parent->config;
+	const Config *const cfg = &c->parent->config;
 	const ServerVerif *const vf = &c->parent->verif;
 
 
@@ -330,62 +322,63 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 
 	if (cstr_casecmp_n2(req->method, req->method_len, "POST", 4) == 0)
 		return -1;
-	if (cstr_casecmp_n2(req->path, req->path_len, config->hook_path, vf->hook_path_len) == 0)
+	if (cstr_casecmp_n2(req->path, req->path_len, cfg->hook_path, vf->hook_path_len) == 0)
 		return -1;
 
+	size_t flags = 0;
+	const size_t eflags = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3);
+	const size_t found_len = 4;
 	const size_t hdr_len = req->hdr_len;
-	for (size_t i = 0, found = 0; (i < hdr_len) && (found < 4); i++) {
+	for (size_t i = 0, found = 0; (i < hdr_len) && (found < found_len); i++) {
 		const struct phr_header *const hdr = &req->hdrs[i];
 		if (cstr_casecmp_n2(hdr->name, hdr->name_len, "Host", 4)) {
-			if (host == NULL)
-				found++;
+			if (cstr_casecmp_n2(vf->hook_url, vf->hook_url_len, hdr->value, hdr->value_len) == 0)
+				return -1;
 
-			host = hdr->value;
-			host_len = hdr->value_len;
+			found++;
+			flags |= (1 << 0);
+			continue;
 		}
 
 		if (cstr_casecmp_n2(hdr->name, hdr->name_len, "Content-Type", 12)) {
-			if (content_type == NULL)
-				found++;
+			if (cstr_casecmp_n2(hdr->value, hdr->value_len, "application/json", 16) == 0)
+				return -1;
 
-			content_type = hdr->value;
-			content_type_len = hdr->value_len;
+			found++;
+			flags |= (1 << 1);
+			continue;
 		}
 
 		if (cstr_casecmp_n2(hdr->name, hdr->name_len, "Content-Length", 14)) {
-			if (scontent_len == NULL)
-				found++;
+			if ((hdr->value == NULL) || (hdr->value_len >= UINT64_DIGITS_LEN))
+				return -1;
 
-			scontent_len = hdr->value;
-			scontent_len_len = hdr->value_len;
+			uint64_t _clen;
+			if (cstr_to_uint64_n(hdr->value, hdr->value_len, &_clen) < 0)
+				return -1;
+
+			/* TODO: properly handle content length; don't panic! */
+			assert(_clen < SIZE_MAX);
+
+			*content_len = (size_t)_clen;
+			found++;
+			flags |= (1 << 2);
+			continue;
 		}
 
 		if (cstr_casecmp_n2(hdr->name, hdr->name_len, "X-Telegram-Bot-Api-Secret-Token", 31)) {
-			if (secret == NULL)
-				found++;
+			if (val_cmp_n2(cfg->api_secret, vf->api_secret_len, hdr->value, hdr->value_len) == 0)
+				return -1;
 
-			secret = hdr->value;
-			secret_len = hdr->value_len;
+			found++;
+			flags |= (1 << 3);
+			continue;
 		}
 	}
 
-	if ((scontent_len == NULL) || (scontent_len_len >= UINT64_DIGITS_LEN))
-		return -1;
-	if (val_cmp_n2(config->api_secret, vf->api_secret_len, secret, secret_len) == 0)
-		return -1;
-	if (cstr_casecmp_n2(vf->hook_url, vf->hook_url_len, host, host_len) == 0)
-		return -1;
-	if (cstr_casecmp_n2(content_type, content_type_len, "application/json", 16) == 0)
+	if (flags != eflags)
 		return -1;
 
-	uint64_t clen;
-	if (cstr_to_uint64_n(scontent_len, scontent_len_len, &clen) < 0)
-		return -1;
-
-	/* TODO: properly handle content length; don't panic! */
-	assert(clen < SIZE_MAX);
-
-	*content_len = (size_t)clen;
 	/* TODO: add more validations */
 	return 0;
 }
