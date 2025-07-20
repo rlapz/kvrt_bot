@@ -16,8 +16,8 @@
 
 #define _NEKO_BASE_URL "https://api.nekosia.cat/api/v1"
 
-/* TODO: enable NSFW type */
-#define _WAIFU_BASE_URL "https://api.waifu.pics/sfw"
+#define _WAIFU_BASE_URL      "https://api.waifu.pics/sfw"
+#define _WAIFU_BASE_URL_NSFW "https://api.waifu.pics/nsfw"
 
 
 static const char *const _anime_sched_filters[] = {
@@ -40,6 +40,11 @@ static const char *const _waifu_filters[] = {
 	"waifu", "neko", "shinobu", "megumin", "bully", "cuddle", "cry", "hug", "awoo", "kiss", "lick",
 	"pat", "smug", "bonk", "yeet", "blush", "smile", "wave", "highfive", "handhold", "nom", "bite",
 	"glomp", "slap", "kill", "kick", "happy", "wink", "poke", "dance", "cringe",
+};
+
+
+static const char *const _waifu_filters_nsfw[] = {
+	"waifu", "neko", "trap", "blowjob",
 };
 
 
@@ -152,7 +157,7 @@ cmd_extra_neko(const CmdParam *cmd)
 		str_pop(&str, 2);
 		str_append_c(&str, '`');
 
-		send_text_format(cmd->msg, str.cstr);
+		send_text_format_fmt(cmd->msg, 1, "%s", str.cstr);
 		str_deinit(&str);
 		return;
 	}
@@ -188,10 +193,14 @@ cmd_extra_waifu(const CmdParam *cmd)
 {
 	Str str;
 	const char *filter = "waifu";
+	const int cflags = model_chat_get_flags(cmd->id_chat);
+	const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
 	if (cstr_is_empty(cmd->args) == 0) {
-		for (int i = 0; i < (int)LEN(_waifu_filters); i++) {
-			if (cstr_casecmp(cmd->args, _waifu_filters[i])) {
-				filter = _waifu_filters[i];
+		const char *const *const _filters = (show_nsfw)? _waifu_filters_nsfw : _waifu_filters;
+		const size_t _filters_len = (show_nsfw)? LEN(_waifu_filters_nsfw) : LEN(_waifu_filters);
+		for (size_t i = 0; i < _filters_len; i++) {
+			if (cstr_casecmp(cmd->args, _filters[i])) {
+				filter = _filters[i];
 				goto out0;
 			}
 		}
@@ -202,13 +211,13 @@ cmd_extra_waifu(const CmdParam *cmd)
 		}
 
 		str_set(&str, "Invalid argument\\!\nAvailable arguments:`\n");
-		for (int i = 0; i < (int)LEN(_waifu_filters); i++)
-			str_append_fmt(&str, "%s, ", _waifu_filters[i]);
+		for (size_t i = 0; i < _filters_len; i++)
+			str_append_fmt(&str, "%s, ", _filters[i]);
 
 		str_pop(&str, 2);
 		str_append_c(&str, '`');
 
-		send_text_format(cmd->msg, str.cstr);
+		send_text_format_fmt(cmd->msg, 1, "%s", str.cstr);
 		str_deinit(&str);
 		return;
 	}
@@ -217,7 +226,8 @@ out0:
 	if (str_init_alloc(&str, 1024) < 0)
 		return;
 
-	const char *const req = str_set_fmt(&str, "%s/%s", _WAIFU_BASE_URL, filter);
+	const char *const base_url = (show_nsfw)? _WAIFU_BASE_URL_NSFW : _WAIFU_BASE_URL;
+	const char *const req = str_set_fmt(&str, "%s/%s", base_url, filter);
 	if (req == NULL)
 		goto out1;
 
