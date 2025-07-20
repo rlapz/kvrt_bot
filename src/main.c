@@ -278,7 +278,7 @@ _client_header_parse(Client *c, size_t last_len)
 	if (ret < 0)
 		return ret;
 
-	size_t content_len;
+	size_t content_len = 0;
 	if (_client_header_validate(c, &req, &content_len) < 0)
 		return -1;
 
