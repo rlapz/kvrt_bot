@@ -23,6 +23,8 @@ static void _admin_load(const TgMessage *msg);
 void
 update_handle(const Update *u)
 {
+	log_info("update: update_handle: %s", json_object_to_json_string_ext(u->resp, JSON_C_TO_STRING_PRETTY));
+
 	TgUpdate tgu;
 	if (tg_update_parse(&tgu, u->resp) < 0) {
 		log_err(0, "update: update_handle: tg_update_parse: failed");

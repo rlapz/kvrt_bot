@@ -391,8 +391,6 @@ _client_body_parse(Client *c)
 	if (json == NULL)
 		log_err(0, "main: _client_body_parse: json_tokene_parse: failed to parse");
 
-	dump_json_str("main: _client_body_parse", c->buffer);
-
 	c->body = json;
 }
 

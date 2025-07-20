@@ -19,6 +19,7 @@ typedef struct thrd_pool_job {
 typedef struct thrd_pool ThrdPool;
 
 typedef struct thrd_pool_worker {
+	unsigned  index;
 	ThrdPool *parent;
 	thrd_t    thread;
 } ThrdPoolWorker;
@@ -99,8 +100,10 @@ thrd_pool_deinit(void)
 
 	_stop(t);
 	for (unsigned i = 0; i < t->workers_len; i++) {
-		if (thrd_join(t->workers[i].thread, NULL) != thrd_success) {
-			log_err(0, "thrd_pool: thrd_pool_destroy: thrd_join: failed to join %u", i);
+		ThrdPoolWorker *const wrk = &t->workers[i];
+		if (thrd_join(wrk->thread, NULL) != thrd_success) {
+			log_err(0, "thrd_pool: thrd_pool_destroy: thrd_join: [%u:%p]: failed to join",
+				wrk->index, (void*)wrk);
 		}
 	}
 
@@ -151,10 +154,11 @@ _create_threads(ThrdPool *t)
 	for (; iter < t->workers_len; iter++) {
 		ThrdPoolWorker *const worker = &t->workers[iter];
 		worker->parent = t;
+		worker->index = iter;
 
-		log_debug("thrd_pool: _create_threads: worker: %u: %p", iter, (void *)worker);
+		log_info("thrd_pool: _create_threads: [%u:%p]", iter, (void *)worker);
 		if (thrd_create(&worker->thread, _worker_fn, worker) != thrd_success) {
-			log_err(0, "thrd_pool: _create_threads: thrd_create: failed to create thread: %u: %p",
+			log_err(0, "thrd_pool: _create_threads: thrd_create: [%u:%p]: failed to create thread",
 				iter, (void *)worker);
 			goto err0;
 		}
@@ -220,9 +224,8 @@ _worker_fn(void *udata)
 	void *tmp_ctx, *tmp_udata;
 
 
-	log_debug("thrd_pool: worker_fn: udata: %p: %p", udata, (void *)w);
-
 	mtx_lock(&t->mtx_general);
+	log_info("thrd_pool: worker_fn: [%u:%p]: running...", w->index, udata);
 	while (t->is_alive) {
 		while ((job = _jobs_dequeue(t)) == NULL) {
 			cnd_wait(&t->cond_job, &t->mtx_general);
@@ -244,6 +247,7 @@ _worker_fn(void *udata)
 	}
 
 out0:
+	log_info("thrd_pool: worker_fn: [%u:%p]: stopped", w->index, udata);
 	mtx_unlock(&t->mtx_general);
 	return 0;
 }
