@@ -59,7 +59,7 @@ static int _client_state_req_body(Client *c);
 static int _client_state_resp(Client *c);
 
 static int  _client_header_parse(Client *c, size_t last_len);
-static int  _client_header_validate(Client *c, HttpRequest *req, size_t *content_len);
+static int  _client_header_validate(const Client *c, const HttpRequest *req, size_t *content_len);
 static void _client_body_parse(Client *c);
 static int  _client_resp_send(Client *c);
 
@@ -305,7 +305,7 @@ _client_header_parse(Client *c, size_t last_len)
 
 
 static int
-_client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
+_client_header_validate(const Client *c, const HttpRequest *req, size_t *content_len)
 {
 	const Config *const cfg = &c->parent->config;
 	const ServerVerif *const vf = &c->parent->verif;

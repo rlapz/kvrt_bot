@@ -13,7 +13,8 @@
 #include "util.h"
 
 
-static int _send_text_add_deleter(const TgMessage *msg, const char text[]);
+static char *_message_list_add_template(const MessageList *l, const MessageListPagination *pag);
+static int   _send_text_add_deleter(const TgMessage *msg, const char text[]);
 
 
 /*
@@ -143,19 +144,6 @@ message_list_pagination_set(MessageListPagination *m, unsigned curr_page, unsign
 	m->page_size = CEIL(items_size, per_page);
 	m->items_len = items_len;
 	m->items_size = items_size;
-}
-
-
-static char *
-_message_list_add_template(const MessageList *l, const MessageListPagination *pag)
-{
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return NULL;
-
-	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
-			      cstr_empty_if_null(l->title), cstr_empty_if_null(l->body),
-			      pag->page_num, pag->page_size, pag->items_size);
 }
 
 
@@ -313,6 +301,19 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 /*
  * Private
  */
+static char *
+_message_list_add_template(const MessageList *l, const MessageListPagination *pag)
+{
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return NULL;
+
+	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
+			      cstr_empty_if_null(l->title), cstr_empty_if_null(l->body),
+			      pag->page_num, pag->page_size, pag->items_size);
+}
+
+
 static int
 _send_text_add_deleter(const TgMessage *msg, const char text[])
 {
