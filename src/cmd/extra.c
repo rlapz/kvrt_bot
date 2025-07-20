@@ -318,7 +318,7 @@ _anime_sched_fetch(const char filter[], int show_nsfw)
 		return -1;
 
 	const char *const req = str_set_fmt(&str, "%s?filter=%s&kids=false&sfw=%s",
-					    _ANIME_SCHED_BASE_URL, filter, bool_to_cstr(show_nsfw));
+					    _ANIME_SCHED_BASE_URL, filter, bool_to_cstr(!show_nsfw));
 	if (req == NULL)
 		goto out0;
 
