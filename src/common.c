@@ -13,6 +13,9 @@
 #include "util.h"
 
 
+static int _send_text_add_deleter(const TgMessage *msg, const char text[]);
+
+
 /*
  * tg_api wrappers
  */
@@ -47,23 +50,11 @@ send_text_plain_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
 		goto out0;
 	}
 
-	const TgApiInlineKeyboard kbd = {
-		.buttons = &(TgApiInlineKeyboardButton) {
-			.text = "Delete",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
-			},
-			.data_len = 2,
-		},
-		.len = 1,
-	};
-
 	char *const _str = tg_escape(str);
 	if (_str == NULL)
 		goto out0;
 
-	ret = tg_api_send_inline_keyboard(msg->chat.id, msg->id, _str, &kbd, 1, NULL);
+	ret = _send_text_add_deleter(msg, _str);
 	free(_str);
 
 out0:
@@ -103,19 +94,7 @@ send_text_format_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
 		goto out0;
 	}
 
-	const TgApiInlineKeyboard kbd = {
-		.buttons = &(TgApiInlineKeyboardButton) {
-			.text = "Delete",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
-			},
-			.data_len = 2,
-		},
-		.len = 1,
-	};
-
-	ret = tg_api_send_inline_keyboard(msg->chat.id, msg->id, str, &kbd, 1, NULL);
+	ret = _send_text_add_deleter(msg, str);
 
 out0:
 	free(str);
@@ -134,7 +113,7 @@ is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
 
 	const int privs = model_admin_get_privileges(chat_id, user_id);
 	if (privs < 0) {
-		log_err(0, "common: is_admin: Falied to get admin list");
+		log_err(0, "common: is_admin: Failed to get admin list");
 		return 0;
 	}
 
@@ -254,7 +233,7 @@ message_list_init(MessageList *l, const char args[])
 	return 0;
 
 err0:
-	answer_callback_query_text(l->id_callback, "Invalid callback!", 0);
+	answer_callback_query_text(l->id_callback, "Invalid callback!", 1);
 	return -1;
 }
 
@@ -328,4 +307,26 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 
 	free(body_list);
 	return ret;
+}
+
+
+/*
+ * Private
+ */
+static int
+_send_text_add_deleter(const TgMessage *msg, const char text[])
+{
+	const TgApiInlineKeyboard kbd = {
+		.buttons = &(TgApiInlineKeyboardButton) {
+			.text = "Delete",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+			},
+			.data_len = 2,
+		},
+		.len = 1,
+	};
+
+	return tg_api_send_inline_keyboard(msg->chat.id, msg->id, text, &kbd, 1, NULL);
 }

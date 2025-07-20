@@ -52,7 +52,7 @@ cmd_general_help(const CmdParam *cmd)
 		if (cstr_is_empty(list.id_callback) == 0)
 			goto out0;
 
-		send_text_plain(cmd->msg, "Falied to get chat flags!");
+		send_text_plain(cmd->msg, "Failed to get chat flags!");
 		return;
 	}
 
@@ -176,7 +176,7 @@ cmd_general_schedule_message(const CmdParam *cmd)
 	int64_t deadline_res;
 	if (__builtin_mul_overflow(deadline_tm, mul, &deadline_res)) {
 		send_text_plain(msg, "Overflow: Deadline value is too big!");
-		goto out0;
+		return;
 	}
 
 	ModelSchedMessage sch = {
