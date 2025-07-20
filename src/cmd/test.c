@@ -12,7 +12,7 @@ void
 cmd_test_echo(const CmdParam *cmd)
 {
 	//send_text_plain(cmd->msg, "Ok");
-	send_text_plain_fmt(cmd->msg, 1, NULL, "%s", "test");
+	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "%s", "test");
 }
 
 
@@ -34,7 +34,7 @@ cmd_test_sched(const CmdParam *cmd)
 	};
 
 	if (model_sched_message_add(&sch, (int64_t)timeout_s) <= 0) {
-		send_text_plain(msg, "Failed to set sechedule message");
+		SEND_TEXT_PLAIN(msg, "Failed to set sechedule message");
 		return;
 	}
 
@@ -61,14 +61,14 @@ cmd_test_sched(const CmdParam *cmd)
 void
 cmd_test_nsfw(const CmdParam *cmd)
 {
-	send_text_plain(cmd->msg, "😏");
+	SEND_TEXT_PLAIN(cmd->msg, "😏");
 }
 
 
 void
 cmd_test_admin(const CmdParam *cmd)
 {
-	send_text_plain(cmd->msg, "Pass");
+	SEND_TEXT_PLAIN(cmd->msg, "Pass");
 }
 
 

@@ -78,7 +78,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		send_text_plain(cmd->msg, "Failed to get chat flags!");
+		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
 		return;
 	}
 
@@ -91,7 +91,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 	if ((cmd->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (cmd->has_username == 0))
 		return;
 
-	send_text_plain(cmd->msg, "Invalid command!");
+	SEND_TEXT_PLAIN(cmd->msg, "Invalid command!");
 }
 
 
@@ -208,7 +208,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 		return 0;
 
 	if (is_valid_index(index, LEN(_cmd_builtin_list)) == 0) {
-		send_text_plain(c->msg, "Failed to get builtin command data!");
+		SEND_TEXT_PLAIN(c->msg, "Failed to get builtin command data!");
 		return 1;
 	}
 
@@ -230,7 +230,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	ModelCmdExtern ce;
 	const int ret = model_cmd_extern_get(&ce, c->name);
 	if (ret < 0) {
-		send_text_plain(c->msg, "Failed to get external command data!");
+		SEND_TEXT_PLAIN(c->msg, "Failed to get external command data!");
 		return 1;
 	}
 
@@ -247,7 +247,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 		 c->id_chat, c->id_user, c->id_message, ce.name, ce.file_name);
 
 	if (_spawn_child_process(c, ce.file_name) < 0) {
-		send_text_plain(c->msg, "Failed to execute external command!");
+		SEND_TEXT_PLAIN(c->msg, "Failed to execute external command!");
 		return 1;
 	}
 
@@ -264,7 +264,7 @@ _exec_cmd_message(const CmdParam *c)
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
 	const int ret = model_cmd_message_get_value(c->id_chat, c->name, value, LEN(value));
 	if (ret < 0) {
-		send_text_plain(c->msg, "Failed to get command message data!");
+		SEND_TEXT_PLAIN(c->msg, "Failed to get command message data!");
 		return 1;
 	}
 
@@ -274,7 +274,7 @@ _exec_cmd_message(const CmdParam *c)
 	log_info("cmd: _exec_cmd_message: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
 		 c->id_chat, c->id_user, c->msg->id, c->name);
 
-	send_text_format(c->msg, value);
+	SEND_TEXT_FORMAT(c->msg, value);
 	return 1;
 }
 
@@ -297,7 +297,7 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 
 	if (is_private == 0) {
 		if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
-			send_text_plain(c->msg, "Permission denied!");
+			SEND_TEXT_PLAIN(c->msg, "Permission denied!");
 			return 0;
 		}
 	}

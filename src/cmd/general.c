@@ -25,7 +25,7 @@ static char *_cmd_list_body(const ModelCmd list[], unsigned len, int flags,
 void
 cmd_general_start(const CmdParam *cmd)
 {
-	send_text_plain_fmt(cmd->msg, 1, NULL, "Hello! :3\nPlease click /help to show command list.");
+	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "Hello! :3\nPlease click /help to show command list.");
 }
 
 
@@ -52,7 +52,7 @@ cmd_general_help(const CmdParam *cmd)
 		if (cstr_is_empty(list.id_callback) == 0)
 			goto out0;
 
-		send_text_plain(cmd->msg, "Failed to get chat flags!");
+		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
 		return;
 	}
 
@@ -74,7 +74,7 @@ out0:
 	if (is_err == 0)
 		return;
 
-	answer_callback_query_text(list.id_callback, "Error!", 1);
+	ANSWER_CALLBACK_QUERY_TEXT(list.id_callback, "Error!", 1);
 }
 
 
@@ -83,7 +83,7 @@ cmd_general_dump(const CmdParam *cmd)
 {
 	const char *const json_str = json_object_to_json_string_ext(cmd->json, JSON_C_TO_STRING_PRETTY);
 	char *const resp = CSTR_CONCAT("```json\n", json_str, "```");
-	send_text_format_fmt(cmd->msg, 1, NULL, "%s", resp);
+	SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", resp);
 	free(resp);
 }
 
@@ -93,13 +93,13 @@ cmd_general_dump_admin(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		send_text_plain(msg, "There are no administrators in the private chat!");
+		SEND_TEXT_PLAIN(msg, "There are no administrators in the private chat!");
 		return;
 	}
 
 	json_object *json;
 	if (tg_api_get_admin_list(cmd->id_chat, NULL, &json) < 0) {
-		send_text_plain(msg, "Failed to get admin list!");
+		SEND_TEXT_PLAIN(msg, "Failed to get admin list!");
 		return;
 	}
 
@@ -175,7 +175,7 @@ cmd_general_schedule_message(const CmdParam *cmd)
 
 	int64_t deadline_res;
 	if (__builtin_mul_overflow(deadline_tm, mul, &deadline_res)) {
-		send_text_plain(msg, "Overflow: Deadline value is too big!");
+		SEND_TEXT_PLAIN(msg, "Overflow: Deadline value is too big!");
 		return;
 	}
 
@@ -188,14 +188,14 @@ cmd_general_schedule_message(const CmdParam *cmd)
 	};
 
 	if (model_sched_message_add(&sch, deadline_res) <= 0)
-		send_text_plain(msg, "Failed to set sechedule message!");
+		SEND_TEXT_PLAIN(msg, "Failed to set sechedule message!");
 	else
-		send_text_plain_fmt(msg, 1, NULL, "Success! Scheduled in: %s %s", deadline, desc);
+		SEND_TEXT_PLAIN_FMT(msg, 1, NULL, "Success! Scheduled in: %s %s", deadline, desc);
 
 	return;
 
 out0:
-	send_text_plain_fmt(msg, 1, NULL,
+	SEND_TEXT_PLAIN_FMT(msg, 1, NULL,
 		"%s [Deadline] [Message]\n"
 		"Allowed Deadline suffixes: \n"
 		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
@@ -231,7 +231,7 @@ cmd_general_deleter(const CmdParam *cmd)
 		text = "Failed";
 
 out0:
-	answer_callback_query_text(cmd->id_callback, text, 0);
+	ANSWER_CALLBACK_QUERY_TEXT(cmd->id_callback, text, 0);
 }
 
 

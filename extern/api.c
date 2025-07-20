@@ -276,11 +276,8 @@ _send_text(const Arg *arg)
 		.from = &(TgUser) { .id = user_id },
 		.chat = (TgChat) { .id = chat_id },
 	};
-	switch (type) {
-	case TG_API_TEXT_TYPE_PLAIN: ret = send_text_plain_fmt(&msg, deletable, &ret_id, "%s", text); break;
-	case TG_API_TEXT_TYPE_FORMAT: ret = send_text_format_fmt(&msg, deletable, &ret_id, "%s", text); break;
-	}
 
+	ret = send_text_fmt(&msg, type, deletable, &ret_id, "%s", text);
 	if (ret < 0)
 		resp = "failed to send message";
 
@@ -376,11 +373,11 @@ _answer_callback(const Arg *arg)
 	}
 
 	const int show_alert = json_object_get_int(show_alert_obj);
-	int answ_type = TG_API_ANSWER_CALLBACK_TYPE_URL;
 	if (is_text)
-		answ_type = TG_API_ANSWER_CALLBACK_TYPE_TEXT;
+		ret = ANSWER_CALLBACK_QUERY_TEXT(id, value, show_alert);
+	else
+		ret = ANSWER_CALLBACK_QUERY_URL(id, value, show_alert);
 
-	ret = tg_api_answer_callback_query(answ_type, id, value, show_alert);
 	if (ret < 0)
 		resp = "failed to answer callback query";
 

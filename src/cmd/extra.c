@@ -92,7 +92,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 
 	const char *filter;
 	if (_anime_sched_prep_filter(list.udata, &filter) < 0) {
-		send_text_format(cmd->msg, "Invalid argument\\!\n"
+		SEND_TEXT_FORMAT(cmd->msg, "Invalid argument\\!\n"
 					   "```Allowed:\n[sunday, monday, tuesday, wednesday, thursday, "
 					   "friday, saturday, unknown, other]```");
 		return;
@@ -135,7 +135,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		return;
 
 err0:
-	answer_callback_query_text(cmd->id_callback, "Error!", 1);
+	ANSWER_CALLBACK_QUERY_TEXT(cmd->id_callback, "Error!", 1);
 }
 
 
@@ -146,7 +146,7 @@ cmd_extra_neko(const CmdParam *cmd)
 	if (_neko_prep_filter(cmd->args, &filter) < 0) {
 		Str str;
 		if (str_init_alloc(&str, 1024) < 0) {
-			send_text_plain(cmd->msg, "Invalid argument!");
+			SEND_TEXT_PLAIN(cmd->msg, "Invalid argument!");
 			return;
 		}
 
@@ -157,7 +157,7 @@ cmd_extra_neko(const CmdParam *cmd)
 		str_pop(&str, 2);
 		str_append_c(&str, '`');
 
-		send_text_format_fmt(cmd->msg, 1, NULL, "%s", str.cstr);
+		SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", str.cstr);
 		str_deinit(&str);
 		return;
 	}
@@ -168,7 +168,7 @@ cmd_extra_neko(const CmdParam *cmd)
 
 	char *const source_url = tg_escape(neko.source_url);
 	char *const artist = tg_escape(neko.artist_username);
-	send_text_format_fmt(cmd->msg, 1, NULL,
+	SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL,
 		"`URL     :`  [Compressed](%s) \\- [Original](%s)\n"
 		"`Name    : %s` from `%s`\n"
 		"`Artist  :`  [%s](%s)\n"
@@ -206,7 +206,7 @@ cmd_extra_waifu(const CmdParam *cmd)
 		}
 
 		if (str_init_alloc(&str, 1024) < 0) {
-			send_text_plain(cmd->msg, "Invalid argument!");
+			SEND_TEXT_PLAIN(cmd->msg, "Invalid argument!");
 			return;
 		}
 
@@ -217,7 +217,7 @@ cmd_extra_waifu(const CmdParam *cmd)
 		str_pop(&str, 2);
 		str_append_c(&str, '`');
 
-		send_text_format_fmt(cmd->msg, 1, NULL, "%s", str.cstr);
+		SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", str.cstr);
 		str_deinit(&str);
 		return;
 	}
@@ -243,7 +243,7 @@ out0:
 	if (json_object_object_get_ex(obj, "url", &url) == 00)
 		goto out2;
 
-	send_text_plain_fmt(cmd->msg, 1, NULL, "%s", json_object_get_string(url));
+	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "%s", json_object_get_string(url));
 	json_object_put(obj);
 
 out2:

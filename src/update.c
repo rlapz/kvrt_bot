@@ -80,7 +80,7 @@ _handle_callback(const Update *u, const TgCallbackQuery *cb)
 	}
 
 	if (model_chat_init(cb->message->chat.id) < 0) {
-		send_text_plain(cb->message, "Failed to initialize chat");
+		SEND_TEXT_PLAIN(cb->message, "Failed to initialize chat");
 		return;
 	}
 
@@ -110,7 +110,7 @@ _handle_message_command(const Update *u, const TgMessage *msg)
 	}
 
 	if (model_chat_init(msg->chat.id) < 0) {
-		send_text_plain(msg, "Failed to initialize chat");
+		SEND_TEXT_PLAIN(msg, "Failed to initialize chat");
 		return;
 	}
 

@@ -14,26 +14,26 @@
 /*
  * tg_api wrappers
  */
-static inline void
-send_text_plain(const TgMessage *msg, const char text[])
-{
-	tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, text, NULL);
-}
+#define SEND_TEXT_PLAIN(MSG, TYPE)\
+	tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, MSG->chat.id, MSG->id, TYPE, NULL)
 
-static inline void
-send_text_format(const TgMessage *msg, const char text[])
-{
-	tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, msg->id, text, NULL);
-}
+#define SEND_TEXT_FORMAT(MSG, TYPE)\
+	tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, MSG->chat.id, MSG->id, TYPE, NULL)
 
-static inline void
-answer_callback_query_text(const char id[], const char text[], int show_alert)
-{
-	tg_api_answer_callback_query(TG_API_ANSWER_CALLBACK_TYPE_TEXT, id, text, show_alert);
-}
+#define SEND_TEXT_PLAIN_FMT(MSG, DELETABLE, RET_ID, ...)\
+	send_text_fmt(MSG, TG_API_TEXT_TYPE_PLAIN, DELETABLE, RET_ID, __VA_ARGS__)
 
-int send_text_plain_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const char fmt[], ...);
-int send_text_format_fmt(const TgMessage *msg, int deleteable, int64_t *ret_id, const char fmt[], ...);
+#define SEND_TEXT_FORMAT_FMT(MSG, DELETABLE, RET_ID, ...)\
+	send_text_fmt(MSG, TG_API_TEXT_TYPE_FORMAT, DELETABLE, RET_ID, __VA_ARGS__)
+
+#define ANSWER_CALLBACK_QUERY_TEXT(ID, TEXT, SHOW_ALERT)\
+	tg_api_answer_callback_query(TG_API_ANSWER_CALLBACK_TYPE_TEXT, ID, TEXT, SHOW_ALERT)
+
+#define ANSWER_CALLBACK_QUERY_URL(ID, URL, SHOW_ALERT)\
+	tg_api_answer_callback_query(TG_API_ANSWER_CALLBACK_TYPE_URL, ID, URL, SHOW_ALERT)
+
+
+int send_text_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, const char fmt[], ...);
 
 
 /*

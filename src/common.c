@@ -21,7 +21,7 @@ static int   _send_text_add_deleter(const TgMessage *msg, const char text[], int
  * tg_api wrappers
  */
 int
-send_text_plain_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const char fmt[], ...)
+send_text_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, const char fmt[], ...)
 {
 	int ret;
 	va_list va;
@@ -47,55 +47,24 @@ send_text_plain_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const 
 
 	str[ret] = '\0';
 	if (deletable == 0) {
-		ret = tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, str, NULL);
+		ret = tg_api_send_text(type, msg->chat.id, msg->id, str, NULL);
 		goto out0;
 	}
 
-	char *const _str = tg_escape(str);
-	if (_str == NULL)
-		goto out0;
+	ret = -1;
+	char *new_str;
+	switch (type) {
+	case TG_API_TEXT_TYPE_PLAIN:
+		new_str = tg_escape(str);
+		if (str != NULL)
+			ret = _send_text_add_deleter(msg, new_str, ret_id);
 
-	ret = _send_text_add_deleter(msg, _str, ret_id);
-	free(_str);
-
-out0:
-	free(str);
-	return ret;
-}
-
-
-int
-send_text_format_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const char fmt[], ...)
-{
-	int ret;
-	va_list va;
-
-	va_start(va, fmt);
-	ret = vsnprintf(NULL, 0, fmt, va);
-	va_end(va);
-
-	if (ret < 0)
-		return -1;
-
-	const size_t str_len = ((size_t)ret) + 1;
-	char *const str = malloc(str_len);
-	if (str == NULL)
-		return -1;
-
-	va_start(va, fmt);
-	ret = vsnprintf(str, str_len, fmt, va);
-	va_end(va);
-
-	if (ret < 0)
-		goto out0;
-
-	str[ret] = '\0';
-	if (deletable == 0) {
-		ret = tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, msg->chat.id, msg->id, str, NULL);
-		goto out0;
+		free(new_str);
+		break;
+	case TG_API_TEXT_TYPE_FORMAT:
+		ret = _send_text_add_deleter(msg, str, ret_id);
+		break;
 	}
-
-	ret = _send_text_add_deleter(msg, str, ret_id);
 
 out0:
 	free(str);
@@ -201,17 +170,17 @@ message_list_init(MessageList *l, const char args[])
 			if (tg_api_delete_message(l->id_chat, l->id_message) < 0)
 				_text = "Failed";
 
-			answer_callback_query_text(l->id_callback, _text, 0);
+			ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, _text, 0);
 			return -3;
 		}
 
-		answer_callback_query_text(l->id_callback, "Permission denied!", 1);
+		ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, "Permission denied!", 1);
 		return -1;
 	}
 
 	const time_t diff = time(NULL) - timer;
 	if (diff >= CFG_LIST_TIMEOUT_S) {
-		answer_callback_query_text(l->id_callback, "Expired!", 1);
+		ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, "Expired!", 1);
 		return -2;
 	}
 
@@ -221,7 +190,7 @@ message_list_init(MessageList *l, const char args[])
 	return 0;
 
 err0:
-	answer_callback_query_text(l->id_callback, "Invalid callback!", 1);
+	ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, "Invalid callback!", 1);
 	return -1;
 }
 
