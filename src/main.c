@@ -327,7 +327,7 @@ _client_header_validate(Client *c, HttpRequest *req, size_t *content_len)
 
 	size_t flags = 0;
 	const size_t eflags = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 3);
-	const size_t found_len = 4;
+	const size_t found_len = __builtin_popcount(eflags);
 	const size_t hdr_len = req->hdr_len;
 	for (size_t i = 0, found = 0; (i < hdr_len) && (found < found_len); i++) {
 		const struct phr_header *const hdr = &req->hdrs[i];
