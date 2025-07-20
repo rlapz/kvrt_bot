@@ -14,14 +14,14 @@
 
 
 static char *_message_list_add_template(const MessageList *l, const MessageListPagination *pag);
-static int   _send_text_add_deleter(const TgMessage *msg, const char text[]);
+static int   _send_text_add_deleter(const TgMessage *msg, const char text[], int64_t *ret_id);
 
 
 /*
  * tg_api wrappers
  */
 int
-send_text_plain_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
+send_text_plain_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const char fmt[], ...)
 {
 	int ret;
 	va_list va;
@@ -55,7 +55,7 @@ send_text_plain_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
 	if (_str == NULL)
 		goto out0;
 
-	ret = _send_text_add_deleter(msg, _str);
+	ret = _send_text_add_deleter(msg, _str, ret_id);
 	free(_str);
 
 out0:
@@ -65,7 +65,7 @@ out0:
 
 
 int
-send_text_format_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
+send_text_format_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const char fmt[], ...)
 {
 	int ret;
 	va_list va;
@@ -95,7 +95,7 @@ send_text_format_fmt(const TgMessage *msg, int deletable, const char fmt[], ...)
 		goto out0;
 	}
 
-	ret = _send_text_add_deleter(msg, str);
+	ret = _send_text_add_deleter(msg, str, ret_id);
 
 out0:
 	free(str);
@@ -315,7 +315,7 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 
 
 static int
-_send_text_add_deleter(const TgMessage *msg, const char text[])
+_send_text_add_deleter(const TgMessage *msg, const char text[], int64_t *ret_id)
 {
 	const TgApiInlineKeyboard kbd = {
 		.buttons = &(TgApiInlineKeyboardButton) {
@@ -329,5 +329,5 @@ _send_text_add_deleter(const TgMessage *msg, const char text[])
 		.len = 1,
 	};
 
-	return tg_api_send_inline_keyboard(msg->chat.id, msg->id, text, &kbd, 1, NULL);
+	return tg_api_send_inline_keyboard(msg->chat.id, msg->id, text, &kbd, 1, ret_id);
 }

@@ -157,7 +157,7 @@ cmd_extra_neko(const CmdParam *cmd)
 		str_pop(&str, 2);
 		str_append_c(&str, '`');
 
-		send_text_format_fmt(cmd->msg, 1, "%s", str.cstr);
+		send_text_format_fmt(cmd->msg, 1, NULL, "%s", str.cstr);
 		str_deinit(&str);
 		return;
 	}
@@ -168,7 +168,7 @@ cmd_extra_neko(const CmdParam *cmd)
 
 	char *const source_url = tg_escape(neko.source_url);
 	char *const artist = tg_escape(neko.artist_username);
-	send_text_format_fmt(cmd->msg, 1,
+	send_text_format_fmt(cmd->msg, 1, NULL,
 		"`URL     :`  [Compressed](%s) \\- [Original](%s)\n"
 		"`Name    : %s` from `%s`\n"
 		"`Artist  :`  [%s](%s)\n"
@@ -217,7 +217,7 @@ cmd_extra_waifu(const CmdParam *cmd)
 		str_pop(&str, 2);
 		str_append_c(&str, '`');
 
-		send_text_format_fmt(cmd->msg, 1, "%s", str.cstr);
+		send_text_format_fmt(cmd->msg, 1, NULL, "%s", str.cstr);
 		str_deinit(&str);
 		return;
 	}
@@ -243,7 +243,7 @@ out0:
 	if (json_object_object_get_ex(obj, "url", &url) == 00)
 		goto out2;
 
-	send_text_plain_fmt(cmd->msg, 1, "%s", json_object_get_string(url));
+	send_text_plain_fmt(cmd->msg, 1, NULL, "%s", json_object_get_string(url));
 	json_object_put(obj);
 
 out2:

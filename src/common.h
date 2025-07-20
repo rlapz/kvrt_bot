@@ -32,8 +32,8 @@ answer_callback_query_text(const char id[], const char text[], int show_alert)
 	tg_api_answer_callback_query(TG_API_ANSWER_CALLBACK_TYPE_TEXT, id, text, show_alert);
 }
 
-int send_text_plain_fmt(const TgMessage *msg, int deletable, const char fmt[], ...);
-int send_text_format_fmt(const TgMessage *msg, int deleteable, const char fmt[], ...);
+int send_text_plain_fmt(const TgMessage *msg, int deletable, int64_t *ret_id, const char fmt[], ...);
+int send_text_format_fmt(const TgMessage *msg, int deleteable, int64_t *ret_id, const char fmt[], ...);
 
 
 /*

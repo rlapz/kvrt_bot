@@ -12,7 +12,7 @@ void
 cmd_test_echo(const CmdParam *cmd)
 {
 	//send_text_plain(cmd->msg, "Ok");
-	send_text_plain_fmt(cmd->msg, 1, "test");
+	send_text_plain_fmt(cmd->msg, 1, NULL, "%s", "test");
 }
 
 

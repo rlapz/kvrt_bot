@@ -16,7 +16,7 @@ echo "exec file: $TG_API"
 # Example (send plain text)
 #
 #     ./api [Config]        [Type]    [Data]
-RES=$("$TG_API" "$CFG"  send_text "{ 'type': 'plain', 'chat_id': $3, 'message_id': $5, 'text': 'hello'}")
+RES=$("$TG_API" "$CFG"  send_text "{ 'type': 'plain', 'chat_id': $3, 'message_id': $5, 'user_id': $4, 'deletable': true, 'text': 'hello'}")
 
 MSG_ID=$(jq '.message_id' <<< "$RES")
 

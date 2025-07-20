@@ -238,6 +238,19 @@ _send_text(const Arg *arg)
 		goto out0;
 	}
 
+	json_object *user_id_obj;
+	if (json_object_object_get_ex(arg->data, "user_id", &user_id_obj) == 0) {
+		resp = "no 'user_id' field";
+		goto out0;
+	}
+
+	const int64_t user_id = json_object_get_int64(user_id_obj);
+
+	int deletable = 0;
+	json_object *deletable_obj;
+	if (json_object_object_get_ex(arg->data, "deletable", &deletable_obj))
+		deletable = json_object_get_boolean(deletable_obj);
+
 	json_object *text_obj;
 	if (json_object_object_get_ex(arg->data, "text", &text_obj) == 0) {
 		resp = "no 'text' field";
@@ -258,7 +271,16 @@ _send_text(const Arg *arg)
 		goto out0;
 	}
 
-	ret = tg_api_send_text(type, chat_id, msg_id, text, &ret_id);
+	const TgMessage msg = {
+		.id = msg_id,
+		.from = &(TgUser) { .id = user_id },
+		.chat = (TgChat) { .id = chat_id },
+	};
+	switch (type) {
+	case TG_API_TEXT_TYPE_PLAIN: ret = send_text_plain_fmt(&msg, deletable, &ret_id, "%s", text); break;
+	case TG_API_TEXT_TYPE_FORMAT: ret = send_text_format_fmt(&msg, deletable, &ret_id, "%s", text); break;
+	}
+
 	if (ret < 0)
 		resp = "failed to send message";
 

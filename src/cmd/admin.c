@@ -93,7 +93,7 @@ cmd_admin_reload(const CmdParam *cmd)
 		goto out0;
 	}
 
-	send_text_plain_fmt(msg, 1, "Done! %d admin(s) loaded", db_admin_list_len);
+	send_text_plain_fmt(msg, 1, NULL, "Done! %d admin(s) loaded", db_admin_list_len);
 
 out0:
 	json_object_put(json);
@@ -113,7 +113,7 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	SpaceTokenizer st_name;
 	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
-		send_text_plain_fmt(msg, 1,
+		send_text_plain_fmt(msg, 1, NULL,
 			"Invalid argument!\n"
 			"  Set:   %s [command_name] message ...\n"
 			"  Unset: %s [command_name] [EMPTY]\n\n"
@@ -197,9 +197,9 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	}
 
 	if (msg_text == NULL)
-		send_text_plain_fmt(msg, 1, "'%s': Removed", name);
+		send_text_plain_fmt(msg, 1, NULL, "'%s': Removed", name);
 	else
-		send_text_plain_fmt(msg, 1, "'%s': Added/updated", name);
+		send_text_plain_fmt(msg, 1, NULL, "'%s': Added/updated", name);
 }
 
 
