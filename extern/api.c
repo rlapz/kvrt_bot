@@ -265,7 +265,7 @@ _send_text(const Arg *arg)
 
 	const int64_t msg_id = json_object_get_int64(msg_id_obj);
 
-	const char *const text = (const char *)json_object_get_string(text_obj);
+	const char *const text = json_object_get_string(text_obj);
 	if (cstr_is_empty(text)) {
 		resp = "'text': empty";
 		goto out0;
