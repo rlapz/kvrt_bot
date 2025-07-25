@@ -43,8 +43,9 @@ Standard ENV Variables:
 ===========================================================================
 API Argument list (to send a request):
  [0]: Config File
- [1]: Api Type
- [2]: Data (JSON)
+ [1]: CMD Name
+ [2]: Api Type
+ [3]: Data (JSON)
 
 Data list:
 --------------------------------------------------------------------------
@@ -61,6 +62,8 @@ Data list:
 
  resp:
  	{
+		"name": "xxxx",
+		"proc": "yyyy",
  		"error": "",                -> empty: success
  		"message_id": 777777777
  	}
@@ -77,6 +80,8 @@ Data list:
 
  resp:
  	{
+		"name": "xxxx",
+		"proc": "yyyy",
  		"error": "",                -> empty: success
  	}
 
@@ -90,6 +95,8 @@ Data list:
 
  resp:
  	{
+		"name": "xxxx",
+		"proc": "yyyy",
  		"error": "",                -> empty: success
  	}
 
@@ -107,6 +114,8 @@ Data list:
 
  resp:
  	{
+		"name": "xxxx",
+		"proc": "yyyy",
  		"error": "",                -> empty: success
  	}
 
@@ -121,8 +130,8 @@ Example:
         ./api config.json.bin send_text '{"type": "plain", "chat_id": 9999999, "message_id": 0, "text": "test" }'
 
         response:
-         	[Success]: { "error": "", "message_id": xxxxxxx }
-        	[Error]:   { "error": "Some error", "message_id": 0 }
+			[Success]: { "name": "/xxx", "proc": "aaaa", "error": "", "message_id": xxxxxxx }
+			[Error]:   { "name": "/xxx", "proc: "aaaa", "error": "Some error", "message_id": 0 }
 
 	See: 'test.sh' file
 
