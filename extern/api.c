@@ -195,12 +195,12 @@ _get_parent_proc(Arg *a)
 		return -1;
 
 
-	ret = -1;
 	path[ret] = '\0';
 	const int fd = open(path, O_RDONLY);
 	if (fd < 0)
 		return -1;
 
+	ret = -1;
 	size_t total = 0;
 	const size_t rsize = LEN(a->proc_name);
 	char *const buffer = a->proc_name;
