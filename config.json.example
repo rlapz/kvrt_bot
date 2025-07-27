@@ -24,7 +24,7 @@
     },
     "cmd_extern": {
         "api": "./extern/api",
-        "workdir": "./extern",
+        "root_dir": "./extern",
         "log_file": "./extern/log.txt"
     }
 }
