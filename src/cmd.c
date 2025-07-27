@@ -10,30 +10,6 @@
 #include "util.h"
 
 
-/*
- * CmdExtern child process argument list:
- * CMD:
- * 	0: Executable file
- * 	1: CMD Name
- * 	2: Exec type "cmd"
- * 	3: Chat ID
- * 	4: User ID
- * 	5: Message ID
- * 	6: Chat text
- * 	7: Raw JSON
- *
- * Callback:
- * 	0: Executable file
- * 	1: CMD Name
- * 	2: Exec type "callback"
- * 	3: Chat ID
- * 	4: User ID
- * 	5: Message ID
- * 	6: Callback ID
- * 	7: Data
- * 	8: Raw JSON
- */
-
 #define _CMD_EXTERN_ARGS_SIZE (16)
 
 
@@ -50,7 +26,7 @@ static int  _exec_builtin(const CmdParam *c, int chat_flags);
 static int  _exec_extern(const CmdParam *c, int chat_flags);
 static int  _exec_cmd_message(const CmdParam *c);
 static int  _verify(const CmdParam *c, int chat_flags, int flags);
-static int  _spawn_child_process(const CmdParam *c, const char file_name[]);
+static int  _spawn_child_process(const CmdParam *c, int chat_flags, const char file_name[]);
 
 
 /*
@@ -246,7 +222,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	log_info("cmd: _exec_extern: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s: %s",
 		 c->id_chat, c->id_user, c->id_message, ce.name, ce.file_name);
 
-	if (_spawn_child_process(c, ce.file_name) < 0) {
+	if (_spawn_child_process(c, chat_flags, ce.file_name) < 0) {
 		SEND_TEXT_PLAIN(c->msg, "Failed to execute external command!");
 		return 1;
 	}
@@ -307,7 +283,7 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 
 
 static int
-_spawn_child_process(const CmdParam *c, const char file_name[])
+_spawn_child_process(const CmdParam *c, int chat_flags, const char file_name[])
 {
 	const int is_callback = (c->id_callback != NULL);
 
@@ -319,6 +295,10 @@ _spawn_child_process(const CmdParam *c, const char file_name[])
 	};
 
 	int i = 3;
+
+	char cflags[24];
+	snprintf(cflags, LEN(cflags), "%d", chat_flags);
+	argv[i++] = cflags;
 
 	char chat_id[24];
 	snprintf(chat_id, LEN(chat_id), "%" PRIi64, c->id_chat);

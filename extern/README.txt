@@ -11,22 +11,24 @@ CMD:
 	0: Executable file
 	1: CMD Name
 	2: Exec type "cmd"
-	3: Chat ID
-	4: User ID
-	5: Message ID
-	6: Chat text
-	7: Raw JSON
+	4: Chat Flags
+	5: Chat ID
+	6: User ID
+	7: Message ID
+	8: Chat text
+	9: Raw JSON
 
 Callback:
 	0: Executable file
 	1: CMD Name
 	2: Exec type "callback"
-	3: Chat ID
-	4: User ID
-	5: Message ID
-	6: Callback ID
-	7: Raw JSON
-	8-n: User data
+	3: Chat Flags
+	4: Chat ID
+	5: User ID
+	6: Message ID
+	7: Callback ID
+	8: Raw JSON
+	9-n: User data
 
 Standard ENV Variables:
 	TG_API                  -> kvrt_bot api executable file
