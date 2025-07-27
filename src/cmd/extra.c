@@ -14,8 +14,6 @@
 #define _ANIME_SCHED_LIMIT_SIZE     (3)
 #define _ANIME_SCHED_EXPIRE         (86400) // default: 1 day
 
-#define _NEKO_BASE_URL "https://api.nekosia.cat/api/v1"
-
 #define _WAIFU_BASE_URL      "https://api.waifu.pics/sfw"
 #define _WAIFU_BASE_URL_NSFW "https://api.waifu.pics/nsfw"
 
@@ -23,16 +21,6 @@
 static const char *const _anime_sched_filters[] = {
 	"sunday", "monday", "tuesday", "wednesday", "thursday", "friday",
 	"saturday", "unknown", "other",
-};
-
-
-static const char *const _neko_filters[] = {
-	"random", "catgirl", "foxgirl", "wolf-girl", "animal-ears", "tail", "tail-with-ribbon",
-	"tail-from-under-skirt", "cute", "cuteness-is-justice", "blue-archive", "girl", "young-girl",
-	"maid", "maid-uniform", "vtuber", "w-sitting", "lying-down", "hands-forming-a-heart",
-	"wink", "valentine", "headphones", "thigh-high-socks", "knee-high-socks", "white-tights",
-	"black-tights", "heterochromia", "uniform", "sailor-uniform", "hoodie", "ribbon", "white-hair",
-	"blue-hair", "long-hair", "blonde", "blue-eyes", "purple-eyes",
 };
 
 
@@ -48,28 +36,12 @@ static const char *const _waifu_filters_nsfw[] = {
 };
 
 
-typedef struct neko {
-	const char  *compressed_url;
-	const char  *original_url;
-	const char  *artist_username;
-	const char  *artist_profile_url;
-	const char  *source_url;
-	const char  *anime_char_name;
-	const char  *anime_name;
-	const char  *category;
-	json_object *json;
-} Neko;
-
-
 static int   _anime_sched_prep_filter(const char filter[], const char *res[]);
 static int   _anime_sched_check_cache(const char filter[]);
 static int   _anime_sched_fetch(const char filter[], int show_nsfw);
 static int   _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj);
 static void  _anime_sched_parse_list(json_object *list_obj, char *out[]);
 static char *_anime_sched_build_body(const ModelAnimeSched list[], int len, int start);
-
-static int _neko_prep_filter(const char filter[], const char *res[]);
-static int _neko_fetch(Neko *n, const char filter[]);
 
 
 /*
@@ -136,55 +108,6 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 
 err0:
 	ANSWER_CALLBACK_QUERY_TEXT(cmd->id_callback, "Error!", 1);
-}
-
-
-void
-cmd_extra_neko(const CmdParam *cmd)
-{
-	const char *filter;
-	if (_neko_prep_filter(cmd->args, &filter) < 0) {
-		Str str;
-		if (str_init_alloc(&str, 1024) < 0) {
-			SEND_TEXT_PLAIN(cmd->msg, "Invalid argument!");
-			return;
-		}
-
-		str_set(&str, "Invalid argument\\!\nAvailable arguments:`\n");
-		for (int i = 0; i < (int)LEN(_neko_filters); i++)
-			str_append_fmt(&str, "%s, ", _neko_filters[i]);
-
-		str_pop(&str, 2);
-		str_append_c(&str, '`');
-
-		SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", str.cstr);
-		str_deinit(&str);
-		return;
-	}
-
-	Neko neko;
-	if (_neko_fetch(&neko, filter) < 0)
-		return;
-
-	char *const source_url = tg_escape(neko.source_url);
-	char *const artist = tg_escape(neko.artist_username);
-	SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL,
-		"`URL     :`  [Compressed](%s) \\- [Original](%s)\n"
-		"`Name    : %s` from `%s`\n"
-		"`Artist  :`  [%s](%s)\n"
-		"`Source  :`  %s\n"
-		"`Category: %s`",
-		neko.compressed_url, neko.original_url,
-		((neko.anime_char_name == NULL)? "[Unknown]" : neko.anime_char_name),
-		((neko.anime_name == NULL)? "[Unknown]" : neko.anime_name),
-		cstr_empty_if_null(artist),
-		cstr_empty_if_null(neko.artist_profile_url),
-		cstr_empty_if_null(source_url),
-		neko.category);
-
-	free(source_url);
-	free(artist);
-	json_object_put(neko.json);
 }
 
 
@@ -487,118 +410,4 @@ _anime_sched_build_body(const ModelAnimeSched list[], int len, int start)
 
 	str_pop(&str, 1);
 	return str.cstr;
-}
-
-
-static int
-_neko_prep_filter(const char filter[], const char *res[])
-{
-	if (cstr_is_empty(filter)) {
-		*res = "random";
-		return 0;
-	}
-
-	for (int i = 0; i < (int)LEN(_neko_filters); i++) {
-		if (cstr_casecmp(filter, _neko_filters[i])) {
-			*res = _neko_filters[i];
-			return 0;
-		}
-	}
-
-	return -1;
-}
-
-
-static int
-_neko_fetch(Neko *n, const char filter[])
-{
-	int ret = -1;
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return -1;
-
-	const char *const req = str_set_fmt(&str, "%s/images/%s", _NEKO_BASE_URL, filter);
-	if (req == NULL)
-		goto out0;
-
-	char *const res = http_send_get(req, NULL);
-	if (res == NULL)
-		goto out0;
-
-	memset(n, 0, sizeof(*n));
-	json_object *const obj = json_tokener_parse(res);
-	if (obj == NULL)
-		goto out1;
-
-	json_object *tmp_obj;
-	if (json_object_object_get_ex(obj, "success", &tmp_obj) == 0)
-		goto out2;
-
-	if (json_object_get_boolean(tmp_obj) == 0)
-		goto out2;
-
-	json_object *img_obj;
-	if (json_object_object_get_ex(obj, "image", &img_obj) == 0)
-		goto out2;
-
-	if (json_object_object_get_ex(img_obj, "original", &tmp_obj) == 0)
-		goto out2;
-
-	if (json_object_object_get_ex(tmp_obj, "url", &tmp_obj) == 0)
-		goto out2;
-
-	n->original_url = json_object_get_string(tmp_obj);
-	if (json_object_object_get_ex(img_obj, "compressed", &tmp_obj) == 0)
-		goto out2;
-
-	if (json_object_object_get_ex(tmp_obj, "url", &tmp_obj) == 0)
-		goto out2;
-
-	n->compressed_url = json_object_get_string(tmp_obj);
-
-	json_object *attr;
-	if (json_object_object_get_ex(obj, "attribution", &attr) == 0)
-		goto out2;
-
-	json_object *source;
-	if (json_object_object_get_ex(obj, "source", &source) == 0)
-		goto out2;
-
-	if (json_object_object_get_ex(source, "url", &tmp_obj))
-		n->source_url = json_object_get_string(tmp_obj);
-
-	json_object *artist;
-	if (json_object_object_get_ex(attr, "artist", &artist)) {
-		if (json_object_object_get_ex(artist, "username", &tmp_obj))
-			n->artist_username = json_object_get_string(tmp_obj);
-		if (json_object_object_get_ex(artist, "profile", &tmp_obj))
-			n->artist_profile_url = json_object_get_string(tmp_obj);
-	}
-
-	json_object *anime;
-	if (json_object_object_get_ex(obj, "anime", &anime) == 0)
-		goto out2;
-
-	if (json_object_object_get_ex(anime, "title", &tmp_obj))
-		n->anime_name = json_object_get_string(tmp_obj);
-	if (json_object_object_get_ex(anime, "character", &tmp_obj))
-		n->anime_char_name = json_object_get_string(tmp_obj);
-
-	json_object *category;
-	if (json_object_object_get_ex(obj, "category", &category) == 0)
-		goto out2;
-
-	n->category = json_object_get_string(category);
-
-	n->json = obj;
-	ret = 0;
-
-out2:
-	if (ret < 0)
-		json_object_put(obj);
-out1:
-	free(res);
-out0:
-	str_deinit(&str);
-	return ret;
 }
