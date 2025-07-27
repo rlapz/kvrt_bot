@@ -14,25 +14,10 @@
 #define _ANIME_SCHED_LIMIT_SIZE     (3)
 #define _ANIME_SCHED_EXPIRE         (86400) // default: 1 day
 
-#define _WAIFU_BASE_URL      "https://api.waifu.pics/sfw"
-#define _WAIFU_BASE_URL_NSFW "https://api.waifu.pics/nsfw"
-
 
 static const char *const _anime_sched_filters[] = {
 	"sunday", "monday", "tuesday", "wednesday", "thursday", "friday",
 	"saturday", "unknown", "other",
-};
-
-
-static const char *const _waifu_filters[] = {
-	"waifu", "neko", "shinobu", "megumin", "bully", "cuddle", "cry", "hug", "awoo", "kiss", "lick",
-	"pat", "smug", "bonk", "yeet", "blush", "smile", "wave", "highfive", "handhold", "nom", "bite",
-	"glomp", "slap", "kill", "kick", "happy", "wink", "poke", "dance", "cringe",
-};
-
-
-static const char *const _waifu_filters_nsfw[] = {
-	"waifu", "neko", "trap", "blowjob",
 };
 
 
@@ -108,71 +93,6 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 
 err0:
 	ANSWER_CALLBACK_QUERY_TEXT(cmd->id_callback, "Error!", 1);
-}
-
-
-void
-cmd_extra_waifu(const CmdParam *cmd)
-{
-	Str str;
-	const char *filter = "waifu";
-	const int cflags = model_chat_get_flags(cmd->id_chat);
-	const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
-	if (cstr_is_empty(cmd->args) == 0) {
-		const char *const *const _filters = (show_nsfw)? _waifu_filters_nsfw : _waifu_filters;
-		const size_t _filters_len = (show_nsfw)? LEN(_waifu_filters_nsfw) : LEN(_waifu_filters);
-		for (size_t i = 0; i < _filters_len; i++) {
-			if (cstr_casecmp(cmd->args, _filters[i])) {
-				filter = _filters[i];
-				goto out0;
-			}
-		}
-
-		if (str_init_alloc(&str, 1024) < 0) {
-			SEND_TEXT_PLAIN(cmd->msg, "Invalid argument!");
-			return;
-		}
-
-		str_set(&str, "Invalid argument\\!\nAvailable arguments:`\n");
-		for (size_t i = 0; i < _filters_len; i++)
-			str_append_fmt(&str, "%s, ", _filters[i]);
-
-		str_pop(&str, 2);
-		str_append_c(&str, '`');
-
-		SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", str.cstr);
-		str_deinit(&str);
-		return;
-	}
-
-out0:
-	if (str_init_alloc(&str, 1024) < 0)
-		return;
-
-	const char *const base_url = (show_nsfw)? _WAIFU_BASE_URL_NSFW : _WAIFU_BASE_URL;
-	const char *const req = str_set_fmt(&str, "%s/%s", base_url, filter);
-	if (req == NULL)
-		goto out1;
-
-	char *const res = http_send_get(req, NULL);
-	if (res == NULL)
-		goto out1;
-
-	json_object *const obj = json_tokener_parse(res);
-	if (obj == NULL)
-		goto out2;
-
-	json_object *url;
-	if (json_object_object_get_ex(obj, "url", &url) == 00)
-		goto out2;
-
-	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "%s", json_object_get_string(url));
-	json_object_put(obj);
-
-out2:
-	free(res);
-out1:
-	str_deinit(&str);
 }
 
 
