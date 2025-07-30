@@ -636,17 +636,12 @@ str_append_c(Str *s, char c)
 
 
 char *
-str_set_fmt(Str *s, const char fmt[], ...)
+str_set_vfmt(Str *s, const char fmt[], va_list args)
 {
-	int ret;
 	va_list va;
+	va_copy(va, args);
 
-
-	/* determine required size */
-	va_start(va, fmt);
-	ret = vsnprintf(NULL, 0, fmt, va);
-	va_end(va);
-
+	int ret = vsnprintf(NULL, 0, fmt, va);
 	if (ret < 0)
 		return NULL;
 
@@ -662,10 +657,8 @@ str_set_fmt(Str *s, const char fmt[], ...)
 	if (_str_resize(s, cstr_len) < 0)
 		return NULL;
 
-	va_start(va, fmt);
+	va_copy(va, args);
 	ret = vsnprintf(s->cstr, cstr_len + 1, fmt, va);
-	va_end(va);
-
 	if (ret < 0)
 		return NULL;
 
@@ -676,17 +669,12 @@ str_set_fmt(Str *s, const char fmt[], ...)
 
 
 char *
-str_append_fmt(Str *s, const char fmt[], ...)
+str_append_vfmt(Str *s, const char fmt[], va_list args)
 {
-	int ret;
 	va_list va;
+	va_copy(va, args);
 
-
-	/* determine required size */
-	va_start(va, fmt);
-	ret = vsnprintf(NULL, 0, fmt, va);
-	va_end(va);
-
+	int ret = vsnprintf(NULL, 0, fmt, va);
 	if (ret < 0)
 		return NULL;
 
@@ -698,10 +686,9 @@ str_append_fmt(Str *s, const char fmt[], ...)
 		return NULL;
 
 	size_t len = s->len;
-	va_start(va, fmt);
-	ret = vsnprintf(s->cstr + len, cstr_len + 1, fmt, va);
-	va_end(va);
+	va_copy(va, args);
 
+	ret = vsnprintf(s->cstr + len, cstr_len + 1, fmt, va);
 	if (ret < 0)
 		return NULL;
 
@@ -709,6 +696,34 @@ str_append_fmt(Str *s, const char fmt[], ...)
 	s->len = len;
 	s->cstr[len] = '\0';
 	return s->cstr;
+}
+
+
+char *
+str_set_fmt(Str *s, const char fmt[], ...)
+{
+	char *ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = str_set_vfmt(s, fmt, va);
+	va_end(va);
+
+	return ret;
+}
+
+
+char *
+str_append_fmt(Str *s, const char fmt[], ...)
+{
+	char *ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = str_append_vfmt(s, fmt, va);
+	va_end(va);
+
+	return ret;
 }
 
 

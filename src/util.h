@@ -128,6 +128,8 @@ char *str_set_n(Str *s, const char cstr[], size_t len);
 char *str_append(Str *s, const char cstr[]);
 char *str_append_n(Str *s, const char cstr[], size_t len);
 char *str_append_c(Str *s, char c);
+char *str_set_vfmt(Str *s, const char fmt[], va_list args);
+char *str_append_vfmt(Str *s, const char fmt[], va_list args);
 char *str_set_fmt(Str *s, const char fmt[], ...);
 char *str_append_fmt(Str *s, const char fmt[], ...);
 char *str_pop(Str *s, size_t count);
