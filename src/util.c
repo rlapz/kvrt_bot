@@ -1417,13 +1417,14 @@ dump_json_obj(const char ctx[], json_object *json)
  * Log
  */
 static mtx_t _log_mutex;
-static int  _log_is_ready = 0;
+static int   _log_is_ready = 0;
 
 static const char *const _log_prefix[] = {
 	[LOG_TYPE_DEBUG] = "D",
 	[LOG_TYPE_INFO]  = "I",
-	[LOG_TYPE_ERR] = "E",
+	[LOG_TYPE_ERR]   = "E",
 };
+
 
 static FILE *
 _log_get_file(int type)
@@ -1494,4 +1495,5 @@ void
 log_deinit(void)
 {
 	mtx_destroy(&_log_mutex);
+	_log_is_ready = 0;
 }
