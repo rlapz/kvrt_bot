@@ -828,7 +828,7 @@ chld_add_env(const char key_value[])
 	if (new_kv == NULL)
 		return -1;
 
-	log_debug("chld: chld_add_env: \"%s\"", key_value);
+	LOG_DEBUG("chld", "\"%s\"", key_value);
 	c->envp[c->envp_len++] = new_kv;
 	return 0;
 }
@@ -854,7 +854,7 @@ chld_add_env_kv(const char key[], const char val[])
 	if (kv == NULL)
 		return -1;
 
-	log_debug("chld: chld_add_env_kv: \"%s=%s\"", key, val);
+	LOG_DEBUG("chld", "\"%s=%s\"", key, val);
 	c->envp[c->envp_len++] = kv;
 	return 0;
 }
@@ -871,39 +871,39 @@ chld_spawn(const char file[], char *const argv[])
 
 	const unsigned count = c->count;
 	if (count == CFG_CHLD_ITEMS_SIZE) {
-		log_err(0, "chld_spawn: slot full");
+		LOG_ERRN("chld", "%s", "slot full");
 		goto out0;
 	}
 
 	posix_spawn_file_actions_t act;
 	if (posix_spawn_file_actions_init(&act) != 0) {
-		log_err(errno, "chld_spawn: posix_spawn_file_actions_init: \"%s\"", file);
+		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_init: \"%s\"", file);
 		goto out0;
 	}
 
 	const int flags = O_WRONLY | O_CREAT | O_APPEND;
 	if (posix_spawn_file_actions_addopen(&act, STDOUT_FILENO, c->log_file, flags, 0644) != 0) {
-		log_err(errno, "chld_spawn: posix_spawn_file_actions_addopen: STDOUT: \"%s\"", file);
+		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_addopen: STDOUT: \"%s\"", file);
 		goto out1;
 	}
 
 	if (posix_spawn_file_actions_adddup2(&act, STDOUT_FILENO, STDERR_FILENO) != 0) {
-		log_err(errno, "chld_spawn: posix_spawn_file_actions_adddup2: \"%s\"", file);
+		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_adddup2: \"%s\"", file);
 		goto out1;
 	}
 
 	if (posix_spawn_file_actions_addchdir_np(&act, c->path) != 0) {
-		log_err(errno, "chld_spawn: posix_spawn_file_actions_addchdir_np: \"%s\"", file);
+		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_addchdir_np: \"%s\"", file);
 		goto out1;
 	}
 
 	const unsigned slot = c->slots[count];
 	if (posix_spawn(&c->pids[slot], file, &act, NULL, argv, c->envp) != 0) {
-		log_err(errno, "chld_spawn: posix_spawn: \"%s\"", file);
+		LOG_ERRP("chld", "chld", "posix_spawn: \"%s\"", file);
 		goto out1;
 	}
 
-	log_debug("chld_spawn: spawn: \"%s\": %d: [%u:%u]", file, c->pids[slot], slot, c->count);
+	LOG_DEBUG("chld", "spawn: \"%s\": %d: [%u:%u]", file, c->pids[slot], slot, c->count);
 
 	c->entries[count] = slot;
 	c->count = count + 1;
@@ -939,7 +939,7 @@ chld_reap(void)
 		rcount++;
 		i--;
 
-		log_debug("chld_reap: reap: %d: [%u:%u]", c->pids[slot], slot, count);
+		LOG_DEBUG("chld", "reap: %d: [%u:%u]", c->pids[slot], slot, count);
 	}
 
 	assert(rcount <= c->count);
@@ -963,7 +963,7 @@ chld_wait_all(void)
 		const unsigned slot = c->entries[i];
 		const pid_t pid = c->pids[slot];
 
-		log_info("chld: chld_wait: waiting child process: (%u:%u): %d...", i, slot, pid);
+		LOG_INFO("chld", "waiting child process: (%u:%u): %d...", i, slot, pid);
 
 		waitpid(pid, NULL, 0);
 	}
@@ -1310,7 +1310,7 @@ http_send_get(const char url[], const char content_type[])
 	if (cstr_is_empty(url))
 		return NULL;
 
-	log_debug("http: http_send_get: url: %s", url);
+	LOG_DEBUG("http", "url: %s", url);
 	if (str_init_alloc(&str, 128) < 0)
 		return NULL;
 
@@ -1386,7 +1386,7 @@ dump_json_str(const char ctx[], const char json[])
 	if (obj == NULL)
 		return;
 
-	log_debug("\n----[Dump JSON]---\n%s:\n%s\n------------------", ctx,
+	LOG_DEBUG("dump", "\n----[JSON]---\n%s:\n%s\n------------------", ctx,
 		  json_object_to_json_string_ext(obj, JSON_C_TO_STRING_PRETTY));
 
 	json_object_put(obj);
@@ -1404,7 +1404,7 @@ dump_json_obj(const char ctx[], json_object *json)
 	if (json == NULL)
 		return;
 
-	log_debug("\n----[Dump JSON]---\n%s:\n%s\n------------------", ctx,
+	LOG_DEBUG("dump", "\n----[JSON]---\n%s:\n%s\n------------------", ctx,
 		  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
 #else
 	(void)ctx;
@@ -1416,37 +1416,77 @@ dump_json_obj(const char ctx[], json_object *json)
 /*
  * Log
  */
-static char   *_log_buffer = NULL;
-static size_t  _log_buffer_size;
-static mtx_t   _log_mutex;
+static mtx_t _log_mutex;
+static int  _log_is_ready = 0;
 
+static const char *const _log_prefix[] = {
+	[LOG_TYPE_DEBUG] = "D",
+	[LOG_TYPE_INFO]  = "I",
+	[LOG_TYPE_ERR] = "E",
+};
 
-static const char *
-_log_datetime_now(char dest[], size_t size)
+static FILE *
+_log_get_file(int type)
 {
-	const char *const ret = epoch_to_str(dest, size, time(NULL));
-	return (ret != NULL)? ret : "???";
+	switch (type) {
+	case LOG_TYPE_DEBUG: return stdout;
+	case LOG_TYPE_INFO: return stdout;
+	case LOG_TYPE_ERR: return stderr;
+	}
+
+	// Invalid log type
+	assert(0);
 }
 
 
 int
-log_init(size_t buffer_size)
+log_init(void)
 {
-	if (_log_buffer != NULL)
-		return 0;
-
-	char *const buffer = malloc(buffer_size);
-	if (buffer == NULL)
+	if (mtx_init(&_log_mutex, mtx_plain) != 0)
 		return -1;
 
-	if (mtx_init(&_log_mutex, mtx_plain) != 0) {
-		free(buffer);
-		return -1;
+	_log_is_ready = 1;
+	return 0;
+}
+
+
+void
+log_writer(int type, const char ctx[], const char fn_name[], int errnum, const char fmt[], ...)
+{
+	if (_log_is_ready == 0)
+		return;
+
+	FILE *const log_file = _log_get_file(type);
+	const char *const log_prefix = _log_prefix[type];
+
+	time_t raw;
+	char timestamp[128];
+	if (time(&raw) < 0) {
+		// Error getting current time
+		assert(0);
 	}
 
-	_log_buffer = buffer;
-	_log_buffer_size = buffer_size;
-	return 0;
+	struct tm *const tm = localtime(&raw);
+	strftime(timestamp, LEN(timestamp), "%Y-%m-%d %H:%M:%S", tm);
+
+	mtx_lock(&_log_mutex);
+	{
+		ctx = (ctx == NULL)? "(default)" : ctx;
+		fprintf(log_file, "%s: [%s]: %s: %s: ", log_prefix, timestamp, ctx, fn_name);
+
+		va_list args;
+		va_start(args, fmt);
+		vfprintf(log_file, fmt, args);
+		va_end(args);
+
+		if (errnum != 0)
+			fprintf(log_file, ": %s\n", strerror(errnum));
+		else
+			fprintf(log_file, "%s", "\n");
+
+		fflush(log_file);
+	}
+	mtx_unlock(&_log_mutex);
 }
 
 
@@ -1454,99 +1494,4 @@ void
 log_deinit(void)
 {
 	mtx_destroy(&_log_mutex);
-	free(_log_buffer);
-	_log_buffer_size = 0;
 }
-
-
-void
-log_err(int errnum, const char fmt[], ...)
-{
-	int ret;
-	va_list va;
-	char datetm[32];
-
-	if (_log_buffer == NULL)
-		return;
-
-	mtx_lock(&_log_mutex); // lock
-
-	va_start(va, fmt);
-	ret = vsnprintf(_log_buffer, _log_buffer_size, fmt, va);
-	va_end(va);
-
-	if (ret <= 0)
-		_log_buffer[0] = '\0';
-
-	if ((size_t)ret >= _log_buffer_size)
-		_log_buffer[_log_buffer_size - 1] = '\0';
-
-	const char *const dt_now = _log_datetime_now(datetm, sizeof(datetm));
-	if (errnum != 0)
-		fprintf(stderr, "E: [%s]: %s: %s\n", dt_now, _log_buffer, strerror(abs(errnum)));
-	else
-		fprintf(stderr, "E: [%s]: %s\n", dt_now, _log_buffer);
-
-	mtx_unlock(&_log_mutex); // unlock
-}
-
-
-void
-log_debug(__attribute_maybe_unused__ const char fmt[], ...)
-{
-#ifdef DEBUG
-	int ret;
-	va_list va;
-	char datetm[32];
-
-	if (_log_buffer == NULL)
-		return;
-
-	mtx_lock(&_log_mutex); // lock
-
-	va_start(va, fmt);
-	ret = vsnprintf(_log_buffer, _log_buffer_size, fmt, va);
-	va_end(va);
-
-	if (ret <= 0)
-		_log_buffer[0] = '\0';
-
-	if ((size_t)ret >= _log_buffer_size)
-		_log_buffer[_log_buffer_size - 1] = '\0';
-
-	fprintf(stderr, "D: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), _log_buffer);
-	fflush(stderr);
-
-	mtx_unlock(&_log_mutex); // unlock
-#endif
-}
-
-
-void
-log_info(const char fmt[], ...)
-{
-	int ret;
-	va_list va;
-	char datetm[32];
-
-	if (_log_buffer == NULL)
-		return;
-
-	mtx_lock(&_log_mutex); // lock
-
-	va_start(va, fmt);
-	ret = vsnprintf(_log_buffer, _log_buffer_size, fmt, va);
-	va_end(va);
-
-	if (ret <= 0)
-		_log_buffer[0] = '\0';
-
-	if ((size_t)ret >= _log_buffer_size)
-		_log_buffer[_log_buffer_size - 1] = '\0';
-
-	fprintf(stdout, "I: [%s]: %s\n", _log_datetime_now(datetm, sizeof(datetm)), _log_buffer);
-	fflush(stdout);
-
-	mtx_unlock(&_log_mutex); // unlock
-}
-

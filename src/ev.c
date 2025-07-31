@@ -136,7 +136,7 @@ ev_signal_init(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *ud
 
 	const int fd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
 	if (fd < 0) {
-		log_err(errno, "ev: ev_signal_init: signalfd");
+		LOG_ERRP("ev", "%s", "signalfd");
 		return -errno;
 	}
 
@@ -174,25 +174,25 @@ ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callbac
 
 	const int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 	if (fd < 0) {
-		log_err(errno, "ev: ev_listener_init: socket");
+		LOG_ERRP("ev", "%s", "socket");
 		return -1;
 	}
 
 	const int y = 1;
 	if (setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &y, sizeof(y)) < 0) {
-		log_err(errno, "ev: ev_listener_init: setsockopt: SO_REUSEADDR");
+		LOG_ERRP("ev", "%s", "setsockopt: SO_REUSEADDR");
 		close(fd);
 		return -1;
 	}
 
 	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-		log_err(errno, "ev: ev_listener_init: bind");
+		LOG_ERRP("ev", "%s", "bind");
 		close(fd);
 		return -1;
 	}
 
 	if (listen(fd, 32) < 0) {
-		log_err(errno, "ev: ev_listener_init: listen");
+		LOG_ERRP("ev", "%s", "listen");
 		close(fd);
 		return -1;
 	}
@@ -225,7 +225,7 @@ ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t 
 {
 	const int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (fd < 0) {
-		log_err(errno, "ev: ev_timer_init: timerfd_create");
+		LOG_ERRP("ev", "%s", "timerfd_create");
 		return -errno;
 	}
 
@@ -236,7 +236,7 @@ ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t 
 
 	if (timerfd_settime(fd, 0, &timerspec, NULL) < 0) {
 		const int ret = -errno;
-		log_err(ret, "ev: ev_timer_init: timerfd_settime");
+		LOG_ERR(ret, "ev", "%s", "timerfd_settime");
 		close(fd);
 		return ret;
 	}

@@ -26,7 +26,7 @@ sched_init(Sched *s, time_t timeout_s)
 {
 	const int fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (fd < 0) {
-		log_err(errno, "sched: sched_init: timerfd_create");
+		LOG_ERRP("sched", "%s", "timerfd_create");
 		return -1;
 	}
 
@@ -36,7 +36,7 @@ sched_init(Sched *s, time_t timeout_s)
 	};
 
 	if (timerfd_settime(fd, 0, &timerspec, NULL) < 0) {
-		log_err(errno, "sched: sched_init: timerfd_settime");
+		LOG_ERRP("sched", "%s", "timerfd_settime");
 		close(fd);
 		return -1;
 	}
@@ -75,12 +75,12 @@ _spawn_handler(EvCtx *ctx)
 	uint64_t timer = 0;
 	const ssize_t rd = read(ctx->fd, &timer, sizeof(timer));
 	if (rd < 0) {
-		log_err(errno, "sched: _spawn_handler: read");
+		LOG_ERRP("sched", "%s", "read");
 		return;
 	}
 
 	if (rd != sizeof(timer)) {
-		log_err(errno, "sched: _spawn_handler: read: invalid size: [%zu:%zu]", rd, sizeof(timer));
+		LOG_ERRN("sched", "read: invalid size: [%zu:%zu]", rd, sizeof(timer));
 		return;
 	}
 
@@ -137,7 +137,7 @@ _run_task(void *ctx, void *udata)
 		tg_api_delete_message(msg->chat_id, msg->message_id);
 		break;
 	default:
-		log_err(0, "sched: _run_task: invalid task type");
+		LOG_ERRN("sched", "%s", "invalid task type");
 		break;
 	}
 

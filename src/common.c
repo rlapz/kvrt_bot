@@ -83,7 +83,7 @@ is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
 
 	const int privs = model_admin_get_privileges(chat_id, user_id);
 	if (privs < 0) {
-		log_err(0, "common: is_admin: Failed to get admin list");
+		LOG_ERRN("common", "%s", "is_admin: Failed to get admin list");
 		return 0;
 	}
 

@@ -23,11 +23,11 @@ static void _admin_load(const TgMessage *msg);
 void
 update_handle(const Update *u)
 {
-	log_info("update: update_handle: %s", json_object_to_json_string_ext(u->resp, JSON_C_TO_STRING_PRETTY));
+	LOG_INFO("update", "%s", json_object_to_json_string_ext(u->resp, JSON_C_TO_STRING_PRETTY));
 
 	TgUpdate tgu;
 	if (tg_update_parse(&tgu, u->resp) < 0) {
-		log_err(0, "update: update_handle: tg_update_parse: failed");
+		LOG_ERRN("update", "%s", "tg_update_parse: failed");
 		return;
 	}
 
@@ -50,9 +50,9 @@ update_handle(const Update *u)
 static void
 _handle_message(const Update *u, const TgMessage *msg)
 {
-	log_debug("update: _handle_message: %zu", msg->id);
+	LOG_DEBUG("update", "%zu", msg->id);
 	if (msg->from == NULL) {
-		log_err(0, "update: _handle_message: \"message from\" == NULL");
+		LOG_ERRN("update", "%s", "\"message from\" == NULL");
 		return;
 	}
 
@@ -73,9 +73,9 @@ _handle_message(const Update *u, const TgMessage *msg)
 static void
 _handle_callback(const Update *u, const TgCallbackQuery *cb)
 {
-	log_debug("update: _handle_callback");
+	LOG_DEBUG("update", "%s", "update: _handle_callback");
 	if (VAL_IS_NULL_OR(cb->message, cb->data)) {
-		log_err(0, "update: _handle_callback: (TgMessage or CallbackData) == NULL");
+		LOG_ERRN("update", "%s", "(TgMessage or CallbackData) == NULL");
 		return;
 	}
 
@@ -103,9 +103,9 @@ _handle_callback(const Update *u, const TgCallbackQuery *cb)
 static void
 _handle_message_command(const Update *u, const TgMessage *msg)
 {
-	log_debug("update: _handle_message_command");
+	LOG_DEBUG("update", "%s", "");
 	if (cstr_is_empty(msg->text.cstr)) {
-		log_err(0, "update: _handle_message_command: Text is empty/NULL");
+		LOG_ERRN("update", "%s", "Text is empty/NULL");
 		return;
 	}
 
@@ -132,7 +132,7 @@ _handle_message_command(const Update *u, const TgMessage *msg)
 static void
 _handle_member_new(const Update *u, const TgMessage *msg)
 {
-	log_debug("update: _handle_member_new");
+	LOG_DEBUG("update", "%s", "");
 
 	const int64_t chat_id = msg->chat.id;
 	const TgUser *const user = &msg->new_member;
@@ -191,7 +191,7 @@ out0:
 static void
 _handle_member_leave(const Update *u, const TgMessage *msg)
 {
-	log_debug("update: _handle_member_leave");
+	LOG_DEBUG("update", "%s", "");
 	if (msg->left_chat_member.id == u->id_bot)
 		return;
 

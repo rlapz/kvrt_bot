@@ -41,7 +41,7 @@ sqlite_pool_init(const char path[], int conn_pool_size)
 	}
 
 	if (mtx_init(&d->mutex, mtx_plain) != thrd_success) {
-		log_err(0, "sqlite_pool: sqlite_pool_init: mtx_init: failed");
+		LOG_ERRN("sqlite_pool", "%s", "mtx_init: failed");
 		goto err0;
 	}
 
@@ -113,7 +113,7 @@ sqlite_pool_tran_begin(DbConn *conn)
 	char *err_msg;
 	const int ret = sqlite3_exec(conn->sql, "BEGIN TRANSACTION;", NULL, NULL, &err_msg);
 	if (ret != SQLITE_OK) {
-		log_err(0, "sqlite_pool: sqlite_pool_tran_begin: sqlite3_exec: %s", err_msg);
+		LOG_ERRN("sqlite_pool", "sqlite3_exec: %s", err_msg);
 		sqlite3_free(err_msg);
 	}
 
@@ -128,7 +128,7 @@ sqlite_pool_tran_end(DbConn *conn, int is_ok)
 	const char *const sql = (is_ok)? "COMMIT TRANSACTION;" : "ROLLBACK TRANSACTION;";
 	const int ret = sqlite3_exec(conn->sql, sql, NULL, NULL, &err_msg);
 	if (ret != SQLITE_OK) {
-		log_err(0, "sqlite_pool: sqlite_pool_tran_end(%d): sqlite3_exec: %s", is_ok, err_msg);
+		LOG_ERRN("sqlite_pool", "(%d): sqlite3_exec: %s", is_ok, err_msg);
 		sqlite3_free(err_msg);
 	}
 
@@ -144,14 +144,14 @@ _open(const char path[], DbConn **conn)
 {
 	DbConn *const new_conn = malloc(sizeof(DbConn));
 	if (new_conn == NULL) {
-		log_err(errno, "sqlite_pool: _open: malloc");
+		LOG_ERRP("sqlite_pool", "%s", "malloc");
 		return -1;
 	}
 
 	const int flags = SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_FULLMUTEX;
 	const int ret = sqlite3_open_v2(path, &new_conn->sql, flags, NULL);
 	if (ret != SQLITE_OK) {
-		log_err(0, "sqlite_pool: _open: sqlite3_open_v2: failed to open: \"%s\": %s",
+		LOG_ERRN("sqlite_pool", "sqlite3_open_v2: failed to open: \"%s\": %s",
 			path, sqlite3_errstr(ret));
 
 		free(new_conn);

@@ -211,11 +211,28 @@ void dump_json_obj(const char ctx[], json_object *json);
 /*
  * Log
  */
-int  log_init(size_t buffer_size);
+#ifdef DEBUG
+#define LOG_DEBUG(CTX, FMT, ...) log_writer(LOG_TYPE_DEBUG, CTX, __func__, 0, FMT, __VA_ARGS__)
+#else
+#define LOG_DEBUG(CTX, FMT, ...)
+#endif
+
+#define LOG_INFO(CTX, FMT, ...)     log_writer(LOG_TYPE_INFO, CTX, __func__, 0, FMT, __VA_ARGS__)
+#define LOG_ERR(ERR, CTX, FMT, ...) log_writer(LOG_TYPE_ERR, CTX, __func__, ERR, FMT, __VA_ARGS__)
+#define LOG_ERRP(CTX, FMT, ...)     log_writer(LOG_TYPE_ERR, CTX, __func__, errno, FMT, __VA_ARGS__)
+#define LOG_ERRN(CTX, FMT, ...)     log_writer(LOG_TYPE_ERR, CTX, __func__, 0, FMT, __VA_ARGS__)
+
+
+enum {
+	LOG_TYPE_DEBUG,
+	LOG_TYPE_INFO,
+	LOG_TYPE_ERR,
+};
+
+
+int  log_init(void);
 void log_deinit(void);
-void log_err(int errnum, const char fmt[], ...);
-void log_debug(const char fmt[], ...);
-void log_info(const char fmt[], ...);
+void log_writer(int level, const char ctx[], const char fn_name[], int errnum, const char fmt[], ...);
 
 
 #endif

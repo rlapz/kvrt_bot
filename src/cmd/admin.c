@@ -284,7 +284,7 @@ _setting_list(const CmdParam *cmd)
 	str_append_fmt(&str, "3. Cmd NSFW: %s\n", (flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW)? "enabled" : "disabled");
 	str_append(&str, "```\n");
 
-	str_append_fmt(&str, "Available parameters:\n```parameter\n");
+	str_append_fmt(&str, "Available parameters:\n```Parameter\n");
 	for (int i = 0; i < (int)LEN(_setting_list_e); i++) {
 		const Setting *const p = &_setting_list_e[i];
 		str_append_fmt(&str, "%d\\. '%s' \\-> %s\n", i + 1, p->key, p->description);

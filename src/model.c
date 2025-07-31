@@ -57,7 +57,7 @@ model_init(void)
 	Str str;
 	int ret = str_init_alloc(&str, 0);
 	if (ret < 0) {
-		log_err(ret, "model: model_init: str_init_alloc");
+		LOG_ERR(ret, "model", "%s", "str_init_alloc");
 		return -1;
 	}
 
@@ -81,7 +81,7 @@ model_init(void)
 		ret = sqlite3_exec(conn->sql, query, NULL, NULL, &err_msg);
 		if (ret != SQLITE_OK) {
 			const char *const table_name = params[i].table_name;
-			log_err(0, "model: model_init: sqlite3_exec: %s: %s", table_name, err_msg);
+			LOG_ERRN("model", "sqlite3_exec: %s: %s", table_name, err_msg);
 			ret = -ret;
 			goto out0;
 		}
@@ -180,7 +180,7 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 	sqlite3_stmt *stmt;
 	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: _admin_add: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -215,7 +215,7 @@ _admin_clear(DbConn *conn, int64_t chat_id)
 	const char *const query = "DELETE FROM Admin WHERE (chat_id = ?);";
 	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: _admin_clear: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -329,7 +329,7 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 
 	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_get_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -355,7 +355,7 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 			break;
 
 		if (res != SQLITE_ROW) {
-			log_err(0, "model: model_cmd_get_list: sqlite3_step: %s", sqlite3_errstr(res));
+			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
 			goto out1;
 		}
 
@@ -410,7 +410,7 @@ model_cmd_builtin_clear(void)
 	const char *query = "UPDATE sqlite_sequence SET seq = 0 WHERE (name = 'Cmd_Builtin');";
 	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_builtin_clear: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -423,7 +423,7 @@ model_cmd_builtin_clear(void)
 	query = "DELETE FROM Cmd_Builtin;";
 	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_builtin_clear: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -495,7 +495,7 @@ model_cmd_extern_get(ModelCmdExtern *c, const char name[])
 
 	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_extern_get: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -550,7 +550,7 @@ model_cmd_message_set(const ModelCmdMessage *c)
 	const char *query = "SELECT 1 FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
 	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_message_set: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -576,7 +576,7 @@ model_cmd_message_set(const ModelCmdMessage *c)
 
 	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_cmd_message_set: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -663,7 +663,7 @@ model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 
 	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_sched_message_get_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -678,7 +678,7 @@ model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 			break;
 
 		if (res != SQLITE_ROW) {
-			log_err(0, "model: model_sched_message_get_list: sqlite3_step: %s", sqlite3_errstr(res));
+			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
 			goto out1;
 		}
 
@@ -736,7 +736,7 @@ model_sched_message_delete(int32_t list[], int len)
 	sqlite3_stmt *stmt;
 	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_sched_message_delete: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out1;
 	}
 
@@ -763,32 +763,32 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 {
 	const int type = s->type;
 	if ((type < MODEL_SCHED_MESSAGE_TYPE_SEND) || (type >= _MODEL_SCHED_MESSAGE_TYPE_SIZE)) {
-		log_err(0, "model: model_sched_message_add: invalid type");
+		LOG_ERRN("model", "%s", "invalid type");
 		return -1;
 	}
 
 	if (s->chat_id == 0) {
-		log_err(0, "model: model_sched_message_add: invalid chat_id");
+		LOG_ERRN("model", "%s", "invalid chat_id");
 		return -1;
 	}
 
 	if ((type == MODEL_SCHED_MESSAGE_TYPE_DELETE) && (s->message_id == 0)) {
-		log_err(0, "model: model_sched_message_add: invalid message_id");
+		LOG_ERRN("model", "%s", "invalid message_id");
 		return -1;
 	}
 
 	if (s->expire < 5) {
-		log_err(0, "model: model_sched_message_add: invalid expiration time");
+		LOG_ERRN("model", "%s", "invalid expiration time");
 		return -1;
 	}
 
 	if (interval_s <= 0) {
-		log_err(0, "model: model_sched_message_add: invalid interval");
+		LOG_ERRN("model", "%s", "invalid interval");
 		return -1;
 	}
 
 	if ((type == MODEL_SCHED_MESSAGE_TYPE_SEND) && cstr_is_empty(s->value_in)) {
-		log_err(0, "model: model_sched_message_add: value is empty");
+		LOG_ERRN("model", "%s", "value is empty");
 		return -1;
 	}
 
@@ -857,7 +857,7 @@ model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 	sqlite3_stmt *stmt;
 	const int res = sqlite3_prepare_v2(conn->sql, str.cstr, str.len, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_anime_sched_add_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out1;
 	}
 
@@ -928,7 +928,7 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 
 	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: model_anime_sched_get_list: sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
 		goto out0;
 	}
 
@@ -950,7 +950,7 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 			break;
 
 		if (res != SQLITE_ROW) {
-			log_err(0, "model: model_anime_sched_get_list: sqlite3_step: %s", sqlite3_errstr(res));
+			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
 			goto out1;
 		}
 
@@ -1147,7 +1147,7 @@ _sqlite_step_one(sqlite3_stmt *stmt)
 		return 0;
 
 	if (ret != SQLITE_ROW) {
-		log_err(0, "model: _sqlite_step_one: sqlite3_step: %s", sqlite3_errstr(ret));
+		LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(ret));
 		return -1;
 	}
 
@@ -1162,14 +1162,14 @@ _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
 		const int ret = sqlite3_step(stmt);
 		switch (ret) {
 		case SQLITE_BUSY:
-			log_info("model: _sqlite_step_one_wait: sqlite3_step: %s", sqlite3_errstr(ret));
+			LOG_INFO("model", "sqlite3_step: %s", sqlite3_errstr(ret));
 			sqlite3_busy_timeout(sql, CFG_DB_WAIT);
 			continue;
 		case SQLITE_DONE: return 0;
 		case SQLITE_ROW: return 1;
 		}
 
-		log_err(0, "model: _sqlite_step_one_wait: sqlite3_step: %s", sqlite3_errstr(ret));
+		LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(ret));
 		break;
 	}
 
@@ -1189,7 +1189,7 @@ _sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out)
 
 	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
 	if (res != SQLITE_OK) {
-		log_err(0, "model: _sqlite_exec_one: sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
 		goto out0;
 	}
 
@@ -1209,7 +1209,7 @@ _sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out)
 			sqlite3_bind_null(stmt, j);
 			break;
 		default:
-			log_err(0, "model: _sqlite_exec_one: arg: invalid type: [%d]:%d", i, a->type);
+			LOG_ERRN("model", "arg: invalid type: [%d]:%d", i, a->type);
 			goto out1;
 		}
 	}
@@ -1244,7 +1244,7 @@ _sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out)
 					    (const char *)sqlite3_column_text(stmt, 0));
 		break;
 	default:
-		log_err(0, "model: _sqlite_exec_one: out: invalid type: %d", out->type);
+		LOG_ERRN("model", "out: invalid type: %d", out->type);
 		ret = -1;
 		break;
 	}

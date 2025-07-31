@@ -35,7 +35,7 @@ static int  _spawn_child_process(const CmdParam *c, int chat_flags, const char f
 int
 cmd_init(void)
 {
-	log_info("cmd: cmd_init: _cmd_builtin_list size: %zu bytes", sizeof(_cmd_builtin_list));
+	LOG_INFO("cmd", "_cmd_builtin_list size: %zu bytes", sizeof(_cmd_builtin_list));
 	if (model_cmd_builtin_clear() < 0)
 		return -1;
 
@@ -102,27 +102,27 @@ _register_builtin(void)
 			continue;
 
 		if (strlen(p->name) >= MODEL_CMD_NAME_SIZE) {
-			log_err(0, "cmd: _register_builtin: '%s': too long! Max: %u", p->name, MODEL_CMD_NAME_SIZE);
+			LOG_ERR(0, "cmd", "'%s': too long! Max: %u", p->name, MODEL_CMD_NAME_SIZE);
 			return -1;
 		}
 
 		if (strlen(p->description) >= MODEL_CMD_DESC_SIZE) {
-			log_err(0, "cmd: _register_builtin: '%s': too long! Max: %u", p->description, MODEL_CMD_DESC_SIZE);
+			LOG_ERR(0, "cmd", "'%s': too long! Max: %u", p->description, MODEL_CMD_DESC_SIZE);
 			return -1;
 		}
 
 		if (model_cmd_builtin_is_exists(p->name)) {
-			log_err(0, "cmd: _register_builtin: '%s': already registered", p->name);
+			LOG_ERR(0, "cmd", "'%s': already registered", p->name);
 			return -1;
 		}
 
 		if (model_cmd_message_is_exists(p->name)) {
-			log_err(0, "cmd: _register_builtin: '%s': already registered as CMD Message", p->name);
+			LOG_ERR(0, "cmd", "'%s': already registered as CMD Message", p->name);
 			return -1;
 		}
 
 		if (model_cmd_extern_is_exists(p->name)) {
-			log_err(0, "cmd: _register_builtin: '%s': already registered as Extern CMD", p->name);
+			LOG_ERR(0, "cmd", "'%s': already registered as Extern CMD", p->name);
 			return -1;
 		}
 
@@ -136,11 +136,11 @@ _register_builtin(void)
 		if (model_cmd_builtin_add(&cmd) < 0)
 			return -1;
 
-		log_info("cmd: _register_builtin: %d. %s: %s", count, p->name, p->description);
+		LOG_INFO("cmd", "%d. %s: %s", count, p->name, p->description);
 		count++;
 	}
 
-	log_info("cmd: _register_builtin: registered %d builtin cmd(s)", count);
+	LOG_INFO("cmd", "registered %d builtin cmd(s)", count);
 	return 0;
 }
 
@@ -192,7 +192,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 	if (_verify(c, chat_flags, handler->flags) == 0)
 		return 1;
 
-	log_info("cmd: _exec_builtin: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s: %p",
+	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s: %p",
 		 c->id_chat, c->id_user, c->id_message, handler->name, handler->callback_fn);
 
 	handler->callback_fn(c);
@@ -219,7 +219,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	if (_verify(c, chat_flags, ce.flags) == 0)
 		return 1;
 
-	log_info("cmd: _exec_extern: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s: %s",
+	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s: %s",
 		 c->id_chat, c->id_user, c->id_message, ce.name, ce.file_name);
 
 	if (_spawn_child_process(c, chat_flags, ce.file_name) < 0) {
@@ -247,7 +247,7 @@ _exec_cmd_message(const CmdParam *c)
 	if (ret == 0)
 		return 0;
 
-	log_info("cmd: _exec_cmd_message: [%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
+	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
 		 c->id_chat, c->id_user, c->msg->id, c->name);
 
 	SEND_TEXT_FORMAT(c->msg, value);

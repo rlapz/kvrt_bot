@@ -52,23 +52,23 @@ thrd_pool_init(unsigned thrd_size)
 {
 	ThrdPool *const t = &_instance;
 	if (thrd_size <= 1) {
-		log_err(EINVAL, "thrd_pool: thrd_pool_init: thrd_size: %u", thrd_size);
+		LOG_ERR(EINVAL, "thrd_pool", "thrd_size: %u", thrd_size);
 		return -1;
 	}
 
 	if (mtx_init(&t->mtx_general, mtx_plain) != 0) {
-		log_err(0, "thrd_pool: thrd_pool_init: mtx_init: failed to init");
+		LOG_ERRN("thrd_pool", "%s", "mtx_init: failed to init");
 		return -1;
 	}
 
 	if (cnd_init(&t->cond_job) != 0) {
-		log_err(0, "thrd_pool: thrd_pool_init: cnd_init: failed to init");
+		LOG_ERRN("thrd_pool", "%s", "cnd_init: failed to init");
 		goto err0;
 	}
 
 	void *const workers = malloc(sizeof(ThrdPoolWorker) * thrd_size);
 	if (workers == NULL) {
-		log_err(errno, "thrd_pool: thrd_pool_init: malloc: workers");
+		LOG_ERRP("thrd_pool", "%s", "malloc: workers");
 		goto err1;
 	}
 
@@ -102,7 +102,7 @@ thrd_pool_deinit(void)
 	for (unsigned i = 0; i < t->workers_len; i++) {
 		ThrdPoolWorker *const wrk = &t->workers[i];
 		if (thrd_join(wrk->thread, NULL) != thrd_success) {
-			log_err(0, "thrd_pool: thrd_pool_destroy: thrd_join: [%u:%p]: failed to join",
+			LOG_ERRN("thrd_pool", "thrd_join: [%u:%p]: failed to join",
 				wrk->index, (void*)wrk);
 		}
 	}
@@ -123,7 +123,7 @@ thrd_pool_add_job(ThrdPoolFn func, void *ctx, void *udata)
 
 	ret = _jobs_enqueue(t, func, ctx, udata);
 	if (ret < 0) {
-		log_err(ret, "thrd_pool: thrd_pool_add_job: _jobs_enqueue");
+		LOG_ERR(ret, "thrd_pool", "%s", "_jobs_enqueue");
 		goto out0;
 	}
 
@@ -156,9 +156,9 @@ _create_threads(ThrdPool *t)
 		worker->parent = t;
 		worker->index = iter;
 
-		log_info("thrd_pool: _create_threads: [%u:%p]", iter, (void *)worker);
+		LOG_INFO("thrd_pool", "[%u:%p]", iter, (void *)worker);
 		if (thrd_create(&worker->thread, _worker_fn, worker) != thrd_success) {
-			log_err(0, "thrd_pool: _create_threads: thrd_create: [%u:%p]: failed to create thread",
+			LOG_ERRN("thrd_pool", "thrd_create: [%u:%p]: failed to create thread",
 				iter, (void *)worker);
 			goto err0;
 		}
@@ -225,7 +225,7 @@ _worker_fn(void *udata)
 
 
 	mtx_lock(&t->mtx_general);
-	log_info("thrd_pool: worker_fn: [%u:%p]: running...", w->index, udata);
+	LOG_INFO("thrd_pool", "[%u:%p]: running...", w->index, udata);
 	while (t->is_alive) {
 		while ((job = _jobs_dequeue(t)) == NULL) {
 			cnd_wait(&t->cond_job, &t->mtx_general);
@@ -247,7 +247,7 @@ _worker_fn(void *udata)
 	}
 
 out0:
-	log_info("thrd_pool: worker_fn: [%u:%p]: stopped", w->index, udata);
+	LOG_INFO("thrd_pool", "[%u:%p]: stopped", w->index, udata);
 	mtx_unlock(&t->mtx_general);
 	return 0;
 }

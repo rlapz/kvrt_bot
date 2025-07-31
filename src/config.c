@@ -29,7 +29,7 @@ int
 config_load(Config *c, const char path[])
 {
 	if (cstr_is_empty(path)) {
-		log_err(EINVAL, "config: config_load: path is empty");
+		LOG_ERR(EINVAL, "config", "%s", "path is empty");
 		return -1;
 	}
 
@@ -46,7 +46,7 @@ config_load(Config *c, const char path[])
 			continue;
 		}
 
-		log_err(errno, "config: config_load: open: '%s'", path);
+		LOG_ERRP("config", "%s", "open: '%s'", path);
 		break;
 	}
 
@@ -97,7 +97,7 @@ _load_json(const char path[])
 	/* finding .bin extension */
 	const char *const ext = strrchr(path, '.');
 	if ((ext != NULL) && (cstr_casecmp(ext, ".bin") == 0)) {
-		log_err(0, "config: _load_json: '%s': invalid file path", path);
+		LOG_ERRN("config", "'%s': invalid file path", path);
 		return -1;
 	}
 
@@ -106,7 +106,7 @@ _load_json(const char path[])
 
 	int ret = file_read_all(json_path, buffer, &buffer_len);
 	if (ret < 0) {
-		log_err(ret, "config: _load_json: file_read_all: '%s'", json_path);
+		LOG_ERR(ret, "config", "file_read_all: '%s'", json_path);
 		return -1;
 	}
 
@@ -125,7 +125,7 @@ _parse_json(char buffer[], size_t size, const char path[])
 	int ret = -1;
 	json_object *const root_obj = json_tokener_parse(buffer);
 	if (root_obj == NULL) {
-		log_err(0, "config: _parse_json: json_tokener_parse: failed");
+		LOG_ERRN("config", "%s", "json_tokener_parse: failed");
 		return -1;
 	}
 
@@ -146,7 +146,7 @@ _parse_json(char buffer[], size_t size, const char path[])
 
 	ret = file_write_all(path, buffer, &cfg_len);
 	if ((ret == 0) && (cfg_len != sizeof(*cfg))) {
-		log_err(0, "config: _parse_json: file_write_all: '%s': invalid len", path);
+		LOG_ERRN("config", "file_write_all: '%s': invalid len", path);
 		ret = -1;
 	}
 
@@ -161,37 +161,37 @@ _parse_json_api(Config *c, json_object *root_obj)
 {
 	json_object *api_obj;
 	if (json_object_object_get_ex(root_obj, "api", &api_obj) == 0) {
-		log_err(0, "config: _parse_json_api: api: no such object");
+		LOG_ERRN("config", "%s", "api: no such object");
 		return -1;
 	}
 
 	json_object *token_obj;
 	if (json_object_object_get_ex(api_obj, "token", &token_obj) == 0) {
-		log_err(0, "config: _parse_json_api: api.token: no such object");
+		LOG_ERRN("config", "%s", "api.token: no such object");
 		return -1;
 	}
 
 	json_object *secret_obj;
 	if (json_object_object_get_ex(api_obj, "secret", &secret_obj) == 0) {
-		log_err(0, "config: _parse_json_api: api.secret: no such object");
+		LOG_ERRN("config", "%s", "api.secret: no such object");
 		return -1;
 	}
 
 	const char *const token = json_object_get_string(token_obj);
 	if (cstr_is_empty(token)) {
-		log_err(0, "config: _parse_json_api: api.token: empty");
+		LOG_ERRN("config", "%s", "api.token: empty");
 		return -1;
 	}
 
 	const char *const secret = json_object_get_string(secret_obj);
 	if (cstr_is_empty(secret)) {
-		log_err(0, "config: _parse_json_api: api.secret: empty");
+		LOG_ERRN("config", "%s", "api.secret: empty");
 		return -1;
 	}
 
 	char *const base_api = CSTR_CONCAT(CFG_TELEGRAM_API, token);
 	if (base_api == NULL) {
-		log_err(0, "config: _parse_json_api: api.url: failed to allocate");
+		LOG_ERRN("config", "%s", "api.url: failed to allocate");
 		return -1;
 	}
 
@@ -209,31 +209,31 @@ _parse_json_hook(Config *c, json_object *root_obj)
 {
 	json_object *hook_obj;
 	if (json_object_object_get_ex(root_obj, "hook", &hook_obj) == 0) {
-		log_err(0, "config: _parse_json_hook: hook: no such object");
+		LOG_ERRN("config", "%s", "hook: no such object");
 		return -1;
 	}
 
 	json_object *url_obj;
 	if (json_object_object_get_ex(hook_obj, "url", &url_obj) == 0) {
-		log_err(0, "config: _parse_json_api: hook.url: no such object");
+		LOG_ERRN("config", "%s", "hook.url: no such object");
 		return -1;
 	}
 
 	json_object *path_obj;
 	if (json_object_object_get_ex(hook_obj, "path", &path_obj) == 0) {
-		log_err(0, "config: _parse_json_api: hook.path: no such object");
+		LOG_ERRN("config", "%s", "hook.path: no such object");
 		return -1;
 	}
 
 	const char *const url = json_object_get_string(url_obj);
 	if (cstr_is_empty(url)) {
-		log_err(0, "config: _parse_json_api: hook.url: empty");
+		LOG_ERRN("config", "%s", "hook.url: empty");
 		return -1;
 	}
 
 	const char *const path = json_object_get_string(path_obj);
 	if (cstr_is_empty(path)) {
-		log_err(0, "config: _parse_json_api: hook.path: empty");
+		LOG_ERRN("config", "%s", "hook.path: empty");
 		return -1;
 	}
 
@@ -248,43 +248,43 @@ _parse_json_tg(Config *c, json_object *root_obj)
 {
 	json_object *tg_obj;
 	if (json_object_object_get_ex(root_obj, "tg", &tg_obj) == 0) {
-		log_err(0, "config: _parse_json_tg: tg: no such object");
+		LOG_ERRN("config", "%s", "tg: no such object");
 		return -1;
 	}
 
 	json_object *bot_id_obj;
 	if (json_object_object_get_ex(tg_obj, "bot_id", &bot_id_obj) == 0) {
-		log_err(0, "config: _parse_json_tg: tg.bot_id: no such object");
+		LOG_ERRN("config", "%s", "tg.bot_id: no such object");
 		return -1;
 	}
 
 	json_object *owner_id_obj;
 	if (json_object_object_get_ex(tg_obj, "owner_id", &owner_id_obj) == 0) {
-		log_err(0, "config: _parse_json_tg: tg.owner_id: no such object");
+		LOG_ERRN("config", "%s", "tg.owner_id: no such object");
 		return -1;
 	}
 
 	json_object *bot_username_obj;
 	if (json_object_object_get_ex(tg_obj, "bot_username", &bot_username_obj) == 0) {
-		log_err(0, "config: _parse_json_tg: tg.bot_username: no such object");
+		LOG_ERRN("config", "%s", "tg.bot_username: no such object");
 		return -1;
 	}
 
 	c->bot_id = json_object_get_int64(bot_id_obj);
 	if (c->bot_id == 0) {
-		log_err(0, "config: _parse_json_tg: tg.bot_id: invalid value");
+		LOG_ERRN("config", "%s", "tg.bot_id: invalid value");
 		return -1;
 	}
 
 	c->owner_id = json_object_get_int64(owner_id_obj);
 	if (c->owner_id == 0) {
-		log_err(0, "config: _parse_json_tg: tg.owner_id: invalid value");
+		LOG_ERRN("config", "%s", "tg.owner_id: invalid value");
 		return -1;
 	}
 
 	const char *const bot_username = json_object_get_string(bot_username_obj);
 	if (cstr_is_empty(bot_username)) {
-		log_err(0, "config: _parse_json_tg: tg.bot_username: empty");
+		LOG_ERRN("config", "%s", "tg.bot_username: empty");
 		return -1;
 	}
 

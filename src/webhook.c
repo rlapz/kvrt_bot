@@ -16,13 +16,13 @@ static void _print_json(const char raw[]);
 int
 webhook_set(const Config *config)
 {
-	log_info("webhook: webhook_set: setting up webhook...");
-	log_info("webhook: url: \"%s%s\"", config->hook_url, config->hook_path);
+	LOG_INFO("webhook", "%s", "setting up webhook...");
+	LOG_INFO("webhook", "url: \"%s%s\"", config->hook_url, config->hook_path);
 
 	Str str;
 	int ret = str_init_alloc(&str, 0);
 	if (ret < 0) {
-		log_err(ret, "webhook: webhook_set: str_init_alloc");
+		LOG_ERR(ret, "webhook", "%s", "str_init_alloc");
 		return -1;
 	}
 
@@ -31,13 +31,13 @@ webhook_set(const Config *config)
 					    CFG_TELEGRAM_API, config->api_token, config->hook_url,
 					    config->hook_path, config->api_secret);
 	if (req == NULL) {
-		log_err(errno, "webhook: webhook_set: str_set_fmt: NULL");
+		LOG_ERRP("webhook", "%s", "str_set_fmt: NULL");
 		goto out0;
 	}
 
 	char *const res = http_send_get(req, "application/json");
 	if (res == NULL) {
-		log_err(0, "webhook: webhook_set: http_send_get: failed");
+		LOG_ERRN("webhook", "%s", "http_send_get: failed");
 		goto out0;
 	}
 
@@ -55,25 +55,25 @@ out0:
 int
 webhook_del(const Config *config)
 {
-	log_info("webhook: webhook_del: deleting webhook...");
+	LOG_INFO("webhook", "%s", "deleting webhook...");
 
 	Str str;
 	int ret = str_init_alloc(&str, 0);
 	if (ret < 0) {
-		log_err(ret, "webhook: webhook_del: str_init_alloc");
+		LOG_ERR(ret, "webhook", "%s", "str_init_alloc");
 		return -1;
 	}
 
 	const char *const req = str_set_fmt(&str, "%s%s/deleteWebhook?drop_pending_updates=True",
 					    CFG_TELEGRAM_API, config->api_token);
 	if (req == NULL) {
-		log_err(errno, "webhook: webhook_del: str_set_fmt: NULL");
+		LOG_ERRP("webhook", "%s", "str_set_fmt: NULL");
 		goto out0;
 	}
 
 	char *const res = http_send_get(req, "application/json");
 	if (res == NULL) {
-		log_err(0, "webhook: webhook_del: http_send_get: failed");
+		LOG_ERRN("webhook", "%s", "http_send_get: failed");
 		goto out0;
 	}
 
@@ -91,25 +91,25 @@ out0:
 int
 webhook_info(const Config *config)
 {
-	log_info("webhook: webhook_info:");
+	LOG_INFO("webhook", "%s", "");
 
 	Str str;
 	int ret = str_init_alloc(&str, 0);
 	if (ret < 0) {
-		log_err(ret, "webhook: webhook_info: str_init_alloc");
+		LOG_ERR(ret, "webhook", "%s", "str_init_alloc");
 		return -1;
 	}
 
 	const char *const req = str_set_fmt(&str, "%s%s/getWebhookInfo",
 					    CFG_TELEGRAM_API, config->api_token);
 	if (req == NULL) {
-		log_err(errno, "webhook: webhook_info: str_set_fmt: NULL");
+		LOG_ERRP("webhook", "%s", "str_set_fmt: NULL");
 		goto out0;
 	}
 
 	char *const res = http_send_get(req, "application/json");
 	if (res == NULL) {
-		log_err(0, "webhook: webhook_info: http_send_get: failed");
+		LOG_ERRN("webhook", "%s", "http_send_get: failed");
 		goto out0;
 	}
 

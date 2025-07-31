@@ -35,7 +35,9 @@ enum {
 	_CLIENT_STATE_FINISH,
 };
 
+#ifdef DEBUG
 static const char *_client_state_str(int state);
+#endif
 
 
 typedef struct server Server;
@@ -102,6 +104,7 @@ static void _server_handle_update(void *ctx, void *udata);
 /*
  * Client
  */
+#ifdef DEBUG
 static const char *
 _client_state_str(int state)
 {
@@ -114,13 +117,13 @@ _client_state_str(int state)
 
 	return "unkonwon";
 }
+#endif
 
 
 static int
 _client_handle_state(Client *c)
 {
-	log_debug("main: _client_handle_state: %p: fd: %d: state: %s", (void *)c,
-		  c->ctx.fd, _client_state_str(c->state));
+	LOG_DEBUG("main", "%p: fd: %d: state: %s", (void *)c, c->ctx.fd, _client_state_str(c->state));
 
 	int state = c->state;
 	switch (state) {
@@ -149,7 +152,7 @@ _client_state_req_header(Client *c)
 	const size_t recvd = c->bytes;
 	const size_t len = (CFG_BUFFER_SIZE - recvd);
 	if (len == 0) {
-		log_err(ENOMEM, "main: _client_state_req_header: %d: buffer full", c->ctx.fd);
+		LOG_ERR(ENOMEM, "main", "fd: %d: buffer full", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	}
 
@@ -158,30 +161,29 @@ _client_state_req_header(Client *c)
 		if (errno == EAGAIN)
 			return _CLIENT_STATE_REQ_HEADER;
 
-		log_err(errno, "main: _client_state_req_header: %d: recv", c->ctx.fd);
+		LOG_ERRP("main", "fd: %d: recv", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	}
 
 	if (rv == 0) {
-		log_err(0, "main: _client_state_req_header: %d: recv: EOF", c->ctx.fd);
+		LOG_ERRN("main", "fd: %d: recv: EOF", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	}
 
 	c->bytes = recvd + (size_t)rv;
-	log_debug("main: _client_state_req_header: %d: %zu", c->ctx.fd, c->bytes);
+	LOG_DEBUG("main", "fd: %d: %zu", c->ctx.fd, c->bytes);
 
 	const int ret = _client_header_parse(c, recvd);
 	switch (ret) {
 	case -3:
 		/* TODO: allocate new buffer */
-		log_err(0, "main: _client_state_req_header: %d: _client_header_parse: buffer full", c->ctx.fd);
+		LOG_ERRN("main", "fd: %d: _client_header_parse: buffer full", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	case -2:
 		/* header: incomplete */
 		return _CLIENT_STATE_REQ_HEADER;
 	case -1:
-		log_err(0, "main: _client_state_req_header: %d: _client_header_parse: invalid request header",
-			c->ctx.fd);
+		LOG_ERRN("main", "fd: %d: _client_header_parse: invalid request header", c->ctx.fd);
 		return _client_resp_send(c);
 	case 0:
 		_client_body_parse(c);
@@ -206,12 +208,12 @@ _client_state_req_body(Client *c)
 		if (errno == EAGAIN)
 			return _CLIENT_STATE_REQ_BODY;
 
-		log_err(errno, "main: _client_state_req_body: %d: recv", c->ctx.fd);
+		LOG_ERRP("main", "fd: %d: recv", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	}
 
 	if (rv == 0) {
-		log_err(0, "main: _client_state_req_body: %d: recv: EOF", c->ctx.fd);
+		LOG_ERRN("main", "fd: %d: recv: EOF", c->ctx.fd);
 		return _CLIENT_STATE_FINISH;
 	}
 
@@ -241,12 +243,12 @@ _client_state_resp(Client *c)
 		if (errno == EAGAIN)
 			return _CLIENT_STATE_RESP;
 
-		log_err(errno, "main: _client_state_resp: %d: send", c->ctx.fd);
+		LOG_ERRP("main", "fd: %d: send", c->ctx.fd);
 		goto out0;
 	}
 
 	if (sn == 0) {
-		log_err(0, "main: _client_state_resp: %d: send: EOF", c->ctx.fd);
+		LOG_ERRN("main", "fd: %d: send: EOF", c->ctx.fd);
 		goto out0;
 	}
 
@@ -312,10 +314,10 @@ _client_header_validate(const Client *c, const HttpRequest *req, size_t *content
 
 
 #ifdef DEBUG
-	log_debug("main: method: |%.*s|", (int)req->method_len, req->method);
-	log_debug("main: path  : |%.*s|", (int)req->path_len, req->path);
+	LOG_DEBUG("main", "method: |%.*s|", (int)req->method_len, req->method);
+	LOG_DEBUG("main", "path  : |%.*s|", (int)req->path_len, req->path);
 	for (size_t i = 0; i < req->hdr_len; i++) {
-		log_debug("main: Header: |%.*s:%.*s|", (int)req->hdrs[i].name_len, req->hdrs[i].name,
+		LOG_DEBUG("main", "Header: |%.*s:%.*s|", (int)req->hdrs[i].name_len, req->hdrs[i].name,
 			  (int)req->hdrs[i].value_len, req->hdrs[i].value);
 	}
 #endif
@@ -389,7 +391,7 @@ _client_body_parse(Client *c)
 {
 	json_object *const json = json_tokener_parse(c->buffer);
 	if (json == NULL)
-		log_err(0, "main: _client_body_parse: json_tokene_parse: failed to parse");
+		LOG_ERRN("main", "%s", "json_tokene_parse: failed to parse");
 
 	c->body = json;
 }
@@ -401,7 +403,7 @@ _client_resp_send(Client *c)
 	c->ctx.event.events = EPOLLOUT;
 	const int ret = ev_ctx_mod(&c->ctx);
 	if (ret < 0) {
-		log_err(ret, "main: _client_resp_send: ev_ctx_mod");
+		LOG_ERR(ret, "main", "%s", "v_ctx_mod");
 		return _CLIENT_STATE_FINISH;
 	}
 
@@ -456,7 +458,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 {
 	const Config *const config = &s->config;
 	if (chld_init(config->cmd_extern_root_dir, config->cmd_extern_log_file) < 0) {
-		log_err(0, "main: _server_init_chld: chld_init: failed");
+		LOG_ERRN("main", "%s", "chld_init: failed");
 		return -1;
 	}
 
@@ -480,7 +482,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 
 	const char *const api_exe = realpath(config->cmd_extern_api, buffer);
 	if (api_exe == NULL) {
-		log_err(errno, "main: _server_init_chld: '%s'", config->cmd_extern_api);
+		LOG_ERRP("main", "%s", "'%s'", config->cmd_extern_api);
 		goto err0;
 	}
 
@@ -489,7 +491,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 
 	const char *const cfg_file = realpath(s->config_file, buffer);
 	if (cfg_file == NULL) {
-		log_err(errno, "main: _server_init_chld: '%s'", s->config_file);
+		LOG_ERRP("main", "%s", "'%s'", s->config_file);
 		goto err0;
 	}
 
@@ -518,7 +520,7 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 
 err0:
 	chld_deinit();
-	log_err(0, "main: _server_init_chld: chld_add_env*: failed");
+	LOG_ERRN("main", "%s", "chld_add_env*: failed");
 	return -1;
 }
 
@@ -545,7 +547,7 @@ _server_run(Server *s, char *envp[])
 
 	ret = ev_init();
 	if (ret < 0) {
-		log_err(ret, "main: _server_run: ev_init");
+		LOG_ERR(ret, "main", "%s", "ev_init");
 		goto out0;
 	}
 
@@ -580,31 +582,31 @@ _server_run(Server *s, char *envp[])
 	/* register events */
 	ret = ev_ctx_add(&signale.ctx);
 	if (ret < 0) {
-		log_err(ret, "main; _server_run: ev_ctx_add: signal");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_add: signal");
 		goto out7;
 	}
 
 	ret = ev_ctx_add(&timer.ctx);
 	if (ret < 0) {
-		log_err(ret, "main: _server_run: ev_ctx_add: timer");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_add: timer");
 		goto out7;
 	}
 
 	ret = ev_ctx_add(&listener.ctx);
 	if (ret < 0) {
-		log_err(ret, "main: _server_run: ev_ctx_add: listener");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_add: listener");
 		goto out7;
 	}
 
 	ret = ev_ctx_add(&sched.ctx);
 	if (ret < 0) {
-		log_err(ret, "main: _server_run: ev_ctx_add: sched");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_add: sched");
 		goto out7;
 	}
 
 	ret = ev_run();
 	if (ret < 0)
-		log_err(ret, "main: _server_run: ev_run");
+		LOG_ERR(ret, "main", "%s", "ev_run");
 
 out7:
 	thrd_pool_deinit();
@@ -631,12 +633,12 @@ static void
 _server_on_signal(void *udata, uint32_t signo, int err)
 {
 	if (err != 0) {
-		log_err(err, "main: _server_on_signal");
+		LOG_ERR(err, "main", "%s", "");
 		return;
 	}
 
 	putchar('\n');
-	log_info("main: _server_on_signal: signo: %u", signo);
+	LOG_INFO("main", "signo: %u", signo);
 
 	ev_stop();
 	(void)udata;
@@ -648,7 +650,7 @@ _server_on_timer(void *udata, int err)
 {
 	const Server *const s = (Server *)udata;
 	if (err != 0) {
-		log_err(err, "main: _server_on_timer");
+		LOG_ERR(err, "main", "%s", "");
 		return;
 	}
 
@@ -660,7 +662,7 @@ _server_on_timer(void *udata, int err)
 		const time_t now = time(NULL);
 		const time_t elapsed_s = now - client->created_at;
 		if (elapsed_s >= CFG_CONNECTION_TIMEOUT_S) {
-			log_info("main: _server_on_timer: client: %p: fd: %d: timed out. Closing...",
+			LOG_INFO("main", "client: %p: fd: %d: timed out. Closing...",
 				 (void *)client, client->ctx.fd);
 
 			shutdown(client->ctx.fd, SHUT_RDWR);
@@ -679,7 +681,7 @@ _server_on_listener(void *udata, int fd)
 {
 	Server *const s = (Server *)udata;
 	if (fd < 0) {
-		log_err(fd, "main: _server_on_listener");
+		LOG_ERR(fd, "main", "%s", "");
 		return;
 	}
 
@@ -692,17 +694,17 @@ static int
 _server_add_client(Server *s, int fd)
 {
 	if (s->clients.len == CFG_MAX_CLIENTS) {
-		log_err(0, "main: _server_add_client: client full: %u", s->clients.len);
+		LOG_ERRN("main", "client full: %u", s->clients.len);
 		return -1;
 	}
 
 	Client *const client = malloc(sizeof(Client));
 	if (client == NULL) {
-		log_err(errno, "main: _server_add_client: malloc");
+		LOG_ERRP("main", "%s", "malloc");
 		return -1;
 	}
 
-	log_info("main: _server_add_client: %p: fd: %d", (void *)client, fd);
+	LOG_INFO("main", "%p: fd: %d", (void *)client, fd);
 	*client = (Client) {
 		.state = _CLIENT_STATE_REQ_HEADER,
 		.parent = s,
@@ -718,7 +720,7 @@ _server_add_client(Server *s, int fd)
 
 	const int ret = ev_ctx_add(&client->ctx);
 	if (ret < 0) {
-		log_err(ret, "main: _server_add_client: ev_ctx_add");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_add");
 		free(client);
 		return -1;
 	}
@@ -731,7 +733,7 @@ _server_add_client(Server *s, int fd)
 static void
 _server_del_client(Server *s, Client *client)
 {
-	log_info("main: _server_del_client: %p: fd: %d", (void *)client, client->ctx.fd);
+	LOG_INFO("main", "%p: fd: %d", (void *)client, client->ctx.fd);
 	const int ret = ev_ctx_del(&client->ctx);
 	assert(ret == 0);
 	(void)ret;
@@ -826,7 +828,7 @@ int
 main(int argc, char *argv[], char *envp[])
 {
 	int ret = EXIT_FAILURE;
-	if (log_init(CFG_LOG_BUFFER_SIZE) < 0) {
+	if (log_init() < 0) {
 		fprintf(stderr, "main: log_init: failed\n");
 		return ret;
 	}
