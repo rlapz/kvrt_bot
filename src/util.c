@@ -1280,7 +1280,7 @@ epoch_to_str(char buffer[], size_t size, time_t time)
 char *
 http_url_escape(const char src[])
 {
-	return curl_easy_escape(NULL, src, -1);
+	return curl_easy_escape(NULL, src, 0);
 }
 
 
