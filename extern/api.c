@@ -12,6 +12,7 @@
 
 
 #define _TYPE_SEND_TEXT       "send_text"
+#define _TYPE_SEND_PHOTO      "send_photo"
 #define _TYPE_ANSWER_CALLBACK "answer_callback"
 #define _TYPE_DELETE_MESSAGE  "delete_message"
 #define _TYPE_SCHED_MESSAGE   "sched_message"
@@ -48,6 +49,7 @@ static int _get_parent_proc(Arg *a);
 static int _json_add_str(json_object *root, const char key[], const char value[]);
 
 static int _send_text(const Arg *arg);
+static int _send_photo(const Arg *arg);
 static int _delete_message(const Arg *arg);
 static int _answer_callback(const Arg *arg);
 static int _sched_message(const Arg *arg);
@@ -75,6 +77,8 @@ main(int argc, char *argv[])
 
 	if (cstr_casecmp(arg.api_type, _TYPE_SEND_TEXT))
 		ret = -_send_text(&arg);
+	else if (cstr_casecmp(arg.api_type, _TYPE_SEND_PHOTO))
+		ret = -_send_photo(&arg);
 	else if (cstr_casecmp(arg.api_type, _TYPE_DELETE_MESSAGE))
 		ret = -_delete_message(&arg);
 	else if (cstr_casecmp(arg.api_type, _TYPE_ANSWER_CALLBACK))
@@ -306,6 +310,100 @@ _send_text(const Arg *arg)
 	};
 
 	ret = send_text_fmt(&msg, type, deletable, &ret_id, "%s", text);
+	if (ret < 0)
+		error = "failed to send message";
+
+out0:
+	json_object_object_add(arg->resp, "message_id", json_object_new_int64(ret_id));
+	_add_response(arg, error);
+	return ret;
+}
+
+
+static int
+_send_photo(const Arg *arg)
+{
+	int ret = -1;
+	int64_t ret_id = 0;
+	const char  *error = "";
+
+	json_object *type_obj;
+	if (json_object_object_get_ex(arg->data, "type", &type_obj) == 0) {
+		error = "no 'type' field";
+		goto out0;
+	}
+
+	const char *const type_str = json_object_get_string(type_obj);
+
+	int type;
+	if (cstr_casecmp(type_str, "url")) {
+		type = TG_API_PHOTO_TYPE_URL;
+	} else if (cstr_casecmp(type_str, "file")) {
+		type = TG_API_PHOTO_TYPE_FILE;
+	} else {
+		error = "'type': invalid value";
+		goto out0;
+	}
+
+	json_object *chat_id_obj;
+	if (json_object_object_get_ex(arg->data, "chat_id", &chat_id_obj) == 0) {
+		error = "no 'chat_id' field";
+		goto out0;
+	}
+
+	json_object *msg_id_obj;
+	if (json_object_object_get_ex(arg->data, "message_id", &msg_id_obj) == 0) {
+		error = "no 'message_id' field";
+		goto out0;
+	}
+
+	json_object *user_id_obj;
+	if (json_object_object_get_ex(arg->data, "user_id", &user_id_obj) == 0) {
+		error = "no 'user_id' field";
+		goto out0;
+	}
+
+	const int64_t user_id = json_object_get_int64(user_id_obj);
+
+	json_object *photo_obj;
+	if (json_object_object_get_ex(arg->data, "photo", &photo_obj) == 0) {
+		error = "no 'photo' field";
+		goto out0;
+	}
+
+	const char *text = "";
+	json_object *text_obj;
+	if (json_object_object_get_ex(arg->data, "text", &text_obj)) {
+		text = json_object_get_string(text_obj);
+		text = (cstr_is_empty(text))? "" : text;
+	}
+
+	const int64_t chat_id = json_object_get_int64(chat_id_obj);
+	if (chat_id == 0) {
+		error = "'chat_id': invalid value";
+		goto out0;
+	}
+
+	int deletable = 0;
+	json_object *deletable_obj;
+	if (json_object_object_get_ex(arg->data, "deletable", &deletable_obj))
+		deletable = json_object_get_boolean(deletable_obj);
+
+	const int64_t msg_id = json_object_get_int64(msg_id_obj);
+
+	const char *const photo = json_object_get_string(photo_obj);
+	if (cstr_is_empty(photo)) {
+		error = "'photo': empty";
+		goto out0;
+	}
+
+	const TgMessage msg = {
+		.id = msg_id,
+		.from = &(TgUser) { .id = user_id },
+		.chat = (TgChat) { .id = chat_id },
+	};
+
+	ret = send_photo_fmt(&msg, type, deletable, &ret_id, photo, "%s", text);
 	if (ret < 0)
 		error = "failed to send message";
 

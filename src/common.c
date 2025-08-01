@@ -15,6 +15,8 @@
 
 static char *_message_list_add_template(const MessageList *l, const MessageListPagination *pag);
 static int   _send_text_add_deleter(const TgMessage *msg, const char text[], int64_t *ret_id);
+static int   _send_photo_add_deleter(const TgMessage *msg, const char photo[], const char caption[],
+				     int64_t *ret_id);
 
 
 /*
@@ -47,7 +49,7 @@ send_text_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, co
 
 	str[ret] = '\0';
 	if (deletable == 0) {
-		ret = tg_api_send_text(type, msg->chat.id, msg->id, str, NULL);
+		ret = tg_api_send_text(type, msg->chat.id, msg->id, str, ret_id);
 		goto out0;
 	}
 
@@ -65,6 +67,44 @@ send_text_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, co
 		ret = _send_text_add_deleter(msg, str, ret_id);
 		break;
 	}
+
+out0:
+	free(str);
+	return ret;
+}
+
+
+int
+send_photo_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, const char photo[],
+	       const char fmt[], ...)
+{
+	int ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = vsnprintf(NULL, 0, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		return -1;
+
+	const size_t str_len = ((size_t)ret) + 1;
+	char *const str = malloc(str_len);
+	if (str == NULL)
+		return -1;
+
+	va_start(va, fmt);
+	ret = vsnprintf(str, str_len, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		goto out0;
+
+	str[ret] = '\0';
+	if (deletable == 0)
+		ret = tg_api_send_photo(type, msg->chat.id, msg->id, photo, str, ret_id);
+	else
+		ret = _send_photo_add_deleter(msg, photo, str, ret_id);
 
 out0:
 	free(str);
@@ -257,10 +297,11 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 	if (body_list == NULL)
 		return ret;
 
+	const int type = TG_API_INLINE_KEYBOARD_TYPE_TEXT;
 	if (l->id_callback == NULL)
-		ret = tg_api_send_inline_keyboard(l->id_chat, l->id_message, body_list, &kbds, 1, ret_id);
+		ret = tg_api_send_inline_keyboard(type, l->id_chat, l->id_message, body_list, NULL, &kbds, 1, ret_id);
 	else
-		ret = tg_api_edit_inline_keyboard(l->id_chat, l->id_message, body_list, &kbds, 1, ret_id);
+		ret = tg_api_edit_inline_keyboard(type, l->id_chat, l->id_message, body_list, &kbds, 1, ret_id);
 
 	free(body_list);
 	return ret;
@@ -298,5 +339,26 @@ _send_text_add_deleter(const TgMessage *msg, const char text[], int64_t *ret_id)
 		.len = 1,
 	};
 
-	return tg_api_send_inline_keyboard(msg->chat.id, msg->id, text, &kbd, 1, ret_id);
+	return tg_api_send_inline_keyboard(TG_API_INLINE_KEYBOARD_TYPE_TEXT, msg->chat.id, msg->id, text,
+					   NULL, &kbd, 1, ret_id);
+}
+
+
+static int
+_send_photo_add_deleter(const TgMessage *msg, const char photo[], const char caption[], int64_t *ret_id)
+{
+	const TgApiInlineKeyboard kbd = {
+		.buttons = &(TgApiInlineKeyboardButton) {
+			.text = "Delete",
+			.data = (TgApiInlineKeyboardButtonData[]) {
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
+				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+			},
+			.data_len = 2,
+		},
+		.len = 1,
+	};
+
+	return tg_api_send_inline_keyboard(TG_API_INLINE_KEYBOARD_TYPE_PHOTO, msg->chat.id, msg->id,
+					   photo, caption, &kbd, 1, ret_id);
 }

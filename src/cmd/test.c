@@ -99,8 +99,14 @@ void
 cmd_test_photo(const CmdParam *cmd)
 {
 	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
-	int ret = tg_api_send_photo(TG_API_PHOTO_TYPE_URL, cmd->id_chat, cmd->id_message, photo_url, "cat girl", NULL);
-	LOG_DEBUG("cmd:test", "ret: %d", ret);
+
+	const TgMessage msg = {
+		.id = cmd->id_message,
+		.from = &(TgUser) { .id = cmd->id_user},
+		.chat = (TgChat) { .id = cmd->id_chat },
+	};
+
+	send_photo_fmt(&msg, TG_API_PHOTO_TYPE_URL, 1, NULL, photo_url, "%s", "");
 }
 
 

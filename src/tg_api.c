@@ -180,35 +180,62 @@ out0:
 
 
 int
-tg_api_send_inline_keyboard(int64_t chat_id, int64_t reply_to, const char text[],
-			    const TgApiInlineKeyboard kbds[], unsigned kbds_len,
-			    int64_t *ret_id)
+tg_api_send_inline_keyboard(int type, int64_t chat_id, int64_t reply_to, const char value[],
+			    const char caption[], const TgApiInlineKeyboard kbds[],
+			    unsigned kbds_len, int64_t *ret_id)
 {
 	assert(_base_api != NULL);
 
+	const char *method;
+	const char *arg_key;
+	const int   capt_ok = (cstr_is_empty(caption) == 0);
+	switch (type) {
+	case TG_API_INLINE_KEYBOARD_TYPE_TEXT:
+		if (capt_ok)
+			return -1;
+
+		method = "sendMessage";
+		arg_key = "text";
+		break;
+	case TG_API_INLINE_KEYBOARD_TYPE_PHOTO:
+		method = "sendPhoto";
+		arg_key = "photo";
+		break;
+	default:
+		return -1;
+	}
+
 	int ret = -1;
-	if (cstr_is_empty(text))
+	if (cstr_is_empty(value))
 		return ret;
 
 	char *ret_str = NULL;
 	if (_build_inline_keyboard(kbds, kbds_len, &ret_str) < 0)
 		return -1;
 
-	char *const new_text = curl_easy_escape(NULL, text, 0);
-	if (new_text == NULL)
+	char *const value_e = http_url_escape(value);
+	if (value_e == NULL)
 		goto out0;
 
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		goto out1;
 
-	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
+	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
 		goto out2;
 
 	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
 		goto out2;
 
-	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&text=%s&reply_markup=%s", new_text, ret_str) == NULL)
+	if (capt_ok) {
+		char *const capt_e = http_url_escape(caption);
+		if (capt_e != NULL) {
+			str_append_fmt(&str, "&caption=%s", capt_e);
+			http_url_escape_free(capt_e);
+		}
+	}
+
+	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&%s=%s&reply_markup=%s", arg_key, value_e, ret_str) == NULL)
 		goto out2;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
@@ -229,7 +256,7 @@ out3:
 out2:
 	str_deinit(&str);
 out1:
-	curl_free(new_text);
+	http_url_escape_free(value_e);
 out0:
 	curl_free(ret_str);
 	return ret;
@@ -237,31 +264,45 @@ out0:
 
 
 int
-tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
-			    const TgApiInlineKeyboard kbds[], unsigned kbds_len,
-			    int64_t *ret_id)
+tg_api_edit_inline_keyboard(int type, int64_t chat_id, int64_t msg_id, const char value[],
+			    const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id)
 {
 	assert(_base_api != NULL);
 
+	const char *method;
+	const char *arg_key;
+	switch (type) {
+	case TG_API_EDIT_INLINE_KEYBOARD_TYPE_TEXT:
+		method = "editMessageText";
+		arg_key = "text";
+		break;
+	case TG_API_EDIT_INLINE_KEYBOARD_TYPE_CAPTION:
+		method = "editMessageCaption";
+		arg_key = "caption";
+		break;
+	default:
+		return -1;
+	}
+
 	int ret = -1;
-	if (cstr_is_empty(text))
+	if (cstr_is_empty(value))
 		return ret;
 
 	char *ret_str = NULL;
 	if (_build_inline_keyboard(kbds, kbds_len, &ret_str) < 0)
 		return ret;
 
-	char *const new_text = curl_easy_escape(NULL, text, 0);
-	if (new_text == NULL)
+	char *const value_e = http_url_escape(value);
+	if (value_e == NULL)
 		goto out0;
 
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		goto out1;
 
-	if (str_set_fmt(&str, "%s/editMessageText?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
+	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
 		goto out2;
-	if (str_append_fmt(&str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2&text=%s", msg_id, new_text) == NULL)
+	if (str_append_fmt(&str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2&%s=%s", msg_id, arg_key, value_e) == NULL)
 		goto out2;
 	if (str_append_fmt(&str, "&reply_markup=%s", ret_str) == NULL)
 		goto out2;
@@ -284,7 +325,7 @@ out3:
 out2:
 	str_deinit(&str);
 out1:
-	curl_free(new_text);
+	http_url_escape_free(value_e);
 out0:
 	curl_free(ret_str);
 	return ret;

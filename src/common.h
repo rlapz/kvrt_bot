@@ -34,6 +34,8 @@
 
 
 int send_text_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, const char fmt[], ...);
+int send_photo_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, const char photo[],
+		   const char fmt[], ...);
 
 
 /*

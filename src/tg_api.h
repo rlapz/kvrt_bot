@@ -18,6 +18,16 @@ enum {
 };
 
 enum {
+	TG_API_INLINE_KEYBOARD_TYPE_TEXT,
+	TG_API_INLINE_KEYBOARD_TYPE_PHOTO,
+};
+
+enum {
+	TG_API_EDIT_INLINE_KEYBOARD_TYPE_TEXT,
+	TG_API_EDIT_INLINE_KEYBOARD_TYPE_CAPTION,
+};
+
+enum {
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT,
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT,
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT,
@@ -64,9 +74,10 @@ int  tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char te
 int  tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[], const char capt[],
 		       int64_t *ret_id);
 int  tg_api_delete_message(int64_t chat_id, int64_t message_id);
-int  tg_api_send_inline_keyboard(int64_t chat_id, int64_t reply_to, const char text[],
-				 const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id);
-int  tg_api_edit_inline_keyboard(int64_t chat_id, int64_t msg_id, const char text[],
+int  tg_api_send_inline_keyboard(int type, int64_t chat_id, int64_t reply_to, const char value[],
+				 const char caption[], const TgApiInlineKeyboard kbds[],
+				 unsigned kbds_len, int64_t *ret_id);
+int  tg_api_edit_inline_keyboard(int type, int64_t chat_id, int64_t msg_id, const char value[],
 				 const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id);
 int  tg_api_answer_callback_query(int type, const char id[], const char arg[], int show_alert);
 int  tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj);

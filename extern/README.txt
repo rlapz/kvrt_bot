@@ -70,6 +70,27 @@ Data list:
  		"message_id": 777777777
  	}
 
+--------------------------------------------------------------------------
+ 	send_photo
+ req:
+ 	{
+ 		"type": "url",              -> "url" or "file"
+ 		"chat_id": 00000,
+ 		"message_id": 111111,       -> 0: no reply
+		"user_id": 222222,
+ 		"photo": "https://aaaaaa.com/photo.jpg",
+		"text": ""                  -> optional, caption text
+		"deleteable": false,        -> optional, true: add button 'Delete'
+ 	}
+
+ resp:
+ 	{
+		"name": "xxxx",
+		"proc": "yyyy",
+ 		"error": "",                -> empty: success
+ 		"message_id": 777777777
+ 	}
+
  --------------------------------------------------------------------------
  	answer_callback
  req:
