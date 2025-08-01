@@ -102,27 +102,27 @@ _register_builtin(void)
 			continue;
 
 		if (strlen(p->name) >= MODEL_CMD_NAME_SIZE) {
-			LOG_ERR(0, "cmd", "'%s': too long! Max: %u", p->name, MODEL_CMD_NAME_SIZE);
+			LOG_ERRN("cmd", "'%s': too long! Max: %u", p->name, MODEL_CMD_NAME_SIZE);
 			return -1;
 		}
 
 		if (strlen(p->description) >= MODEL_CMD_DESC_SIZE) {
-			LOG_ERR(0, "cmd", "'%s': too long! Max: %u", p->description, MODEL_CMD_DESC_SIZE);
+			LOG_ERRN("cmd", "'%s': too long! Max: %u", p->description, MODEL_CMD_DESC_SIZE);
 			return -1;
 		}
 
 		if (model_cmd_builtin_is_exists(p->name)) {
-			LOG_ERR(0, "cmd", "'%s': already registered", p->name);
+			LOG_ERRN("cmd", "'%s': already registered", p->name);
 			return -1;
 		}
 
 		if (model_cmd_message_is_exists(p->name)) {
-			LOG_ERR(0, "cmd", "'%s': already registered as CMD Message", p->name);
+			LOG_ERRN("cmd", "'%s': already registered as CMD Message", p->name);
 			return -1;
 		}
 
 		if (model_cmd_extern_is_exists(p->name)) {
-			LOG_ERR(0, "cmd", "'%s': already registered as Extern CMD", p->name);
+			LOG_ERRN("cmd", "'%s': already registered as Extern CMD", p->name);
 			return -1;
 		}
 
