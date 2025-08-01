@@ -1343,8 +1343,11 @@ http_send_get(const char url[], const char content_type[])
 			goto out2;
 	}
 
-	if (curl_easy_perform(handle) != CURLE_OK)
+	const CURLcode res = curl_easy_perform(handle);
+	if (res != CURLE_OK) {
+		LOG_ERRN("http", "curl_easy_perform: %s", curl_easy_strerror(res));
 		goto out2;
+	}
 
 	if (cstr_is_empty(content_type) == 0) {
 		char *ct = NULL;

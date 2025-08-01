@@ -63,6 +63,7 @@ void cmd_test_sched(const CmdParam *cmd);
 void cmd_test_nsfw(const CmdParam *cmd);
 void cmd_test_admin(const CmdParam *cmd);
 void cmd_test_list(const CmdParam *cmd);
+void cmd_test_photo(const CmdParam *cmd);
 #endif
 
 
@@ -163,6 +164,11 @@ void cmd_test_list(const CmdParam *cmd);
 	.description = "test message list",					\
 	.callback_fn = cmd_test_list,						\
 	.flags = MODEL_CMD_FLAG_CALLBACK,					\
+},										\
+{										\
+	.name = "/test_photo",							\
+	.description = "test send photo",					\
+	.callback_fn = cmd_test_photo,						\
 }
 #else
 #define CMD_BUILTIN_LIST_TEST { 0 }

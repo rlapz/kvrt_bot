@@ -95,6 +95,15 @@ cmd_test_list(const CmdParam *cmd)
 }
 
 
+void
+cmd_test_photo(const CmdParam *cmd)
+{
+	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
+	int ret = tg_api_send_photo(TG_API_PHOTO_TYPE_URL, cmd->id_chat, cmd->id_message, photo_url, "cat girl", NULL);
+	LOG_DEBUG("cmd:test", "ret: %d", ret);
+}
+
+
 /*
  * Private
  */

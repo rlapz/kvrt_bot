@@ -13,6 +13,11 @@ enum {
 };
 
 enum {
+	TG_API_PHOTO_TYPE_URL,
+	TG_API_PHOTO_TYPE_FILE,
+};
+
+enum {
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT,
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT,
 	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT,
@@ -56,6 +61,8 @@ typedef struct tg_api_answer_callback_query {
 
 void tg_api_init(const char base_api[]);
 int  tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[], int64_t *ret_id);
+int  tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[], const char capt[],
+		       int64_t *ret_id);
 int  tg_api_delete_message(int64_t chat_id, int64_t message_id);
 int  tg_api_send_inline_keyboard(int64_t chat_id, int64_t reply_to, const char text[],
 				 const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id);

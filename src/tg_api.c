@@ -87,6 +87,59 @@ out0:
 
 
 int
+tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[], const char capt[],
+		  int64_t *ret_id)
+{
+	assert(_base_api != NULL);
+
+	int ret = -1;
+	// TODO: send file
+	if (type != TG_API_PHOTO_TYPE_URL)
+		return ret;
+
+	if (cstr_is_empty(photo))
+		return ret;
+
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return ret;
+
+	if (str_set_fmt(&str, "%s/sendPhoto?photo=%s&chat_id=%" PRIi64, _base_api, photo, chat_id) == NULL)
+		goto out0;
+
+	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
+		goto out0;
+
+	if (cstr_is_empty(capt) == 0) {
+		char *const capt_e = http_url_escape(capt);
+		if (capt_e != NULL) {
+			str_append_fmt(&str, "&caption=%s", capt_e);
+			http_url_escape_free(capt_e);
+		}
+	}
+
+	char *const resp = http_send_get(str.cstr, "application/json");
+	if (resp == NULL)
+		goto out0;
+
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out1;
+
+	ret = _response_get_message_id(res_obj, ret_id);
+
+	json_object_put(res_obj);
+
+out1:
+	free(resp);
+out0:
+	str_deinit(&str);
+	return ret;
+}
+
+
+int
 tg_api_delete_message(int64_t chat_id, int64_t message_id)
 {
 	assert(_base_api != NULL);
