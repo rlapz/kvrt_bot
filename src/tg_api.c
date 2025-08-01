@@ -104,11 +104,15 @@ tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[
 	if (str_init_alloc(&str, 1024) < 0)
 		return ret;
 
-	if (str_set_fmt(&str, "%s/sendPhoto?photo=%s&chat_id=%" PRIi64, _base_api, photo, chat_id) == NULL)
+	char *const photo_e = http_url_escape(photo);
+	if (photo_e == NULL)
 		goto out0;
 
+	if (str_set_fmt(&str, "%s/sendPhoto?photo=%s&chat_id=%" PRIi64, _base_api, photo_e, chat_id) == NULL)
+		goto out1;
+
 	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
-		goto out0;
+		goto out1;
 
 	if (cstr_is_empty(capt) == 0) {
 		char *const capt_e = http_url_escape(capt);
@@ -120,19 +124,21 @@ tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[
 
 	char *const resp = http_send_get(str.cstr, "application/json");
 	if (resp == NULL)
-		goto out0;
+		goto out1;
 
 	json_object *res_obj;
 	ret = _parse_response(resp, &res_obj);
 	if (ret < 0)
-		goto out1;
+		goto out2;
 
 	ret = _response_get_message_id(res_obj, ret_id);
 
 	json_object_put(res_obj);
 
-out1:
+out2:
 	free(resp);
+out1:
+	http_url_escape_free(photo_e);
 out0:
 	str_deinit(&str);
 	return ret;
