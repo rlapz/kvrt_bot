@@ -18,19 +18,16 @@ enum {
 };
 
 enum {
-	TG_API_INLINE_KEYBOARD_TYPE_TEXT,
-	TG_API_INLINE_KEYBOARD_TYPE_PHOTO,
+	TG_API_KEYBOARD_TYPE_TEXT,
+	TG_API_KEYBOARD_TYPE_PHOTO,
+	TG_API_KEYBOARD_TYPE_EDIT_TEXT,
+	TG_API_KEYBOARD_TYPE_EDIT_CAPTION,
 };
 
 enum {
-	TG_API_EDIT_INLINE_KEYBOARD_TYPE_TEXT,
-	TG_API_EDIT_INLINE_KEYBOARD_TYPE_CAPTION,
-};
-
-enum {
-	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT,
-	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT,
-	TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT,
+	TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT,
+	TG_API_KEYBOARD_BUTTON_DATA_TYPE_UINT,
+	TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT,
 };
 
 enum {
@@ -39,26 +36,34 @@ enum {
 };
 
 
-typedef struct tg_api_inline_keyboard_button_data {
+typedef struct tg_api_keyboard_button_data {
 	int type;
 	union {
 		int64_t     int_;
 		uint64_t    uint;
 		const char *text;
 	};
-} TgApiInlineKeyboardButtonData;
+} TgApiKeyboardButtonData;
 
-typedef struct tg_api_inline_keyboard_button {
-	const char                          *text;
-	const char                          *url;
-	const TgApiInlineKeyboardButtonData *data;
-	unsigned                             data_len;
-} TgApiInlineKeyboardButton;
+typedef struct tg_api_keyboard_button {
+	const char                    *text;
+	const char                    *url;
+	const TgApiKeyboardButtonData *data;
+	unsigned                       data_len;
+} TgApiKeyboardButton;
 
-typedef struct tg_api_inline_keyboard {
-	unsigned                         len;
-	const TgApiInlineKeyboardButton *buttons;
-} TgApiInlineKeyboard;
+typedef struct tg_api_keyboard_row {
+	unsigned                   cols_len;
+	const TgApiKeyboardButton *cols;
+} TgApiKeyboardRow;
+
+typedef struct tg_api_keyboard {
+	int                     type;
+	const char             *value;
+	const char             *caption;
+	unsigned                rows_len;
+	const TgApiKeyboardRow *rows;
+} TgApiKeyboard;
 
 typedef struct tg_api_answer_callback_query {
 	const char *id;
@@ -74,11 +79,7 @@ int  tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char te
 int  tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[], const char capt[],
 		       int64_t *ret_id);
 int  tg_api_delete_message(int64_t chat_id, int64_t message_id);
-int  tg_api_send_inline_keyboard(int type, int64_t chat_id, int64_t reply_to, const char value[],
-				 const char caption[], const TgApiInlineKeyboard kbds[],
-				 unsigned kbds_len, int64_t *ret_id);
-int  tg_api_edit_inline_keyboard(int type, int64_t chat_id, int64_t msg_id, const char value[],
-				 const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id);
+int  tg_api_send_keyboard(const TgApiKeyboard *k, int64_t chat_id, int64_t reply_to, int64_t *ret_id);
 int  tg_api_answer_callback_query(int type, const char id[], const char arg[], int show_alert);
 int  tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj);
 

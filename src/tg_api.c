@@ -12,9 +12,9 @@
 static const char *_base_api = NULL;
 
 
-static int _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len,
-				  char *ret_str[]);
-static int _build_inline_keyboard_button(const TgApiInlineKeyboardButton *btn, Str *str);
+static char *_build_keyboard(const TgApiKeyboard *k);
+static int   _build_keyboard_buttons(const TgApiKeyboardButton *b, Str *str);
+
 static int _parse_response(const char resp[], json_object **res_obj);
 static int _response_get_message_id(json_object *obj, int64_t *ret_id);
 
@@ -180,40 +180,48 @@ out0:
 
 
 int
-tg_api_send_inline_keyboard(int type, int64_t chat_id, int64_t reply_to, const char value[],
-			    const char caption[], const TgApiInlineKeyboard kbds[],
-			    unsigned kbds_len, int64_t *ret_id)
+tg_api_send_keyboard(const TgApiKeyboard *k, int64_t chat_id, int64_t msg_id, int64_t *ret_id)
 {
 	assert(_base_api != NULL);
 
+	if (cstr_is_empty(k->value))
+		return -1;
+
 	const char *method;
 	const char *arg_key;
-	const int   capt_ok = (cstr_is_empty(caption) == 0);
-	switch (type) {
-	case TG_API_INLINE_KEYBOARD_TYPE_TEXT:
-		if (capt_ok)
-			return -1;
-
+	const char *caption = NULL;
+	int is_edit = 0;
+	switch (k->type) {
+	case TG_API_KEYBOARD_TYPE_TEXT:
 		method = "sendMessage";
 		arg_key = "text";
 		break;
-	case TG_API_INLINE_KEYBOARD_TYPE_PHOTO:
+	case TG_API_KEYBOARD_TYPE_PHOTO:
 		method = "sendPhoto";
 		arg_key = "photo";
+		caption = k->caption;
+		break;
+	case TG_API_KEYBOARD_TYPE_EDIT_TEXT:
+		method = "editMessageText";
+		arg_key = "text";
+		is_edit = 1;
+		break;
+	case TG_API_KEYBOARD_TYPE_EDIT_CAPTION:
+		method = "editMessageCaption";
+		arg_key = "caption";
+		caption = k->caption;
+		is_edit = 1;
 		break;
 	default:
 		return -1;
 	}
 
-	int ret = -1;
-	if (cstr_is_empty(value))
-		return ret;
-
-	char *ret_str = NULL;
-	if (_build_inline_keyboard(kbds, kbds_len, &ret_str) < 0)
+	char *const kbd_str = _build_keyboard(k);
+	if (kbd_str == NULL)
 		return -1;
 
-	char *const value_e = http_url_escape(value);
+	int ret = -1;
+	char *const value_e = http_url_escape(k->value);
 	if (value_e == NULL)
 		goto out0;
 
@@ -224,10 +232,15 @@ tg_api_send_inline_keyboard(int type, int64_t chat_id, int64_t reply_to, const c
 	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
 		goto out2;
 
-	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
-		goto out2;
+	if (is_edit) {
+		if (str_append_fmt(&str, "&message_id=%" PRIi64, msg_id) == NULL)
+			goto out2;
+	} else {
+		if ((msg_id != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, msg_id) == NULL))
+			goto out2;
+	}
 
-	if (capt_ok) {
+	if (cstr_is_empty(caption) == 0) {
 		char *const capt_e = http_url_escape(caption);
 		if (capt_e != NULL) {
 			str_append_fmt(&str, "&caption=%s", capt_e);
@@ -235,7 +248,9 @@ tg_api_send_inline_keyboard(int type, int64_t chat_id, int64_t reply_to, const c
 		}
 	}
 
-	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&%s=%s&reply_markup=%s", arg_key, value_e, ret_str) == NULL)
+	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&%s=%s", arg_key, value_e) == NULL)
+		goto out2;
+	if (str_append_fmt(&str, "&reply_markup=%s", kbd_str) == NULL)
 		goto out2;
 
 	char *const resp = http_send_get(str.cstr, "application/json");
@@ -258,76 +273,7 @@ out2:
 out1:
 	http_url_escape_free(value_e);
 out0:
-	curl_free(ret_str);
-	return ret;
-}
-
-
-int
-tg_api_edit_inline_keyboard(int type, int64_t chat_id, int64_t msg_id, const char value[],
-			    const TgApiInlineKeyboard kbds[], unsigned kbds_len, int64_t *ret_id)
-{
-	assert(_base_api != NULL);
-
-	const char *method;
-	const char *arg_key;
-	switch (type) {
-	case TG_API_EDIT_INLINE_KEYBOARD_TYPE_TEXT:
-		method = "editMessageText";
-		arg_key = "text";
-		break;
-	case TG_API_EDIT_INLINE_KEYBOARD_TYPE_CAPTION:
-		method = "editMessageCaption";
-		arg_key = "caption";
-		break;
-	default:
-		return -1;
-	}
-
-	int ret = -1;
-	if (cstr_is_empty(value))
-		return ret;
-
-	char *ret_str = NULL;
-	if (_build_inline_keyboard(kbds, kbds_len, &ret_str) < 0)
-		return ret;
-
-	char *const value_e = http_url_escape(value);
-	if (value_e == NULL)
-		goto out0;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		goto out1;
-
-	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
-		goto out2;
-	if (str_append_fmt(&str, "&message_id=%" PRIi64 "&parse_mode=MarkdownV2&%s=%s", msg_id, arg_key, value_e) == NULL)
-		goto out2;
-	if (str_append_fmt(&str, "&reply_markup=%s", ret_str) == NULL)
-		goto out2;
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if (resp == NULL)
-		goto out2;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out3;
-
-	ret = _response_get_message_id(res_obj, ret_id);
-
-	json_object_put(res_obj);
-
-out3:
-	free(resp);
-out2:
-	str_deinit(&str);
-out1:
-	http_url_escape_free(value_e);
-out0:
-	curl_free(ret_str);
+	free(kbd_str);
 	return ret;
 }
 
@@ -437,10 +383,11 @@ out0:
 /*
  * Private
  */
-static int
-_build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char *ret_str[])
+static char *
+_build_keyboard(const TgApiKeyboard *k)
 {
-	int ret = -1;
+	char *ret = NULL;
+
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0)
 		return ret;
@@ -448,34 +395,32 @@ _build_inline_keyboard(const TgApiInlineKeyboard kbds[], unsigned kbds_len, char
 	if (str_set_n(&str, "{\"inline_keyboard\": [", 21) == NULL)
 		goto out0;
 
-	for (unsigned i = 0; i < kbds_len; i++) {
+	const unsigned rows_len = k->rows_len;
+	for (unsigned i = 0; i < rows_len; i++) {
 		if (str_append_n(&str, "[", 1) == NULL)
 			goto out0;
 
-		const TgApiInlineKeyboard *const kbd = &kbds[i];
-		for (unsigned j = 0; j < kbd->len; j++) {
-			if (_build_inline_keyboard_button(&kbd->buttons[j], &str) < 0)
+		const TgApiKeyboardButton *const cols = k->rows[i].cols;
+		const unsigned cols_len = k->rows[i].cols_len;
+		for (unsigned j = 0; j < cols_len; j++) {
+			if (_build_keyboard_buttons(&cols[j], &str) < 0)
 				goto out0;
 		}
 
-		if (kbd->len > 0)
+		if (cols_len > 0)
 			str_pop(&str, 2);
 
 		if (str_append_n(&str, "], ", 3) == NULL)
 			goto out0;
 	}
 
-	if (kbds_len > 0)
+	if (rows_len > 0)
 		str_pop(&str, 2);
 
 	if (str_append_n(&str, "]}", 2) == NULL)
 		goto out0;
 
-	char *const res = curl_easy_escape(NULL, str.cstr, (int)str.len);
-	if (res != NULL) {
-		*ret_str = res;
-		ret = 0;
-	}
+	ret = curl_easy_escape(NULL, str.cstr, (int)str.len);
 
 out0:
 	str_deinit(&str);
@@ -484,26 +429,27 @@ out0:
 
 
 static int
-_build_inline_keyboard_button(const TgApiInlineKeyboardButton *btn, Str *str)
+_build_keyboard_buttons(const TgApiKeyboardButton *b, Str *str)
 {
-	if (str_append_fmt(str, "{\"text\": \"%s\"", btn->text) == NULL)
+	if (str_append_fmt(str, "{\"text\": \"%s\"", b->text) == NULL)
 		return -1;
 
-	if (btn->data != NULL) {
+	if (b->data != NULL) {
 		if (str_append_n(str, ", \"callback_data\": \"", 20) == NULL)
 			return -1;
 
-		for (unsigned k = 0; k < btn->data_len; k++) {
+		const unsigned data_len = b->data_len;
+		for (unsigned k = 0; k < data_len; k++) {
 			const char *_ret = NULL;
-			const TgApiInlineKeyboardButtonData *const d = &btn->data[k];
+			const TgApiKeyboardButtonData *const d = &b->data[k];
 			switch (d->type) {
-			case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT:
+			case TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT:
 				_ret = str_append_fmt(str, "%" PRIi64 " ", d->int_);
 				break;
-			case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_UINT:
+			case TG_API_KEYBOARD_BUTTON_DATA_TYPE_UINT:
 				_ret = str_append_fmt(str, "%" PRIu64 " ", d->uint);
 				break;
-			case TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
+			case TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
 				_ret = str_append_fmt(str, "%s ", cstr_empty_if_null(d->text));
 				break;
 			}
@@ -512,13 +458,13 @@ _build_inline_keyboard_button(const TgApiInlineKeyboardButton *btn, Str *str)
 				return -1;
 		}
 
-		if (btn->data_len > 0)
+		if (data_len > 0)
 			str_pop(str, 1);
 
 		if (str_append_c(str, '"') == NULL)
 			return -1;
-	} else if (btn->url != NULL) {
-		if (str_append_fmt(str, ", \"url\": \"%s\"", btn->url) == NULL)
+	} else if (b->url != NULL) {
+		if (str_append_fmt(str, ", \"url\": \"%s\"", b->url) == NULL)
 			return -1;
 	}
 

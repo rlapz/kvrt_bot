@@ -238,51 +238,53 @@ err0:
 int
 message_list_send(const MessageList *l, const MessageListPagination *pag, int64_t *ret_id)
 {
-	int ret = -1;
 	if (cstr_is_empty(l->ctx))
-		return ret;
+		return -1;
 
 	const time_t now = time(NULL);
 	const int64_t created_by = l->created_by;
 	const unsigned page = pag->page_num;
-	const TgApiInlineKeyboardButton btns[] = {
+	const TgApiKeyboardButton btns[] = {
 		{
 			.text = "Prev",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page - 1 },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = now },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = created_by },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
+			.data = (TgApiKeyboardButtonData[]) {
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page - 1 },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = now },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = created_by },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
 			},
 			.data_len = 5,
 		},
 		{
 			.text = "Next",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page + 1 },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = now },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = created_by },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
+			.data = (TgApiKeyboardButtonData[]) {
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page + 1 },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = now },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = created_by },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
 			},
 			.data_len = 5,
 		},
 		{
 			.text = "Delete",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = 0 },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = created_by },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
+			.data = (TgApiKeyboardButtonData[]) {
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->ctx },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = page },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = 0 },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = created_by },
+				{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = l->udata },
 			},
 			.data_len = 5,
 		},
 	};
 
+	char *const body_list = _message_list_add_template(l, pag);
+	if (body_list == NULL)
+		return -1;
 
-	TgApiInlineKeyboardButton btns_r[LEN(btns)];
+	TgApiKeyboardButton btns_r[LEN(btns)];
 	unsigned count = 0;
 	if (page < pag->page_size)
 		btns_r[count++] = btns[1];
@@ -291,18 +293,18 @@ message_list_send(const MessageList *l, const MessageListPagination *pag, int64_
 		btns_r[count++] = btns[0];
 
 	btns_r[count++] = btns[2];
-	TgApiInlineKeyboard kbds = { .len = count, .buttons = btns_r };
 
-	char *const body_list = _message_list_add_template(l, pag);
-	if (body_list == NULL)
-		return ret;
+	const TgApiKeyboard kbd = {
+		.type = (l->id_callback == NULL)? TG_API_KEYBOARD_TYPE_TEXT : TG_API_KEYBOARD_TYPE_EDIT_TEXT,
+		.value = body_list,
+		.rows_len = 1,
+		.rows = &(TgApiKeyboardRow) {
+			.cols_len = count,
+			.cols = btns_r,
+		},
+	};
 
-	const int type = TG_API_INLINE_KEYBOARD_TYPE_TEXT;
-	if (l->id_callback == NULL)
-		ret = tg_api_send_inline_keyboard(type, l->id_chat, l->id_message, body_list, NULL, &kbds, 1, ret_id);
-	else
-		ret = tg_api_edit_inline_keyboard(type, l->id_chat, l->id_message, body_list, &kbds, 1, ret_id);
-
+	const int ret = tg_api_send_keyboard(&kbd, l->id_chat, l->id_message, ret_id);
 	free(body_list);
 	return ret;
 }
@@ -327,38 +329,47 @@ _message_list_add_template(const MessageList *l, const MessageListPagination *pa
 static int
 _send_text_add_deleter(const TgMessage *msg, const char text[], int64_t *ret_id)
 {
-	const TgApiInlineKeyboard kbd = {
-		.buttons = &(TgApiInlineKeyboardButton) {
-			.text = "Delete",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+	const TgApiKeyboard kbd = {
+		.type = TG_API_KEYBOARD_TYPE_TEXT,
+		.value = text,
+		.rows_len = 1,
+		.rows = &(TgApiKeyboardRow) {
+			.cols_len = 1,
+			.cols = &(TgApiKeyboardButton) {
+				.text = "Delete",
+				.data_len = 2,
+				.data = (TgApiKeyboardButtonData[]) {
+					{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
+					{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+				},
 			},
-			.data_len = 2,
 		},
-		.len = 1,
 	};
 
-	return tg_api_send_inline_keyboard(TG_API_INLINE_KEYBOARD_TYPE_TEXT, msg->chat.id, msg->id, text,
-					   NULL, &kbd, 1, ret_id);
+	return tg_api_send_keyboard(&kbd, msg->chat.id, msg->id, ret_id);
 }
 
 
 static int
 _send_photo_add_deleter(const TgMessage *msg, const char photo[], const char caption[], int64_t *ret_id)
 {
-	const TgApiInlineKeyboard kbd = {
-		.buttons = &(TgApiInlineKeyboardButton) {
-			.text = "Delete",
-			.data = (TgApiInlineKeyboardButtonData[]) {
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
-				{ .type = TG_API_INLINE_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+	const TgApiKeyboard kbd = {
+		.type = TG_API_KEYBOARD_TYPE_PHOTO,
+		.value = photo,
+		.caption = caption,
+		.rows_len = 1,
+		.rows = &(TgApiKeyboardRow) {
+			.cols_len = 1,
+			.cols = &(TgApiKeyboardButton) {
+				.text = "Delete",
+				.data_len = 2,
+				.data = (TgApiKeyboardButtonData[]) {
+					{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT, .text = "/deleter" },
+					{ .type = TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT, .int_ = msg->from->id },
+				},
 			},
-			.data_len = 2,
 		},
-		.len = 1,
 	};
 
-	return tg_api_send_inline_keyboard(TG_API_INLINE_KEYBOARD_TYPE_PHOTO, msg->chat.id, msg->id,
-					   photo, caption, &kbd, 1, ret_id);
+	return tg_api_send_keyboard(&kbd, msg->chat.id, msg->id, ret_id);
 }
