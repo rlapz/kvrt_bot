@@ -92,7 +92,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		return;
 
 err0:
-	ANSWER_CALLBACK_QUERY_TEXT(cmd->id_callback, "Error!", 1);
+	ANSWER_CALLBACK_TEXT(cmd->id_callback, "Error!", 1);
 }
 
 

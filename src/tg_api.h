@@ -65,14 +65,6 @@ typedef struct tg_api_keyboard {
 	const TgApiKeyboardRow *rows;
 } TgApiKeyboard;
 
-typedef struct tg_api_answer_callback_query {
-	const char *id;
-	const char *text;
-	const char *url;
-	int         show_alert;
-	int         cache_time;
-} TgApiAnswerCallbackQuery;
-
 
 void tg_api_init(const char base_api[]);
 int  tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[], int64_t *ret_id);
@@ -80,7 +72,7 @@ int  tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char p
 		       int64_t *ret_id);
 int  tg_api_delete_message(int64_t chat_id, int64_t message_id);
 int  tg_api_send_keyboard(const TgApiKeyboard *k, int64_t chat_id, int64_t reply_to, int64_t *ret_id);
-int  tg_api_answer_callback_query(int type, const char id[], const char arg[], int show_alert);
+int  tg_api_answer_callback(int type, const char id[], const char arg[], int show_alert);
 int  tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj);
 
 

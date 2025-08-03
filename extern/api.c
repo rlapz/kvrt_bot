@@ -501,7 +501,7 @@ _answer_callback(const Arg *arg)
 
 	const int show_alert = json_object_get_int(show_alert_obj);
 	if (is_text)
-		ret = ANSWER_CALLBACK_QUERY_TEXT(id, value, show_alert);
+		ret = ANSWER_CALLBACK_TEXT(id, value, show_alert);
 	else
 		ret = ANSWER_CALLBACK_QUERY_URL(id, value, show_alert);
 

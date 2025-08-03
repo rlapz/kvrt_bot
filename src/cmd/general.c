@@ -74,7 +74,7 @@ out0:
 	if (is_err == 0)
 		return;
 
-	ANSWER_CALLBACK_QUERY_TEXT(list.id_callback, "Error!", 1);
+	ANSWER_CALLBACK_TEXT(list.id_callback, "Error!", 1);
 }
 
 
@@ -231,7 +231,7 @@ cmd_general_deleter(const CmdParam *cmd)
 		text = "Failed";
 
 out0:
-	ANSWER_CALLBACK_QUERY_TEXT(cmd->id_callback, text, 0);
+	ANSWER_CALLBACK_TEXT(cmd->id_callback, text, 0);
 }
 
 

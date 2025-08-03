@@ -279,7 +279,7 @@ out0:
 
 
 int
-tg_api_answer_callback_query(int type, const char id[], const char arg[], int show_alert)
+tg_api_answer_callback(int type, const char id[], const char arg[], int show_alert)
 {
 	assert(_base_api != NULL);
 

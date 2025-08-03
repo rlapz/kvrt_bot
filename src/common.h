@@ -26,11 +26,11 @@
 #define SEND_TEXT_FORMAT_FMT(MSG, DELETABLE, RET_ID, ...)\
 	send_text_fmt(MSG, TG_API_TEXT_TYPE_FORMAT, DELETABLE, RET_ID, __VA_ARGS__)
 
-#define ANSWER_CALLBACK_QUERY_TEXT(ID, TEXT, SHOW_ALERT)\
-	tg_api_answer_callback_query(TG_API_ANSWER_CALLBACK_TYPE_TEXT, ID, TEXT, SHOW_ALERT)
+#define ANSWER_CALLBACK_TEXT(ID, TEXT, SHOW_ALERT)\
+	tg_api_answer_callback(TG_API_ANSWER_CALLBACK_TYPE_TEXT, ID, TEXT, SHOW_ALERT)
 
-#define ANSWER_CALLBACK_QUERY_URL(ID, URL, SHOW_ALERT)\
-	tg_api_answer_callback_query(TG_API_ANSWER_CALLBACK_TYPE_URL, ID, URL, SHOW_ALERT)
+#define ANSWER_CALLBACK_URL(ID, URL, SHOW_ALERT)\
+	tg_api_answer_callback(TG_API_ANSWER_CALLBACK_TYPE_URL, ID, URL, SHOW_ALERT)
 
 
 int send_text_fmt(const TgMessage *msg, int type, int deletable, int64_t *ret_id, const char fmt[], ...);

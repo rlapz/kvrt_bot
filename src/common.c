@@ -210,17 +210,17 @@ message_list_init(MessageList *l, const char args[])
 			if (tg_api_delete_message(l->id_chat, l->id_message) < 0)
 				_text = "Failed";
 
-			ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, _text, 0);
+			ANSWER_CALLBACK_TEXT(l->id_callback, _text, 0);
 			return -3;
 		}
 
-		ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, "Permission denied!", 1);
+		ANSWER_CALLBACK_TEXT(l->id_callback, "Permission denied!", 1);
 		return -1;
 	}
 
 	const time_t diff = time(NULL) - timer;
 	if (diff >= CFG_LIST_TIMEOUT_S) {
-		ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, "Expired!", 1);
+		ANSWER_CALLBACK_TEXT(l->id_callback, "Expired!", 1);
 		return -2;
 	}
 
@@ -230,7 +230,7 @@ message_list_init(MessageList *l, const char args[])
 	return 0;
 
 err0:
-	ANSWER_CALLBACK_QUERY_TEXT(l->id_callback, "Invalid callback!", 1);
+	ANSWER_CALLBACK_TEXT(l->id_callback, "Invalid callback!", 1);
 	return -1;
 }
 
