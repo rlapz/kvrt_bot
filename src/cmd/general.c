@@ -218,8 +218,15 @@ cmd_general_deleter(const CmdParam *cmd)
 	}
 
 	int can_delete = 1;
-	if (cmd->id_user != from_id)
-		can_delete = is_admin(cmd->id_user, cmd->id_chat, cmd->id_owner);
+	if (cmd->id_user != from_id) {
+		const int ret = is_admin(cmd->id_user, cmd->id_chat, cmd->id_owner);
+		if (ret < 0) {
+			text = "Failed to get admin list!";
+			goto out0;
+		}
+
+		can_delete = ret;
+	}
 
 	if (can_delete == 0) {
 		text = "Permission denied!";
@@ -228,10 +235,10 @@ cmd_general_deleter(const CmdParam *cmd)
 
 	text = "Deleted";
 	if (tg_api_delete_message(cmd->id_chat, cmd->id_message) < 0)
-		text = "Failed";
+		text = "Failed: Maybe the message is too old or invalid.";
 
 out0:
-	ANSWER_CALLBACK_TEXT(cmd->id_callback, text, 0);
+	ANSWER_CALLBACK_TEXT(cmd->id_callback, text, 1);
 }
 
 

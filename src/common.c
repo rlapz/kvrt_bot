@@ -124,7 +124,7 @@ is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
 	const int privs = model_admin_get_privileges(chat_id, user_id);
 	if (privs < 0) {
 		LOG_ERRN("common", "%s", "is_admin: Failed to get admin list");
-		return 0;
+		return -1;
 	}
 
 	return (privs != 0);
@@ -201,16 +201,23 @@ message_list_init(MessageList *l, const char args[])
 		goto err0;
 
 	if (timer == 0) {
-		int _should_delete = 1;
-		if (l->id_user != from_id)
-			_should_delete = is_admin(l->id_user, l->id_chat, l->id_owner);
+		int _can_delete = 1;
+		if (l->id_user != from_id) {
+			const int ret = is_admin(l->id_user, l->id_chat, l->id_owner);
+			if (ret < 0) {
+				ANSWER_CALLBACK_TEXT(l->id_callback, "Failed to get admin list!", 1);
+				return -1;
+			}
 
-		if (_should_delete) {
+			_can_delete = ret;
+		}
+
+		if (_can_delete) {
 			const char *_text = "Deleted";
 			if (tg_api_delete_message(l->id_chat, l->id_message) < 0)
-				_text = "Failed";
+				_text = "Failed: Maybe the message is too old or invalid.";
 
-			ANSWER_CALLBACK_TEXT(l->id_callback, _text, 0);
+			ANSWER_CALLBACK_TEXT(l->id_callback, _text, 1);
 			return -3;
 		}
 

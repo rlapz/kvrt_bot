@@ -271,8 +271,13 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 	if ((flags & MODEL_CMD_FLAG_EXTRA) && ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA) == 0))
 		return 0;
 
-	if (is_private == 0) {
-		if ((flags & MODEL_CMD_FLAG_ADMIN) && (is_admin(c->id_user, c->id_chat, c->id_owner) == 0)) {
+	if ((is_private == 0) && (flags & MODEL_CMD_FLAG_ADMIN)) {
+		const int ret = is_admin(c->id_user, c->id_chat, c->id_owner);
+		switch (ret) {
+		case -1:
+			SEND_TEXT_PLAIN(c->msg, "Filed to get admin list!");
+			return 0;
+		case 0:
 			SEND_TEXT_PLAIN(c->msg, "Permission denied!");
 			return 0;
 		}
