@@ -250,7 +250,7 @@ _exec_cmd_message(const CmdParam *c)
 	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
 		 c->id_chat, c->id_user, c->msg->id, c->name);
 
-	SEND_TEXT_FORMAT(c->msg, value);
+	SEND_TEXT_PLAIN(c->msg, value);
 	return 1;
 }
 
@@ -275,7 +275,7 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 		const int ret = is_admin(c->id_user, c->id_chat, c->id_owner);
 		switch (ret) {
 		case -1:
-			SEND_TEXT_PLAIN(c->msg, "Filed to get admin list!");
+			SEND_TEXT_PLAIN(c->msg, "Failed to get admin list!");
 			return 0;
 		case 0:
 			SEND_TEXT_PLAIN(c->msg, "Permission denied!");
