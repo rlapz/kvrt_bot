@@ -236,11 +236,11 @@ enum {
 };
 
 typedef struct tg_message {
-	int      type;
-	int64_t  id;
-	int64_t  date;
-	TgUser  *from;
-	TgChat   chat;
+	int                type;
+	int64_t            id;
+	int64_t            date;
+	TgUser            *from;
+	TgChat             chat;
 	struct tg_message *reply_to;
 	TgMessageEntity   *entities;
 	size_t             entities_len;

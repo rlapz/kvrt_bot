@@ -939,6 +939,13 @@ _free_message(TgMessage *m)
 		break;
 	}
 
+	for (size_t i = 0; i < m->entities_len; i++) {
+		if (m->entities[i].type != TG_MESSAGE_ENTITY_TYPE_TEXT_MENTION)
+			continue;
+
+		free(m->entities[i].user);
+	}
+
 	free(m->from);
 	free(m->entities);
 	free(m->reply_to);
