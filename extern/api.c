@@ -127,13 +127,12 @@ _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 
 	if (cstr_is_empty(argv[_ARG_CMD_NAME])) {
 		error = "'CMD Name' is empty";
-		a->cmd_name = "undefined";
 		goto out0;
 	}
 
 	a->cmd_name = argv[_ARG_CMD_NAME];
 	if (config_load(&a->config, cfg_file) < 0) {
-		error = "filed to load config file";
+		error = "failed to load config file";
 		goto out0;
 	}
 
