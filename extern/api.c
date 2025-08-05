@@ -89,7 +89,7 @@ main(int argc, char *argv[])
 		_add_response(&arg, "invalid api type!");
 
 out0:
-	fprintf(stdout, "%s\n", json_object_to_json_string_ext(resp_obj, JSON_C_TO_STRING_PRETTY));
+	fprintf(stdout, "%s\n\n", json_object_to_json_string_ext(resp_obj, JSON_C_TO_STRING_PRETTY));
 	json_object_put(arg.data);
 	json_object_put(resp_obj);
 	return ret;
@@ -106,6 +106,7 @@ _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 	const char *error = "";
 
 	a->data = NULL;
+	a->api_type = "undefined";
 	a->cmd_name = "undefined";
 	if (_get_parent_proc(a) < 0) {
 		error = "failed to get parent process name";
@@ -136,12 +137,12 @@ _arg_parse(Arg *a, int argc, char *argv[], json_object *resp_obj)
 		goto out0;
 	}
 
-	a->api_type = argv[_ARG_API_TYPE];
-	if (cstr_is_empty(a->api_type)) {
+	if (cstr_is_empty(argv[_ARG_API_TYPE])) {
 		error = "'API Type' is empty";
 		goto out0;
 	}
 
+	a->api_type = argv[_ARG_API_TYPE];
 	a->data = json_tokener_parse(argv[_ARG_DATA]);
 	if (a->data == NULL) {
 		error = "'Data': failed to parse";
@@ -179,9 +180,10 @@ _json_add_str(json_object *root, const char key[], const char value[])
 static int
 _add_response(const Arg *a, const char error[])
 {
+	if (_json_add_str(a->resp, "type", a->api_type) < 0)
+		return -1;
 	if (_json_add_str(a->resp, "name", a->cmd_name) < 0)
 		return -1;
-
 	if (_json_add_str(a->resp, "proc", a->proc_name) < 0)
 		return -1;
 

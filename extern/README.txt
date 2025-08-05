@@ -64,6 +64,7 @@ Data list:
 
  resp:
  	{
+		"type": "send_text",        -> api type
 		"name": "xxxx",
 		"proc": "yyyy",
  		"error": "",                -> empty: success
@@ -85,6 +86,7 @@ Data list:
 
  resp:
  	{
+		"type": "send_photo",       -> api type
 		"name": "xxxx",
 		"proc": "yyyy",
  		"error": "",                -> empty: success
@@ -103,6 +105,7 @@ Data list:
 
  resp:
  	{
+		"type": "answer_callback",  -> api type
 		"name": "xxxx",
 		"proc": "yyyy",
  		"error": "",                -> empty: success
@@ -118,6 +121,7 @@ Data list:
 
  resp:
  	{
+		"type": "delete_message",   -> api type
 		"name": "xxxx",
 		"proc": "yyyy",
  		"error": "",                -> empty: success
@@ -137,9 +141,10 @@ Data list:
 
  resp:
  	{
+		"type": "sched_send_message", -> api type
 		"name": "xxxx",
 		"proc": "yyyy",
- 		"error": "",                -> empty: success
+ 		"error": "",                  -> empty: success
  	}
 
 
@@ -153,8 +158,8 @@ Example:
         ./api config.json.bin send_text '{"type": "plain", "chat_id": 9999999, "message_id": 0, "text": "test" }'
 
         response:
-			[Success]: { "name": "/xxx", "proc": "aaaa", "error": "", "message_id": xxxxxxx }
-			[Error]:   { "name": "/xxx", "proc: "aaaa", "error": "Some error", "message_id": 0 }
+			[Success]: { "type": "send_text", "name": "/xxx", "proc": "aaaa", "error": "", "message_id": xxxxxxx }
+			[Error]:   { "type": "send_text", "name": "/xxx", "proc: "aaaa", "error": "Some error", "message_id": 0 }
 
 	See: 'test.sh' file
 
