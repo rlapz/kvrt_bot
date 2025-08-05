@@ -503,7 +503,7 @@ _answer_callback(const Arg *arg)
 	if (is_text)
 		ret = ANSWER_CALLBACK_TEXT(id, value, show_alert);
 	else
-		ret = ANSWER_CALLBACK_QUERY_URL(id, value, show_alert);
+		ret = ANSWER_CALLBACK_URL(id, value, show_alert);
 
 	if (ret < 0)
 		error = "failed to answer callback query";
