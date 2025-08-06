@@ -14,11 +14,11 @@
 /*
  * tg_api wrappers
  */
-#define SEND_TEXT_PLAIN(MSG, TYPE)\
-	tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, MSG->chat.id, MSG->id, TYPE, NULL)
+#define SEND_TEXT_PLAIN(MSG, TEXT)\
+	tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, MSG->chat.id, MSG->id, TEXT, NULL)
 
-#define SEND_TEXT_FORMAT(MSG, TYPE)\
-	tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, MSG->chat.id, MSG->id, TYPE, NULL)
+#define SEND_TEXT_FORMAT(MSG, TEXT)\
+	tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, MSG->chat.id, MSG->id, TEXT, NULL)
 
 #define SEND_TEXT_PLAIN_FMT(MSG, DELETABLE, RET_ID, ...)\
 	send_text_fmt(MSG, TG_API_TEXT_TYPE_PLAIN, DELETABLE, RET_ID, __VA_ARGS__)

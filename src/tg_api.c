@@ -146,6 +146,73 @@ out0:
 
 
 int
+tg_api_edit_message(int type, int64_t chat_id, int64_t message_id, const char value[])
+{
+	assert(_base_api != NULL);
+
+	if ((chat_id == 0) || (message_id == 0) || cstr_is_empty(value))
+		return -1;
+
+	const char *method;
+	const char *arg_key;
+	switch (type) {
+	case TG_API_EDIT_TYPE_TEXT_PLAIN:
+		method = "editMessageText";
+		arg_key = "text";
+		break;
+	case TG_API_EDIT_TYPE_CAPTION_PLAIN:
+		method = "editMessageCaption";
+		arg_key = "caption";
+		break;
+	case TG_API_EDIT_TYPE_TEXT_FORMAT:
+		method = "editMessageText";
+		arg_key = "parse_mode=MarkdownV2&text";
+		break;
+	case TG_API_EDIT_TYPE_CAPTION_FORMAT:
+		method = "editMessageCaption";
+		arg_key = "parse_mode=MarkdownV2&caption";
+		break;
+	default:
+		return -1;
+	}
+
+	int ret = -1;
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return ret;
+
+	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
+		goto out0;
+
+	char *const value_e = http_url_escape(value);
+	if (value_e == NULL)
+		goto out0;
+
+	if (str_append_fmt(&str, "&message_id=%" PRIi64 "&%s=%s", message_id, arg_key, value_e) == NULL)
+		goto out1;
+
+	char *const resp = http_send_get(str.cstr, "application/json");
+	if (resp == NULL)
+		goto out1;
+
+	json_object *res_obj;
+	ret = _parse_response(resp, &res_obj);
+	if (ret < 0)
+		goto out2;
+
+	json_object_put(res_obj);
+
+out2:
+	free(resp);
+out1:
+	http_url_escape_free(value_e);
+out0:
+	str_deinit(&str);
+	return ret;
+}
+
+
+int
 tg_api_delete_message(int64_t chat_id, int64_t message_id)
 {
 	assert(_base_api != NULL);

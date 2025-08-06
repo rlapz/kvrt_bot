@@ -64,6 +64,7 @@ void cmd_test_nsfw(const CmdParam *cmd);
 void cmd_test_admin(const CmdParam *cmd);
 void cmd_test_list(const CmdParam *cmd);
 void cmd_test_photo(const CmdParam *cmd);
+void cmd_test_edit(const CmdParam *cmd);
 #endif
 
 
@@ -169,6 +170,11 @@ void cmd_test_photo(const CmdParam *cmd);
 	.name = "/test_photo",							\
 	.description = "test send photo",					\
 	.callback_fn = cmd_test_photo,						\
+},										\
+{										\
+	.name = "/test_edit",							\
+	.description = "test edit message",					\
+	.callback_fn = cmd_test_edit,						\
 }
 #else
 #define CMD_BUILTIN_LIST_TEST { 0 }

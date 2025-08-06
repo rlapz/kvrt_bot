@@ -18,6 +18,13 @@ enum {
 };
 
 enum {
+	TG_API_EDIT_TYPE_TEXT_PLAIN,
+	TG_API_EDIT_TYPE_CAPTION_PLAIN,
+	TG_API_EDIT_TYPE_TEXT_FORMAT,
+	TG_API_EDIT_TYPE_CAPTION_FORMAT,
+};
+
+enum {
 	TG_API_KEYBOARD_TYPE_TEXT,
 	TG_API_KEYBOARD_TYPE_PHOTO,
 	TG_API_KEYBOARD_TYPE_EDIT_TEXT,
@@ -71,6 +78,7 @@ int  tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char te
 int  tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[], const char capt[],
 		       int64_t *ret_id);
 int  tg_api_delete_message(int64_t chat_id, int64_t message_id);
+int  tg_api_edit_message(int type, int64_t chat_id, int64_t message_id, const char value[]);
 int  tg_api_send_keyboard(const TgApiKeyboard *k, int64_t chat_id, int64_t reply_to, int64_t *ret_id);
 int  tg_api_answer_callback(int type, const char id[], const char arg[], int show_alert);
 int  tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj);

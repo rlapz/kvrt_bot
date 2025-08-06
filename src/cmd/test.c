@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "../cmd.h"
 #include "../common.h"
 #include "../model.h"
@@ -107,6 +109,29 @@ cmd_test_photo(const CmdParam *cmd)
 	};
 
 	send_photo_fmt(&msg, TG_API_PHOTO_TYPE_URL, 1, NULL, photo_url, "%s", "");
+}
+
+
+void
+cmd_test_edit(const CmdParam *cmd)
+{
+	int64_t msg_id = 0;
+	//if (SEND_TEXT_PLAIN_FMT(cmd->msg, 1, &msg_id, "%s", "hello world!") < 0)
+		//return;
+	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
+
+	const TgMessage msg = {
+		.id = cmd->id_message,
+		.from = &(TgUser) { .id = cmd->id_user},
+		.chat = (TgChat) { .id = cmd->id_chat },
+	};
+
+	send_photo_fmt(&msg, TG_API_PHOTO_TYPE_URL, 1, &msg_id, photo_url, "%s", "hello world");
+
+	sleep(2);
+	LOG_INFO("test", "%"PRIi64, cmd->id_chat);
+
+	tg_api_edit_message(TG_API_EDIT_TYPE_CAPTION_PLAIN, cmd->id_chat, msg_id, "damn hell!");
 }
 
 
