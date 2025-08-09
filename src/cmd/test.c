@@ -13,8 +13,21 @@
 void
 cmd_test_echo(const CmdParam *cmd)
 {
-	//send_text_plain(cmd->msg, "Ok");
-	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "%s", "test");
+	TgApi api = {
+		.type = TG_API_TYPE_SEND_TEXT,
+		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.chat_id = cmd->id_chat,
+		.msg_id = cmd->id_message,
+		.value = "hello _world_",
+	};
+
+	int ret = tg_api_init1(&api);
+	LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+
+	ret = tg_api_exec(&api);
+	LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
+
+	tg_api_deinit(&api);
 }
 
 
@@ -77,23 +90,48 @@ cmd_test_admin(const CmdParam *cmd)
 void
 cmd_test_list(const CmdParam *cmd)
 {
-	MessageList list = {
-		.id_user = cmd->id_user,
-		.id_owner = cmd->id_owner,
-		.id_chat = cmd->id_chat,
-		.id_message = cmd->msg->id,
-		.id_callback = cmd->id_callback,
-		.body = "test",
-		.ctx = cmd->name,
-		.title = "Test List",
-		.udata = "",
+	TgApi api = {
+		.type = TG_API_TYPE_SEND_TEXT,
+		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.chat_id = cmd->id_chat,
+		.msg_id = cmd->id_message,
+		.value = "hello _world_",
 	};
 
-	if (message_list_init(&list, cmd->args) < 0)
-		return;
+	TgApiKbd kbd = {
+		.rows_len = 1,
+		.rows = &(TgApiKbdRow) {
+			.cols_len = 1,
+			.cols = &(TgApiKbdButton) {
+				.text = "hello",
+				.url = "google.com",
+				//.data_list_len = 1,
+				//.data_list = &(TgApiKbdButtonData) {
+				//	.type = TG_API_KBD_BUTTON_DATA_TYPE_TEXT,
+				//	.text = "/help",
+				//},
+			},
+		},
+	};
 
-	const MessageListPagination pag = { .page_num = 1, .page_size = 1 };
-	message_list_send(&list, &pag, NULL);
+	int ret = tg_api_init1(&api);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		return;
+	}
+
+	ret = tg_api_add_kbd(&api, &kbd);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		goto out0;
+	}
+
+	ret = tg_api_exec(&api);
+	if (ret < 0)
+		LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
+
+out0:
+	tg_api_deinit(&api);
 }
 
 
@@ -102,13 +140,49 @@ cmd_test_photo(const CmdParam *cmd)
 {
 	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
 
-	const TgMessage msg = {
-		.id = cmd->id_message,
-		.from = &(TgUser) { .id = cmd->id_user},
-		.chat = (TgChat) { .id = cmd->id_chat },
+	TgApi api = {
+		.type = TG_API_TYPE_SEND_PHOTO,
+		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.chat_id = cmd->id_chat,
+		.msg_id = cmd->id_message,
+		.value = photo_url,
+		.caption = "_cute girl_",
 	};
 
-	send_photo_fmt(&msg, TG_API_PHOTO_TYPE_URL, 1, NULL, photo_url, "%s", "");
+	TgApiKbd kbd = {
+		.rows_len = 1,
+		.rows = &(TgApiKbdRow) {
+			.cols_len = 1,
+			.cols = &(TgApiKbdButton) {
+				.text = "hello",
+				.url = "google.com",
+				//.data_list_len = 1,
+				//.data_list = &(TgApiKbdButtonData) {
+				//	.type = TG_API_KBD_BUTTON_DATA_TYPE_TEXT,
+				//	.text = "/help",
+				//},
+			},
+		},
+	};
+
+	int ret = tg_api_init1(&api);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		return;
+	}
+
+	ret = tg_api_add_kbd(&api, &kbd);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		goto out0;
+	}
+
+	ret = tg_api_exec(&api);
+	if (ret < 0)
+		LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
+
+out0:
+	tg_api_deinit(&api);
 }
 
 

@@ -1404,8 +1404,10 @@ void
 dump_json_obj(const char ctx[], json_object *json)
 {
 #ifdef DEBUG
-	if (json == NULL)
+	if (json == NULL) {
+		LOG_DEBUG("dump", "\n----[JSON]---\n%s:\nNULL\n------------------", ctx);
 		return;
+	}
 
 	LOG_DEBUG("dump", "\n----[JSON]---\n%s:\n%s\n------------------", ctx,
 		  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
