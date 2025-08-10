@@ -13,597 +13,27 @@
 static const char *_base_api = NULL;
 
 
-static char *_build_keyboard(const TgApiKeyboard *k);
-static int   _build_keyboard_buttons(const TgApiKeyboardButton *b, Str *str);
+static void        _init_args(TgApi *t);
+static const char *_get_parse_mode_key(int type);
+static int         _get_edit_query(const TgApi *t, const char *method[], const char *val_key[],
+				   const char *val[]);
 
-static int _parse_response(const char resp[], json_object **res_obj);
-static int _response_get_message_id(json_object *obj, int64_t *ret_id);
+static int  _handle_send_text(TgApi *t);
+static int  _handle_send_photo(TgApi *t);
+static int  _handle_edit_message(TgApi *t);
+static int  _handle_delete_message(TgApi *t);
+static int  _handle_answer_callback(TgApi *t);
+
+static int _build_kbd_buttons(const TgApiKbdButton *b, Str *str);
+
+static int _parse_response(TgApi *t, const char resp[]);
+static int _set_error_message(TgApi *t, json_object *obj);
+static int _set_message_id(TgApi *t, json_object *obj);
 
 
 /*
  * Public
  */
-void
-tg_api_init(const char base_api[])
-{
-	_base_api = base_api;
-}
-
-
-int
-tg_api_send_text(int type, int64_t chat_id, int64_t reply_to, const char text[], int64_t *ret_id)
-{
-	assert(_base_api != NULL);
-
-	int ret = -1;
-	const char *arg_key;
-	switch (type) {
-	case TG_API_TEXT_TYPE_PLAIN: arg_key = "&text"; break;
-	case TG_API_TEXT_TYPE_FORMAT: arg_key = "&parse_mode=MarkdownV2&text"; break;
-	default: return ret;
-	}
-
-	if (cstr_is_empty(text))
-		return ret;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
-
-	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
-		goto out0;
-
-	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
-		goto out0;
-
-	char *const new_text = curl_easy_escape(NULL, text, 0);
-	if (new_text == NULL)
-		goto out0;
-
-	const char *const req = str_append_fmt(&str, "%s=%s", arg_key, new_text);
-	if (req == NULL)
-		goto out1;
-
-	char *const resp = http_send_get(req, "application/json");
-	if (resp == NULL)
-		goto out1;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out2;
-
-	ret = _response_get_message_id(res_obj, ret_id);
-
-	json_object_put(res_obj);
-
-out2:
-	free(resp);
-out1:
-	curl_free(new_text);
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-int
-tg_api_send_photo(int type, int64_t chat_id, int64_t reply_to, const char photo[], const char capt[],
-		  int64_t *ret_id)
-{
-	assert(_base_api != NULL);
-
-	int ret = -1;
-	// TODO: send file
-	if (type != TG_API_PHOTO_TYPE_URL)
-		return ret;
-
-	if (cstr_is_empty(photo))
-		return ret;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
-
-	char *const photo_e = http_url_escape(photo);
-	if (photo_e == NULL)
-		goto out0;
-
-	if (str_set_fmt(&str, "%s/sendPhoto?photo=%s&chat_id=%" PRIi64, _base_api, photo_e, chat_id) == NULL)
-		goto out1;
-
-	if ((reply_to != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, reply_to) == NULL))
-		goto out1;
-
-	if (cstr_is_empty(capt) == 0) {
-		char *const capt_e = http_url_escape(capt);
-		if (capt_e != NULL) {
-			str_append_fmt(&str, "&caption=%s", capt_e);
-			http_url_escape_free(capt_e);
-		}
-	}
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if (resp == NULL)
-		goto out1;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out2;
-
-	ret = _response_get_message_id(res_obj, ret_id);
-
-	json_object_put(res_obj);
-
-out2:
-	free(resp);
-out1:
-	http_url_escape_free(photo_e);
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-int
-tg_api_edit_message(int type, int64_t chat_id, int64_t message_id, const char value[])
-{
-	assert(_base_api != NULL);
-
-	if ((chat_id == 0) || (message_id == 0) || cstr_is_empty(value))
-		return -1;
-
-	const char *method;
-	const char *arg_key;
-	switch (type) {
-	case TG_API_EDIT_TYPE_TEXT_PLAIN:
-		method = "editMessageText";
-		arg_key = "text";
-		break;
-	case TG_API_EDIT_TYPE_CAPTION_PLAIN:
-		method = "editMessageCaption";
-		arg_key = "caption";
-		break;
-	case TG_API_EDIT_TYPE_TEXT_FORMAT:
-		method = "editMessageText";
-		arg_key = "parse_mode=MarkdownV2&text";
-		break;
-	case TG_API_EDIT_TYPE_CAPTION_FORMAT:
-		method = "editMessageCaption";
-		arg_key = "parse_mode=MarkdownV2&caption";
-		break;
-	default:
-		return -1;
-	}
-
-	int ret = -1;
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
-
-	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
-		goto out0;
-
-	char *const value_e = http_url_escape(value);
-	if (value_e == NULL)
-		goto out0;
-
-	if (str_append_fmt(&str, "&message_id=%" PRIi64 "&%s=%s", message_id, arg_key, value_e) == NULL)
-		goto out1;
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if (resp == NULL)
-		goto out1;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out2;
-
-	json_object_put(res_obj);
-
-out2:
-	free(resp);
-out1:
-	http_url_escape_free(value_e);
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-int
-tg_api_delete_message(int64_t chat_id, int64_t message_id)
-{
-	assert(_base_api != NULL);
-
-	int ret = -1;
-	if ((chat_id == 0) || (message_id == 0))
-		return -1;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return -1;
-
-	const char *const req = str_set_fmt(&str, "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64,
-					    _base_api, chat_id, message_id);
-	char *const resp = http_send_get(req, "application/json");
-	if (resp == NULL)
-		goto out0;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out1;
-
-	json_object_put(res_obj);
-
-out1:
-	free(resp);
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-int
-tg_api_send_keyboard(const TgApiKeyboard *k, int64_t chat_id, int64_t msg_id, int64_t *ret_id)
-{
-	assert(_base_api != NULL);
-
-	if (cstr_is_empty(k->value))
-		return -1;
-
-	const char *method;
-	const char *arg_key;
-	const char *caption = NULL;
-	int is_edit = 0;
-	switch (k->type) {
-	case TG_API_KEYBOARD_TYPE_TEXT:
-		method = "sendMessage";
-		arg_key = "text";
-		break;
-	case TG_API_KEYBOARD_TYPE_PHOTO:
-		method = "sendPhoto";
-		arg_key = "photo";
-		caption = k->caption;
-		break;
-	case TG_API_KEYBOARD_TYPE_EDIT_TEXT:
-		method = "editMessageText";
-		arg_key = "text";
-		is_edit = 1;
-		break;
-	case TG_API_KEYBOARD_TYPE_EDIT_CAPTION:
-		method = "editMessageCaption";
-		arg_key = "caption";
-		caption = k->caption;
-		is_edit = 1;
-		break;
-	default:
-		return -1;
-	}
-
-	char *const kbd_str = _build_keyboard(k);
-	if (kbd_str == NULL)
-		return -1;
-
-	int ret = -1;
-	char *const value_e = http_url_escape(k->value);
-	if (value_e == NULL)
-		goto out0;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		goto out1;
-
-	if (str_set_fmt(&str, "%s/%s?chat_id=%" PRIi64, _base_api, method, chat_id) == NULL)
-		goto out2;
-
-	if (is_edit) {
-		if (str_append_fmt(&str, "&message_id=%" PRIi64, msg_id) == NULL)
-			goto out2;
-	} else {
-		if ((msg_id != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, msg_id) == NULL))
-			goto out2;
-	}
-
-	if (cstr_is_empty(caption) == 0) {
-		char *const capt_e = http_url_escape(caption);
-		if (capt_e != NULL) {
-			str_append_fmt(&str, "&caption=%s", capt_e);
-			http_url_escape_free(capt_e);
-		}
-	}
-
-	if (str_append_fmt(&str, "&parse_mode=MarkdownV2&%s=%s", arg_key, value_e) == NULL)
-		goto out2;
-	if (str_append_fmt(&str, "&reply_markup=%s", kbd_str) == NULL)
-		goto out2;
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if (resp == NULL)
-		goto out2;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out3;
-
-	ret = _response_get_message_id(res_obj, ret_id);
-
-	json_object_put(res_obj);
-
-out3:
-	free(resp);
-out2:
-	str_deinit(&str);
-out1:
-	http_url_escape_free(value_e);
-out0:
-	free(kbd_str);
-	return ret;
-}
-
-
-int
-tg_api_answer_callback(int type, const char id[], const char arg[], int show_alert)
-{
-	assert(_base_api != NULL);
-
-	int ret = -1;
-	const char *arg_key;
-	switch (type) {
-	case TG_API_ANSWER_CALLBACK_TYPE_TEXT: arg_key = "&text"; break;
-	case TG_API_ANSWER_CALLBACK_TYPE_URL: arg_key = "&url"; break;
-	default: return ret;
-	}
-
-	if (CSTR_IS_EMPTY(id, arg))
-		return ret;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
-
-	if (str_set_fmt(&str, "%s/answerCallbackQuery?callback_query_id=%s", _base_api, id) == NULL)
-		goto out0;
-
-	{
-		char *const _new_arg = curl_easy_escape(NULL, arg, 0);
-		if (_new_arg == NULL)
-			goto out0;
-
-		const char *const _ret = str_append_fmt(&str, "%s=%s", arg_key, _new_arg);
-
-		curl_free(_new_arg);
-		if (_ret == NULL)
-			goto out0;
-	}
-
-	if (str_append_fmt(&str, "&show_alert=%d", show_alert) == NULL)
-		goto out0;
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if (resp == NULL)
-		goto out0;
-
-	json_object *res_obj;
-	ret = _parse_response(resp, &res_obj);
-	if (ret < 0)
-		goto out1;
-
-	json_object_put(res_obj);
-
-out1:
-	free(resp);
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-int
-tg_api_get_admin_list(int64_t chat_id, TgChatAdminList *list, json_object **res_obj)
-{
-	assert(_base_api != NULL);
-
-	int ret = -1;
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
-
-	if (str_set_fmt(&str, "%s/getChatAdministrators?chat_id=%" PRIi64, _base_api, chat_id) == NULL)
-		goto out0;
-
-	char *const resp = http_send_get(str.cstr, "application/json");
-	if (resp == NULL)
-		goto out0;
-
-	json_object *json;
-	if (_parse_response(resp, &json) < 0)
-		goto out1;
-
-	if (list != NULL) {
-		json_object *_res_obj;
-		if (json_object_object_get_ex(json, "result", &_res_obj) == 0)
-			goto out2;
-
-		if (tg_chat_admin_list_parse(list, _res_obj) < 0)
-			goto out2;
-	}
-
-	*res_obj = json;
-	ret = 0;
-
-out2:
-	if (ret < 0)
-		json_object_put(json);
-
-out1:
-	free(resp);
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-/*
- * Private
- */
-static char *
-_build_keyboard(const TgApiKeyboard *k)
-{
-	char *ret = NULL;
-
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return ret;
-
-	if (str_set_n(&str, "{\"inline_keyboard\": [", 21) == NULL)
-		goto out0;
-
-	const unsigned rows_len = k->rows_len;
-	for (unsigned i = 0; i < rows_len; i++) {
-		if (str_append_n(&str, "[", 1) == NULL)
-			goto out0;
-
-		const TgApiKeyboardButton *const cols = k->rows[i].cols;
-		const unsigned cols_len = k->rows[i].cols_len;
-		for (unsigned j = 0; j < cols_len; j++) {
-			if (_build_keyboard_buttons(&cols[j], &str) < 0)
-				goto out0;
-		}
-
-		if (cols_len > 0)
-			str_pop(&str, 2);
-
-		if (str_append_n(&str, "], ", 3) == NULL)
-			goto out0;
-	}
-
-	if (rows_len > 0)
-		str_pop(&str, 2);
-
-	if (str_append_n(&str, "]}", 2) == NULL)
-		goto out0;
-
-	ret = curl_easy_escape(NULL, str.cstr, (int)str.len);
-
-out0:
-	str_deinit(&str);
-	return ret;
-}
-
-
-static int
-_build_keyboard_buttons(const TgApiKeyboardButton *b, Str *str)
-{
-	if (str_append_fmt(str, "{\"text\": \"%s\"", b->text) == NULL)
-		return -1;
-
-	if (b->data != NULL) {
-		if (str_append_n(str, ", \"callback_data\": \"", 20) == NULL)
-			return -1;
-
-		const unsigned data_len = b->data_len;
-		for (unsigned k = 0; k < data_len; k++) {
-			const char *_ret = NULL;
-			const TgApiKeyboardButtonData *const d = &b->data[k];
-			switch (d->type) {
-			case TG_API_KEYBOARD_BUTTON_DATA_TYPE_INT:
-				_ret = str_append_fmt(str, "%" PRIi64 " ", d->int_);
-				break;
-			case TG_API_KEYBOARD_BUTTON_DATA_TYPE_UINT:
-				_ret = str_append_fmt(str, "%" PRIu64 " ", d->uint);
-				break;
-			case TG_API_KEYBOARD_BUTTON_DATA_TYPE_TEXT:
-				_ret = str_append_fmt(str, "%s ", cstr_empty_if_null(d->text));
-				break;
-			}
-
-			if (_ret == NULL)
-				return -1;
-		}
-
-		if (data_len > 0)
-			str_pop(str, 1);
-
-		if (str_append_c(str, '"') == NULL)
-			return -1;
-	} else if (b->url != NULL) {
-		if (str_append_fmt(str, ", \"url\": \"%s\"", b->url) == NULL)
-			return -1;
-	}
-
-	if (str_append_n(str, "}, ", 3) == NULL)
-		return -1;
-
-	return 0;
-}
-
-
-static int
-_parse_response(const char resp[], json_object **res_obj)
-{
-	json_object *const root_obj = json_tokener_parse(resp);
-	if (root_obj == NULL)
-		return -1;
-
-	json_object *ok_obj;
-	if (json_object_object_get_ex(root_obj, "ok", &ok_obj) == 0)
-		goto err0;
-
-	if (json_object_get_boolean(ok_obj) == 0)
-		goto err0;
-
-	*res_obj = root_obj;
-	return 0;
-
-err0:
-	json_object_put(root_obj);
-	return -1;
-}
-
-
-static int
-_response_get_message_id(json_object *obj, int64_t *ret_id)
-{
-	if (ret_id == NULL)
-		return 0;
-
-	json_object *res_obj;
-	if (json_object_object_get_ex(obj, "result", &res_obj) == 0)
-		return -1;
-
-	json_object *id_obj;
-	if (json_object_object_get_ex(res_obj, "message_id", &id_obj) == 0)
-		return -1;
-
-	*ret_id = json_object_get_int64(id_obj);
-	return 0;
-}
-
-
-
-/* new api */
-static void         _init_args(TgApi *t);
-static const char *_get_parse_mode_key(int type);
-
-static int  _handle_send_text(TgApi *t);
-static int  _handle_send_photo(TgApi *t);
-//static int  _handle_edit_text(TgApi *t);
-//static int  _handle_edit_caption(TgApi *t);
-//static int  _handle_delete_message(TgApi *t);
-//static int  _handle_answer_callback(TgApi *t);
-
-static int _build_kbd_buttons(const TgApiKbdButton *b, Str *str);
-
-static int _parse_response1(TgApi *t, const char resp[]);
-static int _set_error_message(TgApi *t, json_object *obj);
-static int _set_message_id(TgApi *t, json_object *obj);
-
-
 void
 tg_api_global_init(const char base_api[])
 {
@@ -618,13 +48,15 @@ tg_api_err_str(int err)
 	case TG_API_ERR_NONE: return "TG_API_ERR_NONE: no error";
 	case TG_API_ERR_API: return "TG_API_ERR_API: error from the telegram api";
 	case TG_API_ERR_TYPE_INVALID: return "TG_API_ERR_TYPE_INVALID: invalid method type";
-	case TG_API_ERR_TYPE_TEXT_INVALID: return "TG_API_ERR_TYPE_TEXT_INVALID: invalid text type";
+	case TG_API_ERR_TEXT_TYPE_INVALID: return "TG_API_ERR_TYPE_TEXT_INVALID: invalid text type";
+	case TG_API_ERR_VALUE_TYPE_INVALID: return "TG_API_ERR_VALUE_TYPE_INVALID: invalid value type";
 	case TG_API_ERR_VALUE_INVALID: return "TG_API_ERR_VALUE_INVALID: empty or invalid value";
 	case TG_API_ERR_CAPTION_INVALID: return "TG_API_ERR_CAPTION_INVALID: empty or invalid caption";
 	case TG_API_ERR_CHAT_ID_INVALID: return "TG_API_ERR_CHAT_ID_INVALID: invalid chat id";
 	case TG_API_ERR_USER_ID_INVALID: return "TG_API_ERR_USER_ID_INVALID: invalid user id";
 	case TG_API_ERR_MSG_ID_INVALID: return "TG_API_ERR_MSG_ID_INVALID: invalid message id";
 	case TG_API_ERR_REPLY_MSG_ID_INVALID: return "TG_API_ERR_REPLY_MSG_ID_INVALID: invalid reply to message id";
+	case TG_API_ERR_CALLBACK_ID_INVALID: return "TG_API_ERR_CALLBACK_ID_INVALID: invalid callback id";
 	case TG_API_ERR_HAS_NO_TYPE: return "TG_API_ERR_HAS_NO_TYPE: has no method type";
 	case TG_API_ERR_INVALID_RESP: return "TG_API_ERR_INVALID_RESP: invalid response from the telegram api";
 	case TG_API_ERR_SEND_REQ: return "TG_API_ERR_SEND_REQ: failed to send request";
@@ -636,8 +68,10 @@ tg_api_err_str(int err)
 
 
 int
-tg_api_init1(TgApi *t)
+tg_api_init(TgApi *t)
 {
+	assert(_base_api != NULL);
+
 	_init_args(t);
 	if (str_init_alloc(&t->str, 1024) < 0)
 		return TG_API_ERR_INTERNAL;
@@ -646,10 +80,10 @@ tg_api_init1(TgApi *t)
 	switch (t->type) {
 	case TG_API_TYPE_SEND_TEXT: ret = _handle_send_text(t); break;
 	case TG_API_TYPE_SEND_PHOTO: ret = _handle_send_photo(t); break;
-	//case TG_API_TYPE_EDIT_TEXT: ret = _handle_edit_text(t); break;
-	//case TG_API_TYPE_EDIT_CAPTION: ret = _handle_edit_caption(t); break;
-	//case TG_API_TYPE_DELETE_MESSAGE: ret = _handle_delete_message(t); break;
-	//case TG_API_TYPE_ANSWER_CALLBACK: ret = _handle_answer_callback(t); break;
+	case TG_API_TYPE_EDIT_TEXT:
+	case TG_API_TYPE_EDIT_CAPTION: ret = _handle_edit_message(t); break;
+	case TG_API_TYPE_DELETE_MESSAGE: ret = _handle_delete_message(t); break;
+	case TG_API_TYPE_ANSWER_CALLBACK: ret = _handle_answer_callback(t); break;
 	default: ret = TG_API_ERR_TYPE_INVALID; break;
 	}
 
@@ -678,7 +112,7 @@ tg_api_exec(TgApi *t)
 	if (resp == NULL)
 		return TG_API_ERR_SEND_REQ;
 
-	const int ret = _parse_response1(t, resp);
+	const int ret = _parse_response(t, resp);
 	free(resp);
 	return ret;
 }
@@ -755,11 +189,37 @@ static const char *
 _get_parse_mode_key(int type)
 {
 	switch (type) {
-	case TG_API_TEXT_TYPE_PLAIN: return "";
-	case TG_API_TEXT_TYPE_FORMAT: return "&parse_mode=MarkdownV2";
+	case TG_API_PARSE_TYPE_PLAIN: return "";
+	case TG_API_PARSE_TYPE_FORMAT: return "&parse_mode=MarkdownV2";
 	}
 
 	return NULL;
+}
+
+
+static int
+_get_edit_query(const TgApi *t, const char *method[], const char *val_key[], const char *val[])
+{
+	switch (t->type) {
+	case TG_API_TYPE_EDIT_TEXT:
+		if (cstr_is_empty(t->value))
+			return TG_API_ERR_VALUE_INVALID;
+		*method = "editMessageText";
+		*val_key = "text";
+		*val = t->value;
+		break;
+	case TG_API_TYPE_EDIT_CAPTION:
+		if (cstr_is_empty(t->caption))
+			return TG_API_ERR_CAPTION_INVALID;
+		*method = "editMessageCaption";
+		*val_key = "caption";
+		*val = t->caption;
+		break;
+	default:
+		return TG_API_ERR_TYPE_INVALID;
+	}
+
+	return TG_API_ERR_NONE;
 }
 
 
@@ -771,10 +231,12 @@ _handle_send_text(TgApi *t)
 		return TG_API_ERR_CHAT_ID_INVALID;
 	if (cstr_is_empty(t->value))
 		return TG_API_ERR_VALUE_INVALID;
+	if (t->value_type != TG_API_VALUE_TYPE_TEXT)
+		return TG_API_ERR_VALUE_TYPE_INVALID;
 
-	const char *const text_param_key = _get_parse_mode_key(t->text_type);
+	const char *const text_param_key = _get_parse_mode_key(t->parse_type);
 	if (text_param_key == NULL)
-		return TG_API_ERR_TYPE_TEXT_INVALID;
+		return TG_API_ERR_TEXT_TYPE_INVALID;
 
 	int ret = TG_API_ERR_INTERNAL;
 	if (str_set_fmt(s, "%s/sendMessage?chat_id=%" PRIi64, _base_api, t->chat_id) == NULL)
@@ -806,6 +268,8 @@ _handle_send_photo(TgApi *t)
 		return TG_API_ERR_CHAT_ID_INVALID;
 	if (cstr_is_empty(t->value))
 		return TG_API_ERR_VALUE_INVALID;
+	if (t->value_type != TG_API_VALUE_TYPE_URL)
+		return TG_API_ERR_VALUE_TYPE_INVALID;
 
 	int ret = TG_API_ERR_INTERNAL;
 	if (str_set_fmt(s, "%s/sendPhoto?chat_id=%" PRIi64, _base_api, t->chat_id) == NULL)
@@ -821,9 +285,9 @@ _handle_send_photo(TgApi *t)
 		goto out0;
 
 	if (cstr_is_empty(t->caption) == 0) {
-		const char *const parse_mode_key = _get_parse_mode_key(t->text_type);
+		const char *const parse_mode_key = _get_parse_mode_key(t->parse_type);
 		if (parse_mode_key == NULL) {
-			ret = TG_API_ERR_TYPE_TEXT_INVALID;
+			ret = TG_API_ERR_TEXT_TYPE_INVALID;
 			goto out0;
 		}
 
@@ -839,6 +303,99 @@ _handle_send_photo(TgApi *t)
 
 out0:
 	http_url_escape_free(photo);
+	return ret;
+}
+
+
+static int
+_handle_edit_message(TgApi *t)
+{
+	if (t->chat_id == 0)
+		return TG_API_ERR_CHAT_ID_INVALID;
+	if (t->msg_id == 0)
+		return TG_API_ERR_MSG_ID_INVALID;
+
+	const char *method_type;
+	const char *value_key;
+	const char *value;
+	int ret = _get_edit_query(t, &method_type, &value_key, &value);
+	if (ret != TG_API_ERR_NONE)
+		return ret;
+
+	ret = TG_API_ERR_INTERNAL;
+	if (str_set_fmt(&t->str, "%s/%s?chat_id=%" PRIi64, _base_api, method_type, t->chat_id) == NULL)
+		return ret;
+	if (str_append_fmt(&t->str, "&message_id=%" PRIi64, t->msg_id) == NULL)
+		return ret;
+
+	const char *const parse_mode_key = _get_parse_mode_key(t->parse_type);
+	if (parse_mode_key == NULL)
+		return TG_API_ERR_TEXT_TYPE_INVALID;
+
+	char *const value_e = http_url_escape(value);
+	if (value_e == NULL)
+		return ret;
+
+	if (str_append_fmt(&t->str, "%s&%s=%s", parse_mode_key, value_key, value_e) == NULL)
+		goto out0;
+
+	ret = TG_API_ERR_NONE;
+
+out0:
+	http_url_escape_free(value_e);
+	return ret;
+}
+
+
+static int
+_handle_delete_message(TgApi *t)
+{
+	if (t->chat_id == 0)
+		return TG_API_ERR_CHAT_ID_INVALID;
+	if (t->msg_id == 0)
+		return TG_API_ERR_MSG_ID_INVALID;
+
+	if (str_set_fmt(&t->str, "%s/deleteMessage?chat_id=%" PRIi64, _base_api, t->chat_id) == NULL)
+		return TG_API_ERR_INTERNAL;
+	if (str_append_fmt(&t->str, "&message_id=%" PRIi64, t->msg_id) == NULL)
+		return TG_API_ERR_INTERNAL;
+
+	return TG_API_ERR_NONE;
+}
+
+
+static int
+_handle_answer_callback(TgApi *t)
+{
+	if (cstr_is_empty(t->callback_id))
+		return TG_API_ERR_CALLBACK_ID_INVALID;
+	if (cstr_is_empty(t->value))
+		return TG_API_ERR_VALUE_INVALID;
+
+	const char *arg_key;
+	switch (t->value_type) {
+	case TG_API_VALUE_TYPE_TEXT: arg_key = "&text"; break;
+	case TG_API_VALUE_TYPE_URL: arg_key = "&url"; break;
+	}
+
+	if (str_set_fmt(&t->str, "%s/answerCallbackQuery?callback_query_id=%s", _base_api, t->callback_id) == NULL)
+		return TG_API_ERR_INTERNAL;
+
+	char *const value = http_url_escape(t->value);
+	if (value == NULL)
+		return TG_API_ERR_INTERNAL;
+
+	int ret = TG_API_ERR_INTERNAL;
+	if (str_append_fmt(&t->str, "%s=%s", arg_key, value) == NULL)
+		goto out0;
+
+	if (str_append_fmt(&t->str, "&show_alert=%s", bool_to_cstr(t->callback_show_alert)) == NULL)
+		goto out0;
+
+	ret = TG_API_ERR_NONE;
+
+out0:
+	http_url_escape_free(value);
 	return ret;
 }
 
@@ -891,7 +448,7 @@ _build_kbd_buttons(const TgApiKbdButton *b, Str *str)
 
 
 static int
-_parse_response1(TgApi *t, const char resp[])
+_parse_response(TgApi *t, const char resp[])
 {
 	json_object *const obj = json_tokener_parse(resp);
 	if (obj == NULL)

@@ -93,7 +93,7 @@ cmd_admin_reload(const CmdParam *cmd)
 		goto out0;
 	}
 
-	SEND_TEXT_PLAIN_FMT(msg, 1, NULL, "Done! %d admin(s) loaded", db_admin_list_len);
+	SEND_TEXT_PLAIN_FMT(msg, NULL, "Done! %d admin(s) loaded", db_admin_list_len);
 
 out0:
 	json_object_put(json);
@@ -113,7 +113,7 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	SpaceTokenizer st_name;
 	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
-		SEND_TEXT_PLAIN_FMT(msg, 1, NULL,
+		SEND_TEXT_PLAIN_FMT(msg, NULL,
 			"Invalid argument!\n"
 			"  Set:   %s [command_name] message ...\n"
 			"  Unset: %s [command_name] [EMPTY]\n\n"
@@ -197,9 +197,9 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	}
 
 	if (msg_text == NULL)
-		SEND_TEXT_PLAIN_FMT(msg, 1, NULL, "'%s': Removed", name);
+		SEND_TEXT_PLAIN_FMT(msg, NULL, "'%s': Removed", name);
 	else
-		SEND_TEXT_PLAIN_FMT(msg, 1, NULL, "'%s': Added/updated", name);
+		SEND_TEXT_PLAIN_FMT(msg, NULL, "'%s': Added/updated", name);
 }
 
 
@@ -293,7 +293,7 @@ _setting_list(const CmdParam *cmd)
 	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /settings \\[parameter\\] \\[ARGS\\]\n");
 	str_append(&str, "Example: /settings cmd\\_toggle\\_extern\n");
 
-	SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", str.cstr);
+	SEND_TEXT_FORMAT_FMT(cmd->msg, NULL, "%s", str.cstr);
 	return 0;
 }
 

@@ -151,7 +151,7 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 		};
 
 		if (model_sched_message_add(&schd, 3) <= 0)
-			tg_api_delete_message(chat_id, msg->id);
+			delete_message(chat_id, msg->id);
 	}
 
 	if (user->is_bot)
@@ -206,13 +206,14 @@ _handle_member_leave(const Update *u, const TgMessage *msg)
 	};
 
 	if (model_sched_message_add(&schd, 3) <= 0)
-		tg_api_delete_message(msg->chat.id, msg->id);
+		delete_message(msg->chat.id, msg->id);
 }
 
 
 static void
 _admin_load(const TgMessage *msg)
 {
+	/*
 	json_object *json;
 	TgChatAdminList admin_list;
 	const int64_t chat_id = msg->chat.id;
@@ -234,4 +235,5 @@ _admin_load(const TgMessage *msg)
 
 	json_object_put(json);
 	tg_chat_admin_list_free(&admin_list);
+	*/
 }

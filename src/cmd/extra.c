@@ -35,7 +35,7 @@ static char *_anime_sched_build_body(const ModelAnimeSched list[], int len, int 
 void
 cmd_extra_anime_sched(const CmdParam *cmd)
 {
-	MessageList list = {
+	Pager pager = {
 		.ctx = cmd->name,
 		.id_user = cmd->id_user,
 		.id_owner = cmd->id_owner,
@@ -44,11 +44,11 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		.id_callback = cmd->id_callback,
 	};
 
-	if (message_list_init(&list, cmd->args) < 0)
+	if (pager_init(&pager, cmd->args) < 0)
 		return;
 
 	const char *filter;
-	if (_anime_sched_prep_filter(list.udata, &filter) < 0) {
+	if (_anime_sched_prep_filter(pager.udata, &filter) < 0) {
 		SEND_TEXT_FORMAT(cmd->msg, "Invalid argument\\!\n"
 					   "```Allowed:\n[sunday, monday, tuesday, wednesday, thursday, "
 					   "friday, saturday, unknown, other]```");
@@ -63,29 +63,29 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	}
 
 	ModelAnimeSched ma_list[_ANIME_SCHED_LIMIT_SIZE];
-	MessageListPagination pag;
+	PagerList pag_list;
 
 	int total = 0;
 	const int len = LEN(ma_list);
-	const int offt = (list.page - 1) * len;
+	const int offt = (pager.page - 1) * len;
 	const int llen = model_anime_sched_get_list(ma_list, len, filter, offt, &total);
 	if ((llen < 0) || (total <= 0))
 		goto err0;
 
-	message_list_pagination_set(&pag, list.page, len, llen, total);
+	pager_list_set(&pag_list, pager.page, len, llen, total);
 
-	const int start = MIN(((list.page * len) - len), pag.items_size);
+	const int start = MIN(((pager.page * len) - len), pag_list.items_size);
 	char *const body = _anime_sched_build_body(ma_list, llen, start);
 	if (body == NULL)
 		goto err0;
 
 	char buff[256];
 	const char *const chc_str = epoch_to_str(buff, LEN(buff), ma_list[0].created_at);
-	list.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", chc_str, "\n");
-	list.body = body;
+	pager.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", chc_str, "\n");
+	pager.body = body;
 
-	const int ret = message_list_send(&list, &pag, NULL);
-	free((char *)list.title);
+	const int ret = pager_send(&pager, &pag_list, NULL);
+	free((char *)pager.title);
 	free(body);
 
 	if (ret >= 0)

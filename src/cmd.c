@@ -72,19 +72,19 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 
 int
-cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags, int is_private)
+cmd_get_list(ModelCmd cmd_list[], int len, PagerList *list, int flags, int is_private)
 {
-	assert(VAL_IS_NULL_OR(list, pag) == 0);
-	if (pag->page_num == 0)
+	assert(VAL_IS_NULL_OR(cmd_list, list) == 0);
+	if (list->page_num == 0)
 		return -1;
 
 	int total;
-	const int offt = (pag->page_num - 1) * len;
-	const int llen = model_cmd_get_list(list, len, offt, &total, flags, is_private);
+	const int offt = (list->page_num - 1) * len;
+	const int llen = model_cmd_get_list(cmd_list, len, offt, &total, flags, is_private);
 	if ((llen < 0) || (total <= 0))
 		return -1;
 
-	message_list_pagination_set(pag, pag->page_num, len, llen, total);
+	pager_list_set(list, list->page_num, len, llen, total);
 	return 0;
 }
 

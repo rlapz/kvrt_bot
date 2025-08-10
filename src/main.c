@@ -536,7 +536,7 @@ _server_run(Server *s, char *envp[])
 
 
 	config_dump(config);
-	tg_api_init(config->api_url);
+	tg_api_global_init(config->api_url);
 
 	int ret = sqlite_pool_init(config->db_path, config->db_pool_conn_size);
 	if (ret < 0)

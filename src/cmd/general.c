@@ -25,7 +25,7 @@ static char *_cmd_list_body(const ModelCmd list[], unsigned len, int flags,
 void
 cmd_general_start(const CmdParam *cmd)
 {
-	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "Hello! :3\nPlease click /help to show command list.");
+	SEND_TEXT_PLAIN_FMT(cmd->msg, NULL, "Hello! :3\nPlease click /help to show command list.");
 }
 
 
@@ -33,7 +33,7 @@ void
 cmd_general_help(const CmdParam *cmd)
 {
 	int is_err = 1;
-	MessageList list = {
+	Pager pager = {
 		.id_user = cmd->id_user,
 		.id_owner = cmd->id_owner,
 		.id_chat = cmd->id_chat,
@@ -43,13 +43,13 @@ cmd_general_help(const CmdParam *cmd)
 		.title = "Command list:",
 	};
 
-	if (message_list_init(&list, cmd->args) < 0)
+	if (pager_init(&pager, cmd->args) < 0)
 		return;
 
 	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		if (cstr_is_empty(list.id_callback) == 0)
+		if (cstr_is_empty(pager.id_callback) == 0)
 			goto out0;
 
 		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
@@ -57,24 +57,23 @@ cmd_general_help(const CmdParam *cmd)
 	}
 
 	ModelCmd cmd_list[CFG_LIST_ITEMS_SIZE];
-	MessageListPagination pag = { .page_num = list.page };
-	if (cmd_get_list(cmd_list, LEN(cmd_list), &pag, cflags, is_private_chat) < 0)
+	PagerList list = { .page_num = pager.page };
+	if (cmd_get_list(cmd_list, LEN(cmd_list), &list, cflags, is_private_chat) < 0)
 		goto out0;
 
-	char *const body = _cmd_list_body(cmd_list, pag.items_len, cflags, is_private_chat);
+	char *const body = _cmd_list_body(cmd_list, list.items_len, cflags, is_private_chat);
 	if (body == NULL)
 		goto out0;
 
-	list.body = body;
-	is_err = message_list_send(&list, &pag, NULL);
-
+	pager.body = body;
+	is_err = pager_send(&pager, &list, NULL);
 	free(body);
 
 out0:
 	if (is_err == 0)
 		return;
 
-	ANSWER_CALLBACK_TEXT(list.id_callback, "Error!", 1);
+	ANSWER_CALLBACK_TEXT(pager.id_callback, "Error!", 1);
 }
 
 
@@ -83,7 +82,7 @@ cmd_general_dump(const CmdParam *cmd)
 {
 	const char *const json_str = json_object_to_json_string_ext(cmd->json, JSON_C_TO_STRING_PRETTY);
 	char *const resp = CSTR_CONCAT("```json\n", json_str, "```");
-	SEND_TEXT_FORMAT_FMT(cmd->msg, 1, NULL, "%s", resp);
+	SEND_TEXT_FORMAT_FMT(cmd->msg, NULL, "%s", resp);
 	free(resp);
 }
 
@@ -190,12 +189,12 @@ cmd_general_schedule_message(const CmdParam *cmd)
 	if (model_sched_message_add(&sch, deadline_res) <= 0)
 		SEND_TEXT_PLAIN(msg, "Failed to set sechedule message!");
 	else
-		SEND_TEXT_PLAIN_FMT(msg, 1, NULL, "Success! Scheduled in: %s %s", deadline, desc);
+		SEND_TEXT_PLAIN_FMT(msg, NULL, "Success! Scheduled in: %s %s", deadline, desc);
 
 	return;
 
 out0:
-	SEND_TEXT_PLAIN_FMT(msg, 1, NULL,
+	SEND_TEXT_PLAIN_FMT(msg, NULL,
 		"%s [Deadline] [Message]\n"
 		"Allowed Deadline suffixes: \n"
 		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
@@ -238,7 +237,7 @@ cmd_general_deleter(const CmdParam *cmd)
 		text = "Failed: Maybe the message is too old or invalid.";
 
 out0:
-	ANSWER_CALLBACK_TEXT(cmd->id_callback, text, 1);
+	ANSWER_CALLBACK_TEXT(cmd->id_callback, text, 0);
 }
 
 

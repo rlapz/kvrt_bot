@@ -15,14 +15,14 @@ cmd_test_echo(const CmdParam *cmd)
 {
 	TgApi api = {
 		.type = TG_API_TYPE_SEND_TEXT,
-		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.parse_type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = cmd->id_chat,
 		.msg_id = cmd->id_message,
 		.value = "hello _world_",
 	};
 
-	int ret = tg_api_init1(&api);
-	LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+	int ret = tg_api_init(&api);
+	LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
 
 	ret = tg_api_exec(&api);
 	LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
@@ -92,7 +92,7 @@ cmd_test_list(const CmdParam *cmd)
 {
 	TgApi api = {
 		.type = TG_API_TYPE_SEND_TEXT,
-		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.parse_type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = cmd->id_chat,
 		.msg_id = cmd->id_message,
 		.value = "hello _world_",
@@ -114,21 +114,47 @@ cmd_test_list(const CmdParam *cmd)
 		},
 	};
 
-	int ret = tg_api_init1(&api);
+	int ret = tg_api_init(&api);
 	if (ret < 0) {
-		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
 		return;
 	}
 
 	ret = tg_api_add_kbd(&api, &kbd);
 	if (ret < 0) {
-		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
 		goto out0;
 	}
 
 	ret = tg_api_exec(&api);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
+		goto out0;
+	}
+
+	if (ret == TG_API_ERR_API)
+		LOG_DEBUG("test", "tg_api_exec: %s", api.api_err_msg);
+
+	sleep(2);
+	TgApi api2 = {
+		.type = TG_API_TYPE_DELETE_MESSAGE,
+		.chat_id = cmd->id_chat,
+		.msg_id = api.ret_msg_id,
+	};
+
+	ret = tg_api_init(&api2);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
+		goto out0;
+	}
+
+	ret = tg_api_exec(&api2);
 	if (ret < 0)
 		LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
+	if (ret == TG_API_ERR_API)
+		LOG_DEBUG("test", "tg_api_exec: %s", api2.api_err_msg);
+
+	tg_api_deinit(&api2);
 
 out0:
 	tg_api_deinit(&api);
@@ -142,7 +168,7 @@ cmd_test_photo(const CmdParam *cmd)
 
 	TgApi api = {
 		.type = TG_API_TYPE_SEND_PHOTO,
-		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.parse_type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = cmd->id_chat,
 		.msg_id = cmd->id_message,
 		.value = photo_url,
@@ -165,15 +191,15 @@ cmd_test_photo(const CmdParam *cmd)
 		},
 	};
 
-	int ret = tg_api_init1(&api);
+	int ret = tg_api_init(&api);
 	if (ret < 0) {
-		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
 		return;
 	}
 
 	ret = tg_api_add_kbd(&api, &kbd);
 	if (ret < 0) {
-		LOG_DEBUG("test", "tg_api_init1: %s", tg_api_err_str(ret));
+		LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
 		goto out0;
 	}
 
@@ -200,12 +226,45 @@ cmd_test_edit(const CmdParam *cmd)
 		.chat = (TgChat) { .id = cmd->id_chat },
 	};
 
-	send_photo_fmt(&msg, TG_API_PHOTO_TYPE_URL, 1, &msg_id, photo_url, "%s", "hello world");
+	//send_photo(&msg, TG_API_PARSE_TYPE_PLAIN, photo_url, "hello world", &msg_id);
+	send_photo_fmt(&msg, TG_API_PARSE_TYPE_PLAIN, &msg_id, photo_url, "hello %s", "world");
 
 	sleep(2);
 	LOG_INFO("test", "%"PRIi64, cmd->id_chat);
 
-	tg_api_edit_message(TG_API_EDIT_TYPE_CAPTION_PLAIN, cmd->id_chat, msg_id, "damn hell!");
+	//tg_api_edit_message(TG_API_EDIT_TYPE_CAPTION_PLAIN, cmd->id_chat, msg_id, "damn hell!");
+
+	TgApi api = {
+		.type = TG_API_TYPE_EDIT_CAPTION,
+		.parse_type = TG_API_TEXT_TYPE_PLAIN,
+		.chat_id = cmd->id_chat,
+		.msg_id = msg_id,
+		.caption = "damn hell!",
+	};
+
+	int ret = tg_api_init(&api);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
+		return;
+	}
+
+	//ret = tg_api_add_kbd(&api, &kbd);
+	//if (ret < 0) {
+		//LOG_DEBUG("test", "tg_api_init: %s", tg_api_err_str(ret));
+		//goto out0;
+	//}
+
+	ret = tg_api_exec(&api);
+	if (ret < 0) {
+		LOG_DEBUG("test", "tg_api_exec: %s", tg_api_err_str(ret));
+		goto out0;
+	}
+
+	if (ret == TG_API_ERR_API)
+		LOG_DEBUG("test", "tg_api_exec: %s", api.api_err_msg);
+
+out0:
+	tg_api_deinit(&api);
 }
 
 

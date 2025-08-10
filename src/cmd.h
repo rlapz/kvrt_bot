@@ -29,7 +29,7 @@ typedef struct cmd_param {
 
 int  cmd_init(void);
 void cmd_exec(CmdParam *cmd, const char req[]);
-int  cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags, int is_private);
+int  cmd_get_list(ModelCmd cmd_list[], int len, PagerList *list, int flags, int is_private);
 
 
 typedef struct cmd_builtin {
