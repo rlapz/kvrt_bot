@@ -50,15 +50,16 @@ cmd_admin_reload(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		SEND_TEXT_PLAIN(msg, "There are no administrators in the private chat!");
+		send_text_plain(msg, NULL, "There are no administrators in the private chat!");
 		return;
 	}
 
-	json_object *json;
 	TgChatAdminList admin_list;
+	TgApiResp resp = { .udata = &admin_list };
+
 	const int64_t chat_id = msg->chat.id;
-	if (tg_api_get_admin_list(chat_id, &admin_list, &json) < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to get admin list!");
+	if (tg_api_get_admin_list(chat_id, &resp) < 0) {
+		send_text_plain(msg, NULL, "Failed to get admin list!");
 		return;
 	}
 
@@ -84,19 +85,18 @@ cmd_admin_reload(const CmdParam *cmd)
 	}
 
 	if ((from_id != cmd->id_owner) && (is_priv == 0)) {
-		SEND_TEXT_PLAIN(msg, "Permission denied!");
+		send_text_plain(msg, NULL, "Permission denied!");
 		goto out0;
 	}
 
 	if (model_admin_reload(db_admin_list, db_admin_list_len) < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to reload admin list DB!");
+		send_text_plain(msg, NULL, "Failed to reload admin list DB!");
 		goto out0;
 	}
 
-	SEND_TEXT_PLAIN_FMT(msg, NULL, "Done! %d admin(s) loaded", db_admin_list_len);
+	send_text_plain(msg, NULL, "Done! %d admin(s) loaded", db_admin_list_len);
 
 out0:
-	json_object_put(json);
 	tg_chat_admin_list_free(&admin_list);
 }
 
@@ -106,14 +106,14 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		SEND_TEXT_PLAIN(msg, "Not supported in private chat!");
+		send_text_plain(msg, NULL, "Not supported in private chat!");
 		return;
 	}
 
 	SpaceTokenizer st_name;
 	const char *const next = space_tokenizer_next(&st_name, cmd->args);
 	if (next == NULL) {
-		SEND_TEXT_PLAIN_FMT(msg, NULL,
+		send_text_format(msg, NULL,
 			"Invalid argument!\n"
 			"  Set:   %s [command_name] message ...\n"
 			"  Unset: %s [command_name] [EMPTY]\n\n"
@@ -126,14 +126,14 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	char name[MODEL_CMD_NAME_SIZE];
 	if (st_name.len >= LEN(name)) {
-		SEND_TEXT_PLAIN(msg, "Command name is too long!");
+		send_text_plain(msg, NULL, "Command name is too long!");
 		return;
 	}
 
 	for (unsigned i = 0; i < st_name.len; i++) {
 		const int _name = st_name.value[i];
 		if ((_name != '_') && (isalnum(_name) == 0)) {
-			SEND_TEXT_PLAIN(msg, "Invalid command name!");
+			send_text_plain(msg, NULL, "Invalid command name!");
 			return;
 		}
 	}
@@ -143,7 +143,7 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 	if (space_tokenizer_next(&st_args, next) != NULL) {
 		/* real length */
 		if (strlen(st_args.value) >= MODEL_CMD_MESSAGE_VALUE_SIZE) {
-			SEND_TEXT_PLAIN(msg, "Message is too long!");
+			send_text_plain(msg, NULL, "Message is too long!");
 			return;
 		}
 
@@ -156,23 +156,23 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	int ret = model_cmd_builtin_is_exists(name);
 	if (ret < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to check builtin cmd!");
+		send_text_plain(msg, NULL, "Failed to check builtin cmd!");
 		return;
 	}
 
 	if (ret > 0) {
-		SEND_TEXT_PLAIN(msg, "Cannot modify builtin cmd!");
+		send_text_plain(msg, NULL, "Cannot modify builtin cmd!");
 		return;
 	}
 
 	ret = model_cmd_extern_is_exists(name);
 	if (ret < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to check extern cmd!");
+		send_text_plain(msg, NULL, "Failed to check extern cmd!");
 		return;
 	}
 
 	if (ret > 0) {
-		SEND_TEXT_PLAIN(msg, "Cannot modify extern cmd!");
+		send_text_plain(msg, NULL, "Cannot modify extern cmd!");
 		return;
 	}
 
@@ -187,19 +187,19 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 
 	ret = model_cmd_message_set(&cmd_msg);
 	if (ret < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to set command message!");
+		send_text_plain(msg, NULL, "Failed to set command message!");
 		return;
 	}
 
 	if (ret == 0) {
-		SEND_TEXT_PLAIN(msg, "No such command message!");
+		send_text_plain(msg, NULL, "No such command message!");
 		return;
 	}
 
 	if (msg_text == NULL)
-		SEND_TEXT_PLAIN_FMT(msg, NULL, "'%s': Removed", name);
+		send_text_format(msg, NULL, "'%s': Removed", name);
 	else
-		SEND_TEXT_PLAIN_FMT(msg, NULL, "'%s': Added/updated", name);
+		send_photo_format(msg, NULL, "'%s': Added/updated", name);
 }
 
 
@@ -218,7 +218,7 @@ cmd_admin_settings(const CmdParam *cmd)
 
 	char buff[256];
 	if (st.len >= LEN(buff)) {
-		SEND_TEXT_PLAIN(cmd->msg, "Argument too long!");
+		send_text_plain(cmd->msg, NULL, "Argument too long!");
 		return;
 	}
 
@@ -231,7 +231,7 @@ cmd_admin_settings(const CmdParam *cmd)
 		}
 	}
 
-	SEND_TEXT_PLAIN(cmd->msg, "Invalid parameter!");
+	send_text_plain(cmd->msg, NULL, "Invalid parameter!");
 }
 
 
@@ -267,7 +267,7 @@ _setting_list(const CmdParam *cmd)
 {
 	Str str;
 	if (str_init_alloc(&str, 1024) < 0) {
-		SEND_TEXT_PLAIN(cmd->msg, "Failed to allocate string buffer!");
+		send_text_plain(cmd->msg, NULL, "Failed to allocate string buffer!");
 		return -1;
 	}
 
@@ -275,7 +275,7 @@ _setting_list(const CmdParam *cmd)
 
 	const int flags = model_chat_get_flags(cmd->id_chat);
 	if (flags < 0) {
-		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
+		send_text_plain(cmd->msg, NULL, "Failed to get chat flags!");
 		return -1;
 	}
 
@@ -293,7 +293,7 @@ _setting_list(const CmdParam *cmd)
 	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /settings \\[parameter\\] \\[ARGS\\]\n");
 	str_append(&str, "Example: /settings cmd\\_toggle\\_extern\n");
 
-	SEND_TEXT_FORMAT_FMT(cmd->msg, NULL, "%s", str.cstr);
+	send_photo_format(cmd->msg, NULL, "%s", str.cstr);
 	return 0;
 }
 
@@ -303,17 +303,17 @@ _cmd_toggle_flags(const CmdParam *cmd, int rflags)
 {
 	const int flags = model_chat_get_flags(cmd->id_chat);
 	if (flags < 0) {
-		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
+		send_text_plain(cmd->msg, NULL, "Failed to get chat flags!");
 		return;
 	}
 
 	if (model_chat_set_flags(cmd->id_chat, (flags ^ rflags)) < 0) {
-		SEND_TEXT_PLAIN(cmd->msg, "Failed to set chat flags!");
+		send_text_plain(cmd->msg, NULL, "Failed to set chat flags!");
 		return;
 	}
 
 	if (flags & rflags)
-		SEND_TEXT_PLAIN(cmd->msg, "Disabled");
+		send_text_plain(cmd->msg, NULL, "Disabled");
 	else
-		SEND_TEXT_PLAIN(cmd->msg, "Enabled");
+		send_text_plain(cmd->msg, NULL, "Enabled");
 }

@@ -49,9 +49,10 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 
 	const char *filter;
 	if (_anime_sched_prep_filter(pager.udata, &filter) < 0) {
-		SEND_TEXT_FORMAT(cmd->msg, "Invalid argument\\!\n"
-					   "```Allowed:\n[sunday, monday, tuesday, wednesday, thursday, "
-					   "friday, saturday, unknown, other]```");
+		send_text_format(cmd->msg, NULL,
+				 "Invalid argument\\!\n"
+				 "```Allowed:\n[sunday, monday, tuesday, wednesday, thursday, "
+				 "friday, saturday, unknown, other]```");
 		return;
 	}
 
@@ -92,7 +93,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		return;
 
 err0:
-	ANSWER_CALLBACK_TEXT(cmd->id_callback, "Error!", 1);
+	answer_callback_text(cmd->id_callback, "Error!", 1);
 }
 
 

@@ -14,34 +14,15 @@
 /*
  * tg_api wrappers
  */
-#define SEND_TEXT_PLAIN(MSG, TEXT)\
-	send_text(MSG, TG_API_PARSE_TYPE_PLAIN, TEXT, NULL)
+int send_text_plain(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...);
+int send_text_format(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...);
+int send_photo_plain(const TgMessage *msg, int64_t *ret_id, const char photo[], const char fmt[], ...);
+int send_photo_format(const TgMessage *msg, int64_t *ret_id, const char photo[], const char fmt[], ...);
 
-#define SEND_TEXT_FORMAT(MSG, TEXT)\
-	send_text(MSG, TG_API_PARSE_TYPE_FORMAT, TEXT, NULL)
+int send_error_text(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...);
 
-#define SEND_TEXT_PLAIN_FMT(MSG, RET_ID, ...)\
-	send_text_fmt(MSG, TG_API_PARSE_TYPE_PLAIN, RET_ID, __VA_ARGS__)
-
-#define SEND_TEXT_FORMAT_FMT(MSG, RET_ID, ...)\
-	send_text_fmt(MSG, TG_API_PARSE_TYPE_FORMAT, RET_ID, __VA_ARGS__)
-
-#define ANSWER_CALLBACK_TEXT(ID, TEXT, SHOW_ALERT)\
-	answer_callback(TG_API_VALUE_TYPE_TEXT, ID, TEXT, SHOW_ALERT)
-
-#define ANSWER_CALLBACK_URL(ID, URL, SHOW_ALERT)\
-	answer_callback(TG_API_VALUE_TYPE_URL, ID, URL, SHOW_ALERT)
-
-
-int send_text(const TgMessage *msg, int parse_type, const char text[], int64_t *ret_id);
-int send_photo(const TgMessage *msg, int parse_type, const char photo[], const char caption[],
-	       int64_t *ret_id);
-int answer_callback(int value_type, const char id[], const char value[], int show_alert);
-int delete_message(int64_t chat_id, int64_t message_id);
-
-int send_text_fmt(const TgMessage *msg, int parse_type, int64_t *ret_id, const char fmt[], ...);
-int send_photo_fmt(const TgMessage *msg, int parse_type, int64_t *ret_id, const char photo[],
-		   const char fmt[], ...);
+int answer_callback_text(const char id[], const char value[], int show_alert);
+int delete_message(const TgMessage *msg);
 
 
 

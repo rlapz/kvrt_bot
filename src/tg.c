@@ -246,6 +246,8 @@ tg_chat_admin_list_parse(TgChatAdminList *a, json_object *json)
 		count++;
 	}
 
+	a->tmp_obj = NULL;
+	json_object_deep_copy(json, &a->tmp_obj, NULL);
 	a->len = count;
 	return 0;
 }
@@ -256,6 +258,8 @@ tg_chat_admin_list_free(TgChatAdminList *a)
 {
 	for (unsigned i = 0; i < a->len; i++)
 		tg_chat_admin_free(&a->list[i]);
+
+	json_object_put(a->tmp_obj);
 }
 
 

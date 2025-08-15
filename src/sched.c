@@ -131,14 +131,22 @@ _run_task(void *ctx, void *udata)
 	ModelSchedMessage *const msg = (ModelSchedMessage *)ctx;
 	switch (msg->type) {
 	case MODEL_SCHED_MESSAGE_TYPE_SEND:
-		SEND_TEXT_PLAIN(&(TgMessage) {
+		send_text_plain(&(TgMessage){
 			.chat = (TgChat) { .id = msg->chat_id },
 			.id = msg->message_id,
-		}, msg->value);
+		}, NULL, "%s", msg->value);
+
+		//SEND_TEXT_PLAIN(&(TgMessage) {
+		//	.chat = (TgChat) { .id = msg->chat_id },
+		//	.id = msg->message_id,
+		//}, msg->value);
 
 		break;
 	case MODEL_SCHED_MESSAGE_TYPE_DELETE:
-		delete_message(msg->chat_id, msg->message_id);
+		delete_message(&(TgMessage){
+			.chat = (TgChat) { .id = msg->chat_id },
+			.id = msg->message_id,
+		});
 		break;
 	default:
 		LOG_ERRN("sched", "%s", "invalid task type");

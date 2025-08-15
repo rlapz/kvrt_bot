@@ -1291,6 +1291,41 @@ http_url_escape_free(char url[])
 }
 
 
+static const char *const _hex = "0123456789abcdef";
+
+char *
+http_url_escape2(const char src[])
+{
+	if (cstr_is_empty(src))
+		return NULL;
+
+	const size_t src_len = strlen(src);
+
+	Str str;
+	if (str_init_alloc(&str, src_len * 2) < 0)
+		return NULL;
+
+	const unsigned char *p = (const unsigned char *)src;
+	for (size_t i = 0; i < src_len; i++) {
+		if (isalnum(p[i]) == 0) {
+			if (str_append_fmt(&str, "%%%c%c", _hex[(p[i] >> 4) & 15], _hex[p[i] & 15]) == NULL)
+				goto err0;
+
+			continue;
+		}
+
+		if (str_append_c(&str, (char)p[i]) == NULL)
+			goto err0;
+	}
+
+	return str.cstr;
+
+err0:
+	str_deinit(&str);
+	return NULL;
+}
+
+
 static size_t
 _http_writer(void *ctx, size_t size, size_t nmemb, void *udata)
 {

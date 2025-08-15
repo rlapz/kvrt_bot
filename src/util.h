@@ -200,6 +200,8 @@ char *http_url_escape(const char src[]);
 void  http_url_escape_free(char url[]);
 char *http_send_get(const char url[], const char content_type[]);
 
+char *http_url_escape2(const char src[]);
+
 
 /*
  * Dump

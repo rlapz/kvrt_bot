@@ -281,12 +281,16 @@ _client_header_parse(Client *c, size_t last_len)
 		return ret;
 
 	size_t content_len = 0;
-	if (_client_header_validate(c, &req, &content_len) < 0)
+	if (_client_header_validate(c, &req, &content_len) < 0) {
+		LOG_ERRN("main", "%s", "_client_header_validate: failed");
 		return -1;
+	}
 
 	const size_t diff_len = len - (size_t)ret;
-	if (diff_len > content_len)
+	if (diff_len > content_len) {
+		LOG_ERRN("main", "%s", "'diff_len > content_len'");
 		return -1;
+	}
 
 	if (content_len >= CFG_BUFFER_SIZE)
 		return -3;
@@ -536,7 +540,7 @@ _server_run(Server *s, char *envp[])
 
 
 	config_dump(config);
-	tg_api_global_init(config->api_url);
+	tg_api_init(config->api_url);
 
 	int ret = sqlite_pool_init(config->db_path, config->db_pool_conn_size);
 	if (ret < 0)

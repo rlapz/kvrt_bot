@@ -80,7 +80,7 @@ _handle_callback(const Update *u, const TgCallbackQuery *cb)
 	}
 
 	if (model_chat_init(cb->message->chat.id) < 0) {
-		SEND_TEXT_PLAIN(cb->message, "Failed to initialize chat");
+		send_text_plain(cb->message, NULL, "Failed to initialize chat");
 		return;
 	}
 
@@ -110,7 +110,7 @@ _handle_message_command(const Update *u, const TgMessage *msg)
 	}
 
 	if (model_chat_init(msg->chat.id) < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to initialize chat");
+		send_text_plain(msg, NULL, "Failed to initialize chat");
 		return;
 	}
 
@@ -151,7 +151,7 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 		};
 
 		if (model_sched_message_add(&schd, 3) <= 0)
-			delete_message(chat_id, msg->id);
+			delete_message(msg);
 	}
 
 	if (user->is_bot)
@@ -169,7 +169,7 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 		goto out1;
 
 	int64_t ret_id;
-	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, 0, str.cstr, &ret_id) < 0)
+	if (send_text_format(msg, &ret_id, "%s", str.cstr) < 0)
 		goto out1;
 
 	const ModelSchedMessage schd = {
@@ -206,7 +206,7 @@ _handle_member_leave(const Update *u, const TgMessage *msg)
 	};
 
 	if (model_sched_message_add(&schd, 3) <= 0)
-		delete_message(msg->chat.id, msg->id);
+		delete_message(msg);
 }
 
 

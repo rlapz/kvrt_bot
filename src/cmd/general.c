@@ -25,7 +25,7 @@ static char *_cmd_list_body(const ModelCmd list[], unsigned len, int flags,
 void
 cmd_general_start(const CmdParam *cmd)
 {
-	SEND_TEXT_PLAIN_FMT(cmd->msg, NULL, "Hello! :3\nPlease click /help to show command list.");
+	send_text_plain(cmd->msg, NULL, "Hello! :3\nPlease click /help to show command list.");
 }
 
 
@@ -43,27 +43,36 @@ cmd_general_help(const CmdParam *cmd)
 		.title = "Command list:",
 	};
 
-	if (pager_init(&pager, cmd->args) < 0)
-		return;
+	const char *res_text = "";
+	if (pager_init(&pager, cmd->args) < 0) {
+		res_text = "pager_init: failed";
+		goto out0;
+	}
 
 	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		if (cstr_is_empty(pager.id_callback) == 0)
+		if (cstr_is_empty(pager.id_callback) == 0) {
+			res_text = "Not a callback!";
 			goto out0;
+		}
 
-		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
+		res_text = "Failed to get chat flags!";
 		return;
 	}
 
 	ModelCmd cmd_list[CFG_LIST_ITEMS_SIZE];
 	PagerList list = { .page_num = pager.page };
-	if (cmd_get_list(cmd_list, LEN(cmd_list), &list, cflags, is_private_chat) < 0)
+	if (cmd_get_list(cmd_list, LEN(cmd_list), &list, cflags, is_private_chat) < 0) {
+		res_text = "Failed to get 'cmd' list!";
 		goto out0;
+	}
 
 	char *const body = _cmd_list_body(cmd_list, list.items_len, cflags, is_private_chat);
-	if (body == NULL)
+	if (body == NULL) {
+		res_text = "Failed to allocate memory!";
 		goto out0;
+	}
 
 	pager.body = body;
 	is_err = pager_send(&pager, &list, NULL);
@@ -73,7 +82,10 @@ out0:
 	if (is_err == 0)
 		return;
 
-	ANSWER_CALLBACK_TEXT(pager.id_callback, "Error!", 1);
+	if (cstr_is_empty(pager.id_callback))
+		send_error_text(cmd->msg, NULL, res_text);
+	else
+		answer_callback_text(pager.id_callback, res_text, 1);
 }
 
 
@@ -82,7 +94,7 @@ cmd_general_dump(const CmdParam *cmd)
 {
 	const char *const json_str = json_object_to_json_string_ext(cmd->json, JSON_C_TO_STRING_PRETTY);
 	char *const resp = CSTR_CONCAT("```json\n", json_str, "```");
-	SEND_TEXT_FORMAT_FMT(cmd->msg, NULL, "%s", resp);
+	send_text_format(cmd->msg, NULL, "%s", resp);
 	free(resp);
 }
 
@@ -92,23 +104,30 @@ cmd_general_dump_admin(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	if (msg->chat.type == TG_CHAT_TYPE_PRIVATE) {
-		SEND_TEXT_PLAIN(msg, "There are no administrators in the private chat!");
+		send_text_plain(msg, NULL, "There are no administrators in the private chat!");
 		return;
 	}
 
-	json_object *json;
-	if (tg_api_get_admin_list(cmd->id_chat, NULL, &json) < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to get admin list!");
+	TgChatAdminList list;
+	TgApiResp resp = { .udata = &list };
+	char buff[1024];
+
+	const int ret = tg_api_get_admin_list(cmd->id_chat, &resp);
+	if (ret == TG_API_RESP_ERR_API) {
+		LOG_ERRN("general", "tg_api_get_admin_list: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
+		return;
+	} else if (ret < 0) {
+		LOG_ERRN("general", "tg_api_get_admin_list: errnum: %d", ret);
 		return;
 	}
 
 	CmdParam _cmd = {
 		.msg = msg,
-		.json = json,
+		.json = list.tmp_obj,
 	};
 
 	cmd_general_dump(&_cmd);
-	json_object_put(json);
+	tg_chat_admin_list_free(&list);
 }
 
 
@@ -174,7 +193,7 @@ cmd_general_schedule_message(const CmdParam *cmd)
 
 	int64_t deadline_res;
 	if (__builtin_mul_overflow(deadline_tm, mul, &deadline_res)) {
-		SEND_TEXT_PLAIN(msg, "Overflow: Deadline value is too big!");
+		send_text_plain(msg, NULL, "Overflow: Deadline value is too big!");
 		return;
 	}
 
@@ -187,14 +206,14 @@ cmd_general_schedule_message(const CmdParam *cmd)
 	};
 
 	if (model_sched_message_add(&sch, deadline_res) <= 0)
-		SEND_TEXT_PLAIN(msg, "Failed to set sechedule message!");
+		send_text_plain(msg, NULL, "Failed to set sechedule message!");
 	else
-		SEND_TEXT_PLAIN_FMT(msg, NULL, "Success! Scheduled in: %s %s", deadline, desc);
+		send_text_format(msg, NULL, "Success! Scheduled in: %s %s", deadline, desc);
 
 	return;
 
 out0:
-	SEND_TEXT_PLAIN_FMT(msg, NULL,
+	send_text_format(msg, NULL,
 		"%s [Deadline] [Message]\n"
 		"Allowed Deadline suffixes: \n"
 		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
@@ -227,17 +246,23 @@ cmd_general_deleter(const CmdParam *cmd)
 		can_delete = ret;
 	}
 
+	text = "Deleted";
 	if (can_delete == 0) {
 		text = "Permission denied!";
 		goto out0;
 	}
 
-	text = "Deleted";
-	if (tg_api_delete_message(cmd->id_chat, cmd->id_message) < 0)
-		text = "Failed: Maybe the message is too old or invalid.";
+	TgApiResp resp;
+	char buff[1024];
+
+	const int ret = tg_api_delete(cmd->id_chat, cmd->id_message, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		text = tg_api_resp_str(&resp, buff, LEN(buff));
+	else if (ret < 0)
+		text = "System error!";
 
 out0:
-	ANSWER_CALLBACK_TEXT(cmd->id_callback, text, 0);
+	answer_callback_text(cmd->id_callback, text, 0);
 }
 
 
