@@ -58,7 +58,6 @@ Data list:
  		"chat_id": 00000,
  		"message_id": 111111,       -> 0: no reply
 		"user_id": 222222,
-		"deleteable": false,        -> optional, true: add button 'Delete'
  		"text": ""
  	}
 
@@ -75,13 +74,12 @@ Data list:
  	send_photo
  req:
  	{
- 		"type": "url",              -> "url" or "file"
+		"text_type": "plain",       -> "plain" or "format"
  		"chat_id": 00000,
  		"message_id": 111111,       -> 0: no reply
 		"user_id": 222222,
  		"photo": "https://aaaaaa.com/photo.jpg",
 		"text": ""                  -> optional, caption text
-		"deleteable": false,        -> optional, true: add button 'Delete'
  	}
 
  resp:

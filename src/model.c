@@ -656,7 +656,7 @@ model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 		return -1;
 
 	const char *const query =
-		"SELECT id, type, chat_id, message_id, value, next_run, expire "
+		"SELECT id, type, chat_id, message_id, user_id, value, next_run, expire "
 		"FROM Sched_Message "
 		"WHERE (? >= next_run) AND (? < (next_run + expire)) "
 		"LIMIT ?";
@@ -690,9 +690,10 @@ model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 		it->type = sqlite3_column_int(stmt, 1);
 		it->chat_id = sqlite3_column_int64(stmt, 2);
 		it->message_id = sqlite3_column_int64(stmt, 3);
-		cstr_copy_n(it->value, LEN(it->value), (const char *)sqlite3_column_text(stmt, 4));
-		it->next_run = sqlite3_column_int64(stmt, 5);
-		it->expire = sqlite3_column_int64(stmt, 6);
+		it->user_id = sqlite3_column_int64(stmt, 4);
+		cstr_copy_n(it->value, LEN(it->value), (const char *)sqlite3_column_text(stmt, 5));
+		it->next_run = sqlite3_column_int64(stmt, 6);
+		it->expire = sqlite3_column_int64(stmt, 7);
 
 		list[count] = it;
 	}
@@ -772,6 +773,11 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		return -1;
 	}
 
+	if (s->user_id == 0) {
+		LOG_ERRN("model", "%s", "invalid user_id");
+		return -1;
+	}
+
 	if ((type == MODEL_SCHED_MESSAGE_TYPE_DELETE) && (s->message_id == 0)) {
 		LOG_ERRN("model", "%s", "invalid message_id");
 		return -1;
@@ -797,17 +803,18 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		{ .type = _DATA_TYPE_INT, .int_in = s->type },
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->chat_id },
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->message_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->user_id },
 		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = s->value_in, .len = -1 } },
 		{ .type = _DATA_TYPE_INT64, .int64_in = (time(NULL) + interval_s) },
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->expire },
 	};
 
 	if (type != MODEL_SCHED_MESSAGE_TYPE_SEND)
-		args[3].type = _DATA_TYPE_NULL;
+		args[4].type = _DATA_TYPE_NULL;
 
 	const char *const query =
-		"INSERT INTO Sched_Message(type, chat_id, message_id, value, next_run, expire) "
-		"VALUES(?, ?, ?, ?, ?, ?);";
+		"INSERT INTO Sched_Message(type, chat_id, message_id, user_id, value, next_run, expire) "
+		"VALUES(?, ?, ?, ?, ?, ?, ?);";
 
 	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
@@ -1096,6 +1103,7 @@ _sched_message_query(Str *str)
 		"	type		INTEGER NOT Null,\n"
 		"	chat_id		BIGINT NOT Null,\n"
 		"	message_id	BIGINT Null,\n"
+		"	user_id		BIGINT NOT Null,\n"
 		"	value		VARCHAR(%d) Null,\n"
 		"	next_run	TIMESTAMP NOT Null,\n"
 		"	expire		TIMESTAMP NOT Null\n"

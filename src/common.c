@@ -16,8 +16,10 @@
 
 static int   _send_text(const TgApiText *t, int64_t *ret_id);
 static int   _send_photo(const TgApiPhoto *t, int64_t *ret_id);
-static char *_add_deleter(int64_t user_id);
 static char *_fmt(const char fmt[], va_list args);
+static int   _pager_delete(const Pager *p, int64_t user_id);
+static char *_pager_add_body(const Pager *p, const PagerList *list);
+static int   _pager_send(const Pager *p, const TgApiMarkupKbd *kbd, const char body[], int64_t *ret_id);
 
 
 /*
@@ -36,18 +38,17 @@ send_text_plain(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 	if (text == NULL)
 		return -1;
 
+	char *const markup = (msg->from != NULL)? new_deleter(msg->from->id) : NULL;
 	const TgApiText api = {
 		.type = TG_API_TEXT_TYPE_PLAIN,
 		.chat_id = msg->chat.id,
 		.msg_id = msg->id,
 		.text = text,
-		.markup = _add_deleter(msg->from->id),
+		.markup = markup,
 	};
 
 	const int ret = _send_text(&api, ret_id);
-	free((char *)api.markup);
-
-out0:
+	free(markup);
 	free(text);
 	return ret;
 }
@@ -66,18 +67,17 @@ send_text_format(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 	if (text == NULL)
 		return -1;
 
+	char *const markup = (msg->from != NULL)? new_deleter(msg->from->id) : NULL;
 	const TgApiText api = {
 		.type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = msg->chat.id,
 		.msg_id = msg->id,
 		.text = text,
-		.markup = _add_deleter(msg->from->id),
+		.markup = markup,
 	};
 
 	const int ret = _send_text(&api, ret_id);
-	free((char *)api.markup);
-
-out0:
+	free(markup);
 	free(text);
 	return ret;
 }
@@ -96,19 +96,18 @@ send_photo_plain(const TgMessage *msg, int64_t *ret_id, const char photo[], cons
 	if (text == NULL)
 		return -1;
 
+	char *const markup = (msg->from != NULL)? new_deleter(msg->from->id) : NULL;
 	const TgApiPhoto api = {
 		.text_type = TG_API_TEXT_TYPE_PLAIN,
 		.chat_id = msg->chat.id,
 		.msg_id = msg->id,
 		.photo = photo,
 		.text = text,
-		.markup = _add_deleter(msg->from->id),
+		.markup = markup,
 	};
 
 	const int ret = _send_photo(&api, ret_id);
-	free((char *)api.markup);
-
-out0:
+	free(markup);
 	free(text);
 	return ret;
 }
@@ -127,26 +126,25 @@ send_photo_format(const TgMessage *msg, int64_t *ret_id, const char photo[], con
 	if (text == NULL)
 		return -1;
 
+	char *const markup = (msg->from != NULL)? new_deleter(msg->from->id) : NULL;
 	const TgApiPhoto api = {
 		.text_type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = msg->chat.id,
 		.msg_id = msg->id,
 		.photo = photo,
 		.text = text,
-		.markup = _add_deleter(msg->from->id),
+		.markup = markup,
 	};
 
 	const int ret = _send_photo(&api, ret_id);
-	free((char *)api.markup);
-
-out0:
+	free(markup);
 	free(text);
 	return ret;
 }
 
 
 int
-send_error_text(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
+send_error_text(const TgMessage *msg, int64_t *ret_id, const char ctx[], const char fmt[], ...)
 {
 	char *text;
 	va_list va;
@@ -159,20 +157,21 @@ send_error_text(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 	if (text == NULL)
 		return -1;
 
-	char *const new_text = CSTR_CONCAT("```error\n", text, "```");
+	char *const new_text = CSTR_CONCAT("```error\n", ctx, ": ", text, "```");
 	if (new_text == NULL)
 		goto out0;
 
+	char *const markup = (msg->from != NULL)? new_deleter(msg->from->id) : NULL;
 	const TgApiText api = {
 		.type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = msg->chat.id,
 		.msg_id = msg->id,
 		.text = new_text,
-		.markup = _add_deleter(msg->from->id),
+		.markup = markup,
 	};
 
 	ret = _send_text(&api, ret_id);
-	free((char *)api.markup);
+	free(markup);
 	free(new_text);
 
 out0:
@@ -184,7 +183,7 @@ out0:
 int
 answer_callback_text(const char id[], const char value[], int show_alert)
 {
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	char buff[1024];
 
 	const TgApiCallback api = {
@@ -217,6 +216,36 @@ delete_message(const TgMessage *msg)
 		LOG_ERRN("common", "tg_api_delete: errnum: %d", ret);
 
 	return ret;
+}
+
+
+char *
+new_deleter(int64_t user_id)
+{
+	const TgApiKbdButton btn = {
+		.label = "Delete",
+		.args_len = 2,
+		.args = (TgApiKbdButtonArg[]) {
+			{
+				.type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT,
+				.text = "/deleter",
+			},
+			{
+				.type = TG_API_KBD_BUTTON_ARG_TYPE_INT64,
+				.int64 = user_id,
+			},
+		},
+	};
+
+	const TgApiMarkupKbd kbd = {
+		.rows_len = 1,
+		.rows = &(TgApiKbd) {
+			.cols_len = 1,
+			.cols = &btn,
+		},
+	};
+
+	return tg_api_markup_kbd(&kbd);
 }
 
 
@@ -253,20 +282,154 @@ void
 pager_list_set(PagerList *p, unsigned curr_page, unsigned per_page, unsigned items_len,
 	       unsigned items_size)
 {
+	assert(curr_page > 0);
+	assert(per_page > 0);
+	assert(items_len <= items_size);
+
+	p->page_num = curr_page;
+	p->page_size = CEIL(items_size, per_page);
+	p->items_len = items_len;
+	p->items_size = items_size;
 }
 
 
 int
 pager_init(Pager *p, const char args[])
 {
+	if (p->id_callback == NULL) {
+		p->page = 1;
+		p->udata = args;
+		p->created_by = p->id_user;
+		return 0;
+	}
+
+	SpaceTokenizer st_num;
+	const char *next = space_tokenizer_next(&st_num, args);
+	if (next == NULL)
+		goto err0;
+
+	SpaceTokenizer st_timer;
+	next = space_tokenizer_next(&st_timer, next);
+	if (next == NULL)
+		goto err0;
+
+	SpaceTokenizer st_from_id;
+	next = space_tokenizer_next(&st_from_id, next);
+	if (next == NULL)
+		goto err0;
+
+	/* optional */
+	const char *udata = NULL;
+	SpaceTokenizer st_udata;
+	if (space_tokenizer_next(&st_udata, next) != NULL)
+		udata = st_udata.value;
+
+	uint64_t page_num;
+	if (cstr_to_uint64_n(st_num.value, st_num.len, &page_num) < 0)
+		goto err0;
+
+	int64_t timer;
+	if (cstr_to_int64_n(st_timer.value, st_timer.len, &timer) < 0)
+		goto err0;
+
+	int64_t from_id;
+	if ((cstr_to_int64_n(st_from_id.value, st_from_id.len, &from_id) < 0) && (from_id == 0))
+		goto err0;
+
+	if (timer == 0)
+		return _pager_delete(p, from_id);
+
+	const time_t diff = time(NULL) - timer;
+	if (diff >= CFG_LIST_TIMEOUT_S) {
+		answer_callback_text(p->id_callback, "Expired!", 1);
+		return -2;
+	}
+
+	p->page = (unsigned)page_num;
+	p->udata = udata;
+	p->created_by = from_id;
 	return 0;
+
+err0:
+	answer_callback_text(p->id_callback, "Invalid callback!", 1);
+	return -1;
 }
 
 
 int
 pager_send(const Pager *p, const PagerList *list, int64_t *ret_id)
 {
-	return 0;
+	assert(VAL_IS_NULL_OR(p, p->ctx, list) == 0);
+
+	const time_t now = time(NULL);
+	const int64_t created_by = p->created_by;
+	const unsigned page = list->page_num;
+	char *const body = _pager_add_body(p, list);
+	if (body == NULL) {
+		const TgMessage msg = {
+			.id = p->id_message,
+			.chat = (TgChat) { .id = p->id_chat },
+			.from = &(TgUser) { .id = p->id_user },
+		};
+		SEND_ERROR_TEXT(&msg, NULL, "%s", "_pager_add_body: failed");
+		return -1;
+	}
+
+	const TgApiKbdButton btns[] = {
+		{
+			.label = "Prev",
+			.args_len = 5,
+			.args = (TgApiKbdButtonArg[]) {
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT, .text = p->ctx },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = page - 1 },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = now },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = created_by },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT, .text = p->udata },
+			},
+		},
+		{
+			.label = "Next",
+			.args_len = 5,
+			.args = (TgApiKbdButtonArg[]) {
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT, .text = p->ctx },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = page + 1 },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = now },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = created_by },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT, .text = p->udata },
+			},
+		},
+		{
+			.label = "Delete",
+			.args_len = 5,
+			.args = (TgApiKbdButtonArg[]) {
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT, .text = p->ctx },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = page },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = 0 },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_INT64, .int64 = created_by },
+				{ .type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT, .text = p->udata },
+			},
+		},
+	};
+
+	TgApiKbdButton btns_map[LEN(btns)];
+	unsigned count = 0;
+	if (page < list->page_size)
+		btns_map[count++] = btns[1];
+	if (page > 1)
+		btns_map[count++] = btns[0];
+
+	btns_map[count++] = btns[2];
+	const TgApiMarkupKbd kbd = {
+		.rows_len = 1,
+		.rows = &(TgApiKbd) {
+			.cols_len = count,
+			.cols = btns_map,
+		},
+	};
+
+	const int ret = _pager_send(p, &kbd, body, ret_id);
+	free(body);
+	return ret;
 }
 
 
@@ -312,36 +475,6 @@ _send_photo(const TgApiPhoto *t, int64_t *ret_id)
 
 
 static char *
-_add_deleter(int64_t user_id)
-{
-	const TgApiKbdButton btn = {
-		.label = "Delete",
-		.args_len = 2,
-		.args = (TgApiKbdButtonArg[]) {
-			{
-				.type = TG_API_KBD_BUTTON_ARG_TYPE_TEXT,
-				.text = "/deleter",
-			},
-			{
-				.type = TG_API_KBD_BUTTON_ARG_TYPE_INT64,
-				.int64 = user_id,
-			},
-		},
-	};
-
-	const TgApiMarkupKbd kbd = {
-		.rows_len = 1,
-		.rows = &(TgApiKbd) {
-			.cols_len = 1,
-			.cols = &btn,
-		},
-	};
-
-	return tg_api_markup_kbd(&kbd);
-}
-
-
-static char *
 _fmt(const char fmt[], va_list args)
 {
 	va_list va;
@@ -365,4 +498,99 @@ _fmt(const char fmt[], va_list args)
 
 	res[ret] = '\0';
 	return res;
+}
+
+
+static int
+_pager_delete(const Pager *p, int64_t user_id)
+{
+	int ret = 1;
+	if (p->id_user != user_id) {
+		ret = is_admin(p->id_user, p->id_chat, p->id_owner);
+		if (ret < 0) {
+			answer_callback_text(p->id_callback, "Failed to get admin list", 1);
+			return -1;
+		}
+	}
+
+	if (ret == 0) {
+		answer_callback_text(p->id_callback, "Permission denied!", 1);
+		return -1;
+	}
+
+	TgApiResp resp = { 0 };
+	char buff[1024];
+
+	ret = tg_api_delete(p->id_chat, p->id_message, &resp);
+	if (ret == TG_API_RESP_ERR_API) {
+		const char *const err_str = tg_api_resp_str(&resp, buff, LEN(buff));
+		LOG_ERRN("common", "tg_api_delete: %s", err_str);
+		answer_callback_text(p->id_callback, err_str, 1);
+	} else if (ret < 0) {
+		LOG_ERRN("common", "tg_api_delete: errnum: %d", ret);
+		answer_callback_text(p->id_callback, "System error!", 1);
+	} else {
+		answer_callback_text(p->id_callback, "Deleted", 0);
+	}
+
+	return -3;
+}
+
+
+static char *
+_pager_add_body(const Pager *p, const PagerList *list)
+{
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		return NULL;
+
+	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
+			      cstr_empty_if_null(p->title), cstr_empty_if_null(p->body),
+			      list->page_num, list->page_size, list->items_size);
+}
+
+
+static int
+_pager_send(const Pager *p, const TgApiMarkupKbd *kbd, const char body[], int64_t *ret_id)
+{
+	char *const markup = tg_api_markup_kbd(kbd);
+	if (markup == NULL) {
+		const TgMessage msg = {
+			.id = p->id_message,
+			.chat = (TgChat) { .id = p->id_chat },
+			.from = &(TgUser) { .id = p->id_user },
+		};
+		SEND_ERROR_TEXT(&msg, NULL, "%s", "tg_api_markup_kbd: failed");
+		return -1;
+	}
+
+	TgApiResp resp = { 0 };
+	char buff[1024];
+
+	const TgApiText api = {
+		.type = TG_API_TEXT_TYPE_FORMAT,
+		.chat_id = p->id_chat,
+		.msg_id = p->id_message,
+		.text = body,
+		.markup = markup,
+	};
+
+	int ret;
+	if (p->id_callback == NULL)
+		ret = tg_api_text_send(&api, &resp);
+	else
+		ret = tg_api_text_edit(&api, &resp);
+
+	if (ret == TG_API_RESP_ERR_API) {
+		const char *const err_str = tg_api_resp_str(&resp, buff, LEN(buff));
+		LOG_ERRN("common", "tg_api_text: %s", err_str);
+	} else if (ret < 0) {
+		LOG_ERRN("common", "tg_api_text: errnum: %d", ret);
+	}
+
+	if (ret_id != NULL)
+		*ret_id = resp.msg_id;
+
+	free(markup);
+	return ret;
 }

@@ -131,16 +131,11 @@ _run_task(void *ctx, void *udata)
 	ModelSchedMessage *const msg = (ModelSchedMessage *)ctx;
 	switch (msg->type) {
 	case MODEL_SCHED_MESSAGE_TYPE_SEND:
-		send_text_plain(&(TgMessage){
+		send_text_format(&(TgMessage){
 			.chat = (TgChat) { .id = msg->chat_id },
 			.id = msg->message_id,
+			.from = &(TgUser) { .id = msg->user_id },
 		}, NULL, "%s", msg->value);
-
-		//SEND_TEXT_PLAIN(&(TgMessage) {
-		//	.chat = (TgChat) { .id = msg->chat_id },
-		//	.id = msg->message_id,
-		//}, msg->value);
-
 		break;
 	case MODEL_SCHED_MESSAGE_TYPE_DELETE:
 		delete_message(&(TgMessage){

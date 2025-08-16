@@ -14,16 +14,20 @@
 /*
  * tg_api wrappers
  */
+#define SEND_ERROR_TEXT(MSG, RET_ID, FMT, ...)\
+	send_error_text(MSG, RET_ID, __func__, FMT, __VA_ARGS__)
+
 int send_text_plain(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...);
 int send_text_format(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...);
 int send_photo_plain(const TgMessage *msg, int64_t *ret_id, const char photo[], const char fmt[], ...);
 int send_photo_format(const TgMessage *msg, int64_t *ret_id, const char photo[], const char fmt[], ...);
 
-int send_error_text(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...);
+int send_error_text(const TgMessage *msg, int64_t *ret_id, const char ctx[], const char fmt[], ...);
 
 int answer_callback_text(const char id[], const char value[], int show_alert);
 int delete_message(const TgMessage *msg);
 
+char *new_deleter(int64_t user_id);
 
 
 /*

@@ -15,10 +15,10 @@ static const char *_base_url = NULL;
 static const char *_get_text_parse_mode(int type);
 static int         _build_kbd_button(const TgApiKbdButton *b, Str *str);
 
-static int  _send_request(TgApiResp *r, const char req_type[], const char req[]);
-static int  _send_request2(TgApiResp *r, const char req_type[], const char req[], json_object **ret_obj);
-static void _set_message_id(TgApiResp *r, json_object *obj);
-static int  _set_error_message(TgApiResp *r, json_object *obj);
+static int _send_request(TgApiResp *r, const char req_type[], const char req[]);
+static int _send_request2(TgApiResp *r, const char req_type[], const char req[], json_object **ret_obj);
+static int _set_message_id(TgApiResp *r, json_object *obj);
+static int _set_error_message(TgApiResp *r, json_object *obj);
 
 
 /*
@@ -162,7 +162,7 @@ out0:
 
 
 int
-tg_api_caption_edit(const TgApiPhoto *t, TgApiResp *resp)
+tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
 	if ((t->chat_id == 0) || (t->msg_id == 0) || (cstr_is_empty(t->text)))
@@ -413,10 +413,8 @@ _send_request(TgApiResp *r, const char req_type[], const char req[])
 		goto out1;
 
 	memset(r, 0, sizeof(*r));
-
-	ret = 0;
 	if (json_object_get_boolean(ok_obj))
-		_set_message_id(r, obj);
+		ret = _set_message_id(r, obj);
 	else
 		ret = _set_error_message(r, obj);
 
@@ -446,9 +444,8 @@ _send_request2(TgApiResp *r, const char req_type[], const char req[], json_objec
 	if (json_object_object_get_ex(obj, "ok", &ok_obj) == 0)
 		goto out1;
 
-	ret = 0;
 	if (json_object_get_boolean(ok_obj))
-		_set_message_id(r, obj);
+		ret = _set_message_id(r, obj);
 	else
 		ret = _set_error_message(r, obj);
 
@@ -465,18 +462,19 @@ out0:
 }
 
 
-static void
+static int
 _set_message_id(TgApiResp *r, json_object *obj)
 {
 	json_object *res_obj;
 	if (json_object_object_get_ex(obj, "result", &res_obj) == 0)
-		return;
+		return 0;
 
 	json_object *id_obj;
 	if (json_object_object_get_ex(res_obj, "message_id", &id_obj) == 0)
-		return;
+		return 0;
 
 	r->msg_id = json_object_get_int64(id_obj);
+	return 0;
 }
 
 
@@ -493,5 +491,5 @@ _set_error_message(TgApiResp *r, json_object *obj)
 
 	r->error_code = json_object_get_int(err_code_obj);
 	cstr_copy_n(r->error_msg, LEN(r->error_msg), json_object_get_string(err_desc_obj));
-	return 0;
+	return TG_API_RESP_ERR_API;
 }

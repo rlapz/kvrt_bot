@@ -74,7 +74,7 @@ typedef struct tg_api_caption {
 	const char *markup;
 } TgApiCaption;
 
-int tg_api_caption_edit(const TgApiPhoto *t, TgApiResp *resp);
+int tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp);
 
 
 /*
