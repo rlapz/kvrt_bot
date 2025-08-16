@@ -281,12 +281,16 @@ _client_header_parse(Client *c, size_t last_len)
 		return ret;
 
 	size_t content_len = 0;
-	if (_client_header_validate(c, &req, &content_len) < 0)
+	if (_client_header_validate(c, &req, &content_len) < 0) {
+		LOG_ERRN("main", "%s", "_client_header_validate: failed");
 		return -1;
+	}
 
 	const size_t diff_len = len - (size_t)ret;
-	if (diff_len > content_len)
+	if (diff_len > content_len) {
+		LOG_ERRN("main", "%s", "'diff_len > content_len'");
 		return -1;
+	}
 
 	if (content_len >= CFG_BUFFER_SIZE)
 		return -3;

@@ -1,3 +1,5 @@
+#include <unistd.h>
+
 #include "../cmd.h"
 #include "../common.h"
 #include "../model.h"
@@ -11,8 +13,7 @@
 void
 cmd_test_echo(const CmdParam *cmd)
 {
-	//send_text_plain(cmd->msg, "Ok");
-	SEND_TEXT_PLAIN_FMT(cmd->msg, 1, NULL, "%s", "test");
+	send_text_plain(cmd->msg, NULL, "hello");
 }
 
 
@@ -27,14 +28,15 @@ cmd_test_sched(const CmdParam *cmd)
 	const TgMessage *const msg = cmd->msg;
 	ModelSchedMessage sch = {
 		.type = MODEL_SCHED_MESSAGE_TYPE_SEND,
-		.chat_id = msg->chat.id,
-		.message_id = msg->id,
+		.chat_id = cmd->id_chat,
+		.message_id = cmd->id_message,
+		.user_id = cmd->id_user,
 		.value_in = "Hello world\\!\\!\\! :3",
 		.expire = 5,
 	};
 
 	if (model_sched_message_add(&sch, (int64_t)timeout_s) <= 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to set sechedule message");
+		send_text_plain(msg, NULL, "Failed to set sechedule message");
 		return;
 	}
 
@@ -44,13 +46,14 @@ cmd_test_sched(const CmdParam *cmd)
 	const char *const ss = str_set_fmt(&str, "Success! Scheduled for %lus.", timeout_s);
 
 	int64_t ret_id;
-	if (tg_api_send_text(TG_API_TEXT_TYPE_PLAIN, msg->chat.id, msg->id, ss, &ret_id) < 0)
+	if (send_text_plain(msg, &ret_id, "%s", ss) < 0)
 		return;
 
 	ModelSchedMessage del = {
 		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
-		.chat_id = msg->chat.id,
+		.chat_id = cmd->id_chat,
 		.message_id = ret_id,
+		.user_id = cmd->id_user,
 		.expire = 5,
 	};
 
@@ -61,43 +64,36 @@ cmd_test_sched(const CmdParam *cmd)
 void
 cmd_test_nsfw(const CmdParam *cmd)
 {
-	SEND_TEXT_PLAIN(cmd->msg, "😏");
+	send_text_plain(cmd->msg, NULL, "%s", "😏");
 }
 
 
 void
 cmd_test_admin(const CmdParam *cmd)
 {
-	SEND_TEXT_PLAIN(cmd->msg, "Pass");
+	send_text_plain(cmd->msg, NULL, "Pass");
 }
 
 
 void
 cmd_test_list(const CmdParam *cmd)
 {
-	MessageList list = {
-		.id_user = cmd->id_user,
-		.id_owner = cmd->id_owner,
-		.id_chat = cmd->id_chat,
-		.id_message = cmd->msg->id,
-		.id_callback = cmd->id_callback,
-		.body = "test",
-		.ctx = cmd->name,
-		.title = "Test List",
-		.udata = "",
-	};
-
-	if (message_list_init(&list, cmd->args) < 0)
-		return;
-
-	const MessageListPagination pag = { .page_num = 1, .page_size = 1 };
-	message_list_send(&list, &pag, NULL);
+	send_text_plain(cmd->msg, NULL, "REGRESSED!");
 }
 
 
 void
 cmd_test_photo(const CmdParam *cmd)
 {
+	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
+	send_photo_plain(cmd->msg, NULL, photo_url, "a cute girl");
+}
+
+
+void
+cmd_test_edit(const CmdParam *cmd)
+{
+	int64_t msg_id = 0;
 	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
 
 	const TgMessage msg = {
@@ -106,7 +102,22 @@ cmd_test_photo(const CmdParam *cmd)
 		.chat = (TgChat) { .id = cmd->id_chat },
 	};
 
-	send_photo_fmt(&msg, TG_API_PHOTO_TYPE_URL, 1, NULL, photo_url, "%s", "");
+	send_photo_plain(&msg, &msg_id, photo_url, "hello %s", "world");
+
+	sleep(2);
+	LOG_INFO("test", "%"PRIi64, cmd->id_chat);
+
+	TgApiResp resp;
+	const TgApiCaption capt = {
+		.chat_id = cmd->id_chat,
+		.msg_id = msg_id,
+		.text = "yeah!",
+		.text_type = TG_API_TEXT_TYPE_PLAIN,
+		.markup = new_deleter(cmd->id_user),
+	};
+
+	tg_api_caption_edit(&capt, &resp);
+	free((char *)capt.markup);
 }
 
 

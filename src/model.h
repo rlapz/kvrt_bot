@@ -153,6 +153,7 @@ typedef struct model_sched_message {
 	int     type;
 	int64_t chat_id;
 	int64_t message_id;	/* 0: no message_id */
+	int64_t user_id;
 	union { const char *value_in; char value[MODEL_SCHED_MESSAGE_VALUE_SIZE]; };
 	time_t  next_run;
 	time_t  expire;

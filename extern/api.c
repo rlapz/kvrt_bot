@@ -279,11 +279,6 @@ _send_text(const Arg *arg)
 
 	const int64_t user_id = json_object_get_int64(user_id_obj);
 
-	int deletable = 0;
-	json_object *deletable_obj;
-	if (json_object_object_get_ex(arg->data, "deletable", &deletable_obj))
-		deletable = json_object_get_boolean(deletable_obj);
-
 	json_object *text_obj;
 	if (json_object_object_get_ex(arg->data, "text", &text_obj) == 0) {
 		error = "no 'text' field";
@@ -304,15 +299,26 @@ _send_text(const Arg *arg)
 		goto out0;
 	}
 
-	const TgMessage msg = {
-		.id = msg_id,
-		.from = &(TgUser) { .id = user_id },
-		.chat = (TgChat) { .id = chat_id },
+	char *const markup = new_deleter(user_id);
+	const TgApiText api = {
+		.type = type,
+		.chat_id = chat_id,
+		.msg_id = msg_id,
+		.text = text,
+		.markup = markup,
 	};
 
-	ret = send_text_fmt(&msg, type, deletable, &ret_id, "%s", text);
-	if (ret < 0)
-		error = "failed to send message";
+	TgApiResp resp = { 0 };
+	char buff[1024];
+
+	ret = tg_api_text_send(&api, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		error = tg_api_resp_str(&resp, buff, LEN(buff));
+	else if (ret < 0)
+		error = "failed to send text message: system error!";
+
+	ret_id = resp.msg_id;
+	free(markup);
 
 out0:
 	json_object_object_add(arg->resp, "message_id", json_object_new_int64(ret_id));
@@ -328,21 +334,21 @@ _send_photo(const Arg *arg)
 	int64_t ret_id = 0;
 	const char  *error = "";
 
-	json_object *type_obj;
-	if (json_object_object_get_ex(arg->data, "type", &type_obj) == 0) {
-		error = "no 'type' field";
+	json_object *text_type_obj;
+	if (json_object_object_get_ex(arg->data, "text_type", &text_type_obj) == 0) {
+		error = "no 'text_type' field";
 		goto out0;
 	}
 
-	const char *const type_str = json_object_get_string(type_obj);
+	const char *const text_type_str = json_object_get_string(text_type_obj);
 
-	int type;
-	if (cstr_casecmp(type_str, "url")) {
-		type = TG_API_PHOTO_TYPE_URL;
-	} else if (cstr_casecmp(type_str, "file")) {
-		type = TG_API_PHOTO_TYPE_FILE;
+	int text_type;
+	if (cstr_casecmp(text_type_str, "plain")) {
+		text_type = TG_API_TEXT_TYPE_PLAIN;
+	} else if (cstr_casecmp(text_type_str, "format")) {
+		text_type = TG_API_TEXT_TYPE_FORMAT;
 	} else {
-		error = "'type': invalid value";
+		error = "'text_type': invalid value";
 		goto out0;
 	}
 
@@ -385,11 +391,6 @@ _send_photo(const Arg *arg)
 		goto out0;
 	}
 
-	int deletable = 0;
-	json_object *deletable_obj;
-	if (json_object_object_get_ex(arg->data, "deletable", &deletable_obj))
-		deletable = json_object_get_boolean(deletable_obj);
-
 	const int64_t msg_id = json_object_get_int64(msg_id_obj);
 
 	const char *const photo = json_object_get_string(photo_obj);
@@ -398,15 +399,27 @@ _send_photo(const Arg *arg)
 		goto out0;
 	}
 
-	const TgMessage msg = {
-		.id = msg_id,
-		.from = &(TgUser) { .id = user_id },
-		.chat = (TgChat) { .id = chat_id },
+	char *const markup = new_deleter(user_id);
+	const TgApiPhoto api = {
+		.text_type = text_type,
+		.chat_id = chat_id,
+		.msg_id = msg_id,
+		.photo = photo,
+		.text = text,
+		.markup = markup,
 	};
 
-	ret = send_photo_fmt(&msg, type, deletable, &ret_id, photo, "%s", text);
-	if (ret < 0)
-		error = "failed to send message";
+	TgApiResp resp = { 0 };
+	char buff[1024];
+
+	ret = tg_api_photo_send(&api, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		error = tg_api_resp_str(&resp, buff, LEN(buff));
+	else if (ret < 0)
+		error = "failed to send photo message: system error!";
+
+	ret_id = resp.msg_id;
+	free(markup);
 
 out0:
 	json_object_object_add(arg->resp, "message_id", json_object_new_int64(ret_id));
@@ -445,9 +458,14 @@ _delete_message(const Arg *arg)
 		goto out0;
 	}
 
-	ret = tg_api_delete_message(chat_id, msg_id);
-	if (ret < 0)
-		error = "failed to delete message";
+	TgApiResp resp;
+	char buff[1024];
+
+	ret = tg_api_delete(chat_id, msg_id, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		error = tg_api_resp_str(&resp, buff, LEN(buff));
+	else if (ret < 0)
+		error = "failed to delete message: system error!";
 
 out0:
 	json_object_object_add(arg->resp, "name", json_object_new_string(arg->cmd_name));
@@ -502,12 +520,25 @@ _answer_callback(const Arg *arg)
 
 	const int show_alert = json_object_get_int(show_alert_obj);
 	if (is_text)
-		ret = ANSWER_CALLBACK_TEXT(id, value, show_alert);
+		ret = TG_API_CALLBACK_VALUE_TYPE_TEXT;
 	else
-		ret = ANSWER_CALLBACK_URL(id, value, show_alert);
+		ret = TG_API_CALLBACK_VALUE_TYPE_URL;
 
-	if (ret < 0)
-		error = "failed to answer callback query";
+	TgApiResp resp;
+	char buff[1024];
+
+	const TgApiCallback api = {
+		.value_type = TG_API_CALLBACK_VALUE_TYPE_TEXT,
+		.show_alert = show_alert,
+		.id = id,
+		.value = value,
+	};
+
+	ret = tg_api_callback_answer(&api, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		error = tg_api_resp_str(&resp, buff, LEN(buff));
+	else if (ret < 0)
+		error = "failed to delete message: system error!";
 
 out0:
 	_add_response(arg, error);

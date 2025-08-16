@@ -54,7 +54,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		SEND_TEXT_PLAIN(cmd->msg, "Failed to get chat flags!");
+		send_text_plain(cmd->msg, NULL, "Failed to get chat flags!");
 		return;
 	}
 
@@ -67,24 +67,24 @@ cmd_exec(CmdParam *cmd, const char req[])
 	if ((cmd->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (cmd->has_username == 0))
 		return;
 
-	SEND_TEXT_PLAIN(cmd->msg, "Invalid command!");
+	send_text_plain(cmd->msg, NULL, "Invalid command!");
 }
 
 
 int
-cmd_get_list(ModelCmd list[], int len, MessageListPagination *pag, int flags, int is_private)
+cmd_get_list(ModelCmd cmd_list[], int len, PagerList *list, int flags, int is_private)
 {
-	assert(VAL_IS_NULL_OR(list, pag) == 0);
-	if (pag->page_num == 0)
+	assert(VAL_IS_NULL_OR(cmd_list, list) == 0);
+	if (list->page_num == 0)
 		return -1;
 
 	int total;
-	const int offt = (pag->page_num - 1) * len;
-	const int llen = model_cmd_get_list(list, len, offt, &total, flags, is_private);
+	const int offt = (list->page_num - 1) * len;
+	const int llen = model_cmd_get_list(cmd_list, len, offt, &total, flags, is_private);
 	if ((llen < 0) || (total <= 0))
 		return -1;
 
-	message_list_pagination_set(pag, pag->page_num, len, llen, total);
+	pager_list_set(list, list->page_num, len, llen, total);
 	return 0;
 }
 
@@ -184,7 +184,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 		return 0;
 
 	if (is_valid_index(index, LEN(_cmd_builtin_list)) == 0) {
-		SEND_TEXT_PLAIN(c->msg, "Failed to get builtin command data!");
+		send_text_plain(c->msg, NULL, "Failed to get builtin command data!");
 		return 1;
 	}
 
@@ -206,7 +206,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	ModelCmdExtern ce;
 	const int ret = model_cmd_extern_get(&ce, c->name);
 	if (ret < 0) {
-		SEND_TEXT_PLAIN(c->msg, "Failed to get external command data!");
+		send_text_plain(c->msg, NULL, "Failed to get external command data!");
 		return 1;
 	}
 
@@ -223,7 +223,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 		 c->id_chat, c->id_user, c->id_message, ce.name, ce.file_name);
 
 	if (_spawn_child_process(c, chat_flags, ce.file_name) < 0) {
-		SEND_TEXT_PLAIN(c->msg, "Failed to execute external command!");
+		send_text_plain(c->msg, NULL, "Failed to execute external command!");
 		return 1;
 	}
 
@@ -240,7 +240,7 @@ _exec_cmd_message(const CmdParam *c)
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
 	const int ret = model_cmd_message_get_value(c->id_chat, c->name, value, LEN(value));
 	if (ret < 0) {
-		SEND_TEXT_PLAIN(c->msg, "Failed to get command message data!");
+		send_text_plain(c->msg, NULL, "Failed to get command message data!");
 		return 1;
 	}
 
@@ -250,7 +250,7 @@ _exec_cmd_message(const CmdParam *c)
 	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
 		 c->id_chat, c->id_user, c->msg->id, c->name);
 
-	SEND_TEXT_PLAIN(c->msg, value);
+	send_text_plain(c->msg, NULL, value);
 	return 1;
 }
 
@@ -275,10 +275,10 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 		const int ret = is_admin(c->id_user, c->id_chat, c->id_owner);
 		switch (ret) {
 		case -1:
-			SEND_TEXT_PLAIN(c->msg, "Failed to get admin list!");
+			send_text_plain(c->msg, NULL, "Failed to get admin list!");
 			return 0;
 		case 0:
-			SEND_TEXT_PLAIN(c->msg, "Permission denied!");
+			send_text_plain(c->msg, NULL, "Permission denied!");
 			return 0;
 		}
 	}

@@ -80,7 +80,7 @@ _handle_callback(const Update *u, const TgCallbackQuery *cb)
 	}
 
 	if (model_chat_init(cb->message->chat.id) < 0) {
-		SEND_TEXT_PLAIN(cb->message, "Failed to initialize chat");
+		send_text_plain(cb->message, NULL, "Failed to initialize chat");
 		return;
 	}
 
@@ -110,7 +110,7 @@ _handle_message_command(const Update *u, const TgMessage *msg)
 	}
 
 	if (model_chat_init(msg->chat.id) < 0) {
-		SEND_TEXT_PLAIN(msg, "Failed to initialize chat");
+		send_text_plain(msg, NULL, "Failed to initialize chat");
 		return;
 	}
 
@@ -147,11 +147,12 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 			.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
 			.chat_id = chat_id,
 			.message_id = msg->id,
+			.user_id = user->id,
 			.expire = 5,
 		};
 
 		if (model_sched_message_add(&schd, 3) <= 0)
-			tg_api_delete_message(chat_id, msg->id);
+			delete_message(msg);
 	}
 
 	if (user->is_bot)
@@ -169,13 +170,14 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 		goto out1;
 
 	int64_t ret_id;
-	if (tg_api_send_text(TG_API_TEXT_TYPE_FORMAT, chat_id, 0, str.cstr, &ret_id) < 0)
+	if (send_text_format(msg, &ret_id, "%s", str.cstr) < 0)
 		goto out1;
 
 	const ModelSchedMessage schd = {
 		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = chat_id,
 		.message_id = ret_id,
+		.user_id = user->id,
 		.expire = 5
 	};
 
@@ -202,22 +204,32 @@ _handle_member_leave(const Update *u, const TgMessage *msg)
 		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = msg->chat.id,
 		.message_id = msg->id,
-		.expire = 5
+		.user_id = msg->left_chat_member.id,
+		.expire = 5,
 	};
 
 	if (model_sched_message_add(&schd, 3) <= 0)
-		tg_api_delete_message(msg->chat.id, msg->id);
+		delete_message(msg);
 }
 
 
 static void
 _admin_load(const TgMessage *msg)
 {
-	json_object *json;
 	TgChatAdminList admin_list;
 	const int64_t chat_id = msg->chat.id;
-	if (tg_api_get_admin_list(chat_id, &admin_list, &json) < 0)
+	TgApiResp resp = { .udata = &admin_list };
+	char buff[1024];
+
+	const int ret = tg_api_get_admin_list(chat_id, &resp);
+	if (ret == TG_API_RESP_ERR_API) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s",
+				tg_api_resp_str(&resp, buff, LEN(buff)));
 		return;
+	} else if (ret < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: errnum: %d", ret);
+		return;
+	}
 
 	ModelAdmin db_admin_list[TG_CHAT_ADMIN_LIST_SIZE];
 	const int db_admin_list_len = (int)admin_list.len;
@@ -231,7 +243,5 @@ _admin_load(const TgMessage *msg)
 	}
 
 	model_admin_reload(db_admin_list, db_admin_list_len);
-
-	json_object_put(json);
 	tg_chat_admin_list_free(&admin_list);
 }
