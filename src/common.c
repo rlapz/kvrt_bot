@@ -203,7 +203,7 @@ send_error_text_nope(const TgMessage *msg, int64_t *ret_id, const char ctx[], co
 		.text_type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = msg->chat.id,
 		.msg_id = msg->id,
-		.animation = "CgACAgIAAxkBAAIkPGih6ue8ucX75lRLhAn5ek0pXLwFAAKiAQACuIwZSPJIN1b5u4imNgQ",
+		.animation = "https://github.com/rlapz/assets/raw/refs/heads/main/nope.mp4",
 		.text = new_text,
 		.markup = markup,
 	};
