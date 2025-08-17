@@ -181,6 +181,55 @@ out0:
 
 
 int
+send_error_text_nope(const TgMessage *msg, int64_t *ret_id, const char ctx[], const char fmt[], ...)
+{
+	char *text;
+	va_list va;
+
+	va_start(va, fmt);
+	text = _fmt(fmt, va);
+	va_end(va);
+
+	int ret = -1;
+	if (text == NULL)
+		return -1;
+
+	char *const new_text = CSTR_CONCAT("Error:\n`", ctx, ": ", text, "`");
+	if (new_text == NULL)
+		goto out0;
+
+	char *const markup = (msg->from != NULL)? new_deleter(msg->from->id) : NULL;
+	const TgApiAnimation api = {
+		.text_type = TG_API_TEXT_TYPE_FORMAT,
+		.chat_id = msg->chat.id,
+		.msg_id = msg->id,
+		.animation = "CgACAgIAAxkBAAIkPGih6ue8ucX75lRLhAn5ek0pXLwFAAKiAQACuIwZSPJIN1b5u4imNgQ",
+		.text = new_text,
+		.markup = markup,
+	};
+
+	TgApiResp resp = { 0 };
+	char buff[1024];
+
+	ret = tg_api_animation_send(&api, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		LOG_ERRN("common", "tg_api_animation_send: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
+	else if (ret < 0)
+		LOG_ERRN("common", "tg_api_animation_send: errnum: %d", ret);
+
+	if (ret_id != NULL)
+		*ret_id = resp.msg_id;
+
+	free(markup);
+	free(new_text);
+
+out0:
+	free(text);
+	return ret;
+}
+
+
+int
 answer_callback_text(const char id[], const char value[], int show_alert)
 {
 	TgApiResp resp;

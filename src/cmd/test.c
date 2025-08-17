@@ -83,10 +83,22 @@ cmd_test_list(const CmdParam *cmd)
 
 
 void
-cmd_test_photo(const CmdParam *cmd)
+cmd_test_general(const CmdParam *cmd)
 {
-	const char *const photo_url = "https://cdn.nekosia.cat/images/vtuber/66aec73920d2240874bb4b11-compressed.jpg";
-	send_photo_plain(cmd->msg, NULL, photo_url, "a cute girl");
+	//const char *const photo_url = "CgACAgIAAxkBAAIkPGih6ue8ucX75lRLhAn5ek0pXLwFAAKiAQACuIwZSPJIN1b5u4imNgQ";
+	////send_photo_plain(cmd->msg, NULL, photo_url, "a cute girl");
+
+	//const TgApiAnimation api = {
+	//	.chat_id = cmd->id_chat,
+	//	.msg_id = cmd->id_message,
+	//	.text_type = TG_API_TEXT_TYPE_PLAIN,
+	//	.animation = photo_url,
+	//	.text = "test",
+	//};
+
+	//TgApiResp resp;
+	//tg_api_animation_send(&api, &resp);
+	SEND_ERROR_TEXT_NOPE(cmd->msg, NULL, "%s", "damn");
 }
 
 

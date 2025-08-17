@@ -162,6 +162,51 @@ out0:
 
 
 int
+tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
+{
+	assert(!VAL_IS_NULL_OR(t, resp));
+	if ((t->chat_id == 0) || (cstr_is_empty(t->animation)))
+		return TG_API_RESP_ERR_ARG;
+
+	const char *parse_mode = NULL;
+	if (cstr_is_empty(t->text) == 0)
+		parse_mode = _get_text_parse_mode(t->text_type);
+
+	int ret = TG_API_RESP_ERR_SYS;
+	char *const animation = http_url_escape(t->animation);
+	if (animation == NULL)
+		return ret;
+
+	Str str;
+	if (str_init_alloc(&str, 1024) < 0)
+		goto out0;
+	if (str_set_fmt(&str, "%s/sendAnimation?chat_id=%" PRIi64, _base_url, t->chat_id) == NULL)
+		goto out1;
+	if (str_append_fmt(&str, "&animation=%s", animation) == NULL)
+		goto out1;
+	if ((t->msg_id != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, t->msg_id) == NULL))
+		goto out1;
+	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
+		goto out1;
+	if ((parse_mode != NULL) && (cstr_is_empty(t->text) == 0)) {
+		char *const caption = http_url_escape(t->text);
+		if (caption != NULL)
+			str_append_fmt(&str, "%s&caption=%s", parse_mode, caption);
+
+		http_url_escape_free(caption);
+	}
+
+	ret = _send_request(resp, "animation_send", str.cstr);
+
+out1:
+	str_deinit(&str);
+out0:
+	http_url_escape_free(animation);
+	return ret;
+}
+
+
+int
 tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));

@@ -63,7 +63,7 @@ void cmd_test_sched(const CmdParam *cmd);
 void cmd_test_nsfw(const CmdParam *cmd);
 void cmd_test_admin(const CmdParam *cmd);
 void cmd_test_list(const CmdParam *cmd);
-void cmd_test_photo(const CmdParam *cmd);
+void cmd_test_general(const CmdParam *cmd);
 void cmd_test_edit(const CmdParam *cmd);
 #endif
 
@@ -167,9 +167,9 @@ void cmd_test_edit(const CmdParam *cmd);
 	.flags = MODEL_CMD_FLAG_CALLBACK,					\
 },										\
 {										\
-	.name = "/test_photo",							\
-	.description = "test send photo",					\
-	.callback_fn = cmd_test_photo,						\
+	.name = "/test_general",						\
+	.description = "general test",						\
+	.callback_fn = cmd_test_general,					\
 },										\
 {										\
 	.name = "/test_edit",							\

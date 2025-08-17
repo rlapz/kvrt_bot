@@ -64,6 +64,21 @@ int tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp);
 
 
 /*
+ * Animation
+ */
+typedef struct tg_api_animation {
+	int         text_type;
+	int64_t     chat_id;
+	int64_t     msg_id;
+	const char *animation;
+	const char *text;
+	const char *markup;
+} TgApiAnimation;
+
+int tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp);
+
+
+/*
  * Caption
  */
 typedef struct tg_api_caption {

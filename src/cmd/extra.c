@@ -35,13 +35,14 @@ static char *_anime_sched_build_body(const ModelAnimeSched list[], int len, int 
 void
 cmd_extra_anime_sched(const CmdParam *cmd)
 {
+	const char *const id_callback = cmd->id_callback;
 	Pager pager = {
 		.ctx = cmd->name,
 		.id_user = cmd->id_user,
 		.id_owner = cmd->id_owner,
 		.id_chat = cmd->id_chat,
 		.id_message = cmd->msg->id,
-		.id_callback = cmd->id_callback,
+		.id_callback = id_callback,
 	};
 
 	if (pager_init(&pager, cmd->args) < 0)
@@ -49,18 +50,21 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 
 	const char *filter;
 	if (_anime_sched_prep_filter(pager.udata, &filter) < 0) {
-		send_text_format(cmd->msg, NULL,
-				 "Invalid argument\\!\n"
-				 "```Allowed:\n[sunday, monday, tuesday, wednesday, thursday, "
-				 "friday, saturday, unknown, other]```");
+		SEND_ERROR_TEXT_NOPE(cmd->msg, NULL, "%s",
+				     "Invalid argument!\n\n"
+				     "Available arguments:\n  sunday\n  monday\n  tuesday\n  "
+				     "wednesday\n  thursday\n  friday\n  saturday\n  unknown\n  other");
 		return;
 	}
 
+	const char *err_msg = "";
 	if (_anime_sched_check_cache(filter) == 0) {
 		const int cflags = model_chat_get_flags(cmd->id_chat);
 		const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
-		if (_anime_sched_fetch(filter, show_nsfw) < 0)
+		if (_anime_sched_fetch(filter, show_nsfw) < 0) {
+			err_msg = "Failed to fetch anime list from the source!";
 			goto err0;
+		}
 	}
 
 	ModelAnimeSched ma_list[_ANIME_SCHED_LIMIT_SIZE];
@@ -70,15 +74,19 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	const int len = LEN(ma_list);
 	const int offt = (pager.page - 1) * len;
 	const int llen = model_anime_sched_get_list(ma_list, len, filter, offt, &total);
-	if ((llen < 0) || (total <= 0))
+	if ((llen < 0) || (total <= 0)) {
+		err_msg = "Failed to fetch anime list from the local database!";
 		goto err0;
+	}
 
 	pager_list_set(&pag_list, pager.page, len, llen, total);
 
 	const int start = MIN(((pager.page * len) - len), pag_list.items_size);
 	char *const body = _anime_sched_build_body(ma_list, llen, start);
-	if (body == NULL)
+	if (body == NULL) {
+		err_msg = "Failed to build the list!";
 		goto err0;
+	}
 
 	char buff[256];
 	const char *const chc_str = epoch_to_str(buff, LEN(buff), ma_list[0].created_at);
@@ -93,7 +101,10 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 		return;
 
 err0:
-	answer_callback_text(cmd->id_callback, "Error!", 1);
+	if (cstr_is_empty(id_callback))
+		SEND_ERROR_TEXT_NOPE(cmd->msg, NULL, "%s", err_msg);
+	else
+		answer_callback_text(cmd->id_callback, err_msg, 1);
 }
 
 

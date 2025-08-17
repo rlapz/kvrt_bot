@@ -13,6 +13,7 @@
 
 #define _TYPE_SEND_TEXT       "send_text"
 #define _TYPE_SEND_PHOTO      "send_photo"
+#define _TYPE_SEND_ANIMATION  "send_animation"
 #define _TYPE_ANSWER_CALLBACK "answer_callback"
 #define _TYPE_DELETE_MESSAGE  "delete_message"
 #define _TYPE_SCHED_MESSAGE   "sched_message"
@@ -50,6 +51,7 @@ static int _json_add_str(json_object *root, const char key[], const char value[]
 
 static int _send_text(const Arg *arg);
 static int _send_photo(const Arg *arg);
+static int _send_animation(const Arg *arg);
 static int _delete_message(const Arg *arg);
 static int _answer_callback(const Arg *arg);
 static int _sched_message(const Arg *arg);
@@ -79,6 +81,8 @@ main(int argc, char *argv[])
 		ret = -_send_text(&arg);
 	else if (cstr_casecmp(arg.api_type, _TYPE_SEND_PHOTO))
 		ret = -_send_photo(&arg);
+	else if (cstr_casecmp(arg.api_type, _TYPE_SEND_ANIMATION))
+		ret = -_send_animation(&arg);
 	else if (cstr_casecmp(arg.api_type, _TYPE_DELETE_MESSAGE))
 		ret = -_delete_message(&arg);
 	else if (cstr_casecmp(arg.api_type, _TYPE_ANSWER_CALLBACK))
@@ -417,6 +421,107 @@ _send_photo(const Arg *arg)
 		error = tg_api_resp_str(&resp, buff, LEN(buff));
 	else if (ret < 0)
 		error = "failed to send photo message: system error!";
+
+	ret_id = resp.msg_id;
+	free(markup);
+
+out0:
+	json_object_object_add(arg->resp, "message_id", json_object_new_int64(ret_id));
+	_add_response(arg, error);
+	return ret;
+}
+
+
+static int
+_send_animation(const Arg *arg)
+{
+	int ret = -1;
+	int64_t ret_id = 0;
+	const char  *error = "";
+
+	json_object *text_type_obj;
+	if (json_object_object_get_ex(arg->data, "text_type", &text_type_obj) == 0) {
+		error = "no 'text_type' field";
+		goto out0;
+	}
+
+	const char *const text_type_str = json_object_get_string(text_type_obj);
+
+	int text_type;
+	if (cstr_casecmp(text_type_str, "plain")) {
+		text_type = TG_API_TEXT_TYPE_PLAIN;
+	} else if (cstr_casecmp(text_type_str, "format")) {
+		text_type = TG_API_TEXT_TYPE_FORMAT;
+	} else {
+		error = "'text_type': invalid value";
+		goto out0;
+	}
+
+	json_object *chat_id_obj;
+	if (json_object_object_get_ex(arg->data, "chat_id", &chat_id_obj) == 0) {
+		error = "no 'chat_id' field";
+		goto out0;
+	}
+
+	json_object *msg_id_obj;
+	if (json_object_object_get_ex(arg->data, "message_id", &msg_id_obj) == 0) {
+		error = "no 'message_id' field";
+		goto out0;
+	}
+
+	json_object *user_id_obj;
+	if (json_object_object_get_ex(arg->data, "user_id", &user_id_obj) == 0) {
+		error = "no 'user_id' field";
+		goto out0;
+	}
+
+	const int64_t user_id = json_object_get_int64(user_id_obj);
+
+	json_object *animation_obj;
+	if (json_object_object_get_ex(arg->data, "animation", &animation_obj) == 0) {
+		error = "no 'animation' field";
+		goto out0;
+	}
+
+	const char *text = "";
+	json_object *text_obj;
+	if (json_object_object_get_ex(arg->data, "text", &text_obj)) {
+		text = json_object_get_string(text_obj);
+		text = (cstr_is_empty(text))? "" : text;
+	}
+
+	const int64_t chat_id = json_object_get_int64(chat_id_obj);
+	if (chat_id == 0) {
+		error = "'chat_id': invalid value";
+		goto out0;
+	}
+
+	const int64_t msg_id = json_object_get_int64(msg_id_obj);
+
+	const char *const animation = json_object_get_string(animation_obj);
+	if (cstr_is_empty(animation)) {
+		error = "'animation': empty";
+		goto out0;
+	}
+
+	char *const markup = new_deleter(user_id);
+	const TgApiAnimation api = {
+		.text_type = text_type,
+		.chat_id = chat_id,
+		.msg_id = msg_id,
+		.animation = animation,
+		.text = text,
+		.markup = markup,
+	};
+
+	TgApiResp resp = { 0 };
+	char buff[1024];
+
+	ret = tg_api_animation_send(&api, &resp);
+	if (ret == TG_API_RESP_ERR_API)
+		error = tg_api_resp_str(&resp, buff, LEN(buff));
+	else if (ret < 0)
+		error = "failed to send animation message: system error!";
 
 	ret_id = resp.msg_id;
 	free(markup);
