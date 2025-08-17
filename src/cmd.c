@@ -54,7 +54,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 
 	const int cflags = model_chat_get_flags(cmd->id_chat);
 	if (cflags < 0) {
-		send_text_plain(cmd->msg, NULL, "Failed to get chat flags!");
+		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Failed to get chat flags!");
 		return;
 	}
 
@@ -67,7 +67,7 @@ cmd_exec(CmdParam *cmd, const char req[])
 	if ((cmd->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (cmd->has_username == 0))
 		return;
 
-	send_text_plain(cmd->msg, NULL, "Invalid command!");
+	SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Invalid command!");
 }
 
 
@@ -184,7 +184,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 		return 0;
 
 	if (is_valid_index(index, LEN(_cmd_builtin_list)) == 0) {
-		send_text_plain(c->msg, NULL, "Failed to get builtin command data!");
+		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to get builtin command data!");
 		return 1;
 	}
 
@@ -206,7 +206,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 	ModelCmdExtern ce;
 	const int ret = model_cmd_extern_get(&ce, c->name);
 	if (ret < 0) {
-		send_text_plain(c->msg, NULL, "Failed to get external command data!");
+		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to get external command data!");
 		return 1;
 	}
 
@@ -223,7 +223,7 @@ _exec_extern(const CmdParam *c, int chat_flags)
 		 c->id_chat, c->id_user, c->id_message, ce.name, ce.file_name);
 
 	if (_spawn_child_process(c, chat_flags, ce.file_name) < 0) {
-		send_text_plain(c->msg, NULL, "Failed to execute external command!");
+		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to execute external command!");
 		return 1;
 	}
 
@@ -240,7 +240,7 @@ _exec_cmd_message(const CmdParam *c)
 	char value[MODEL_CMD_MESSAGE_VALUE_SIZE];
 	const int ret = model_cmd_message_get_value(c->id_chat, c->name, value, LEN(value));
 	if (ret < 0) {
-		send_text_plain(c->msg, NULL, "Failed to get command message data!");
+		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to get command message data!");
 		return 1;
 	}
 
@@ -275,10 +275,10 @@ _verify(const CmdParam *c, int chat_flags, int flags)
 		const int ret = is_admin(c->id_user, c->id_chat, c->id_owner);
 		switch (ret) {
 		case -1:
-			send_text_plain(c->msg, NULL, "Failed to get admin list!");
+			SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to get admin list!");
 			return 0;
 		case 0:
-			send_text_plain(c->msg, NULL, "Permission denied!");
+			SEND_ERROR_TEXT(c->msg, NULL, "%s", "Permission denied!");
 			return 0;
 		}
 	}
