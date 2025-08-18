@@ -312,7 +312,7 @@ _send_text(const Arg *arg)
 		.markup = markup,
 	};
 
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	ret = tg_api_text_send(&api, &resp);
 	if (ret < 0)
 		error = resp.error_msg;
@@ -409,7 +409,7 @@ _send_photo(const Arg *arg)
 		.markup = markup,
 	};
 
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	ret = tg_api_photo_send(&api, &resp);
 	if (ret < 0)
 		error = resp.error_msg;
@@ -506,7 +506,7 @@ _send_animation(const Arg *arg)
 		.markup = markup,
 	};
 
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	ret = tg_api_animation_send(&api, &resp);
 	if (ret < 0)
 		error = resp.error_msg;

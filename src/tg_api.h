@@ -22,7 +22,6 @@ typedef struct tg_api_resp {
 	const char *req_type;
 	int         error_code;
 	char        error_msg[256];
-	void       *udata;
 } TgApiResp;
 
 
@@ -155,7 +154,7 @@ char *tg_api_markup_kbd(const TgApiMarkupKbd *t);
 /*
  * Misc
  */
-int tg_api_get_admin_list(int64_t chat_id, TgApiResp *resp);
+int tg_api_get_admin_list(TgChatAdminList *list, int64_t chat_id, TgApiResp *resp);
 
 
 #endif

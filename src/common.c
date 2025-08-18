@@ -208,7 +208,7 @@ send_error_text_nope(const TgMessage *msg, int64_t *ret_id, const char ctx[], co
 		.markup = markup,
 	};
 
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	ret = tg_api_animation_send(&api, &resp);
 	if (ret < 0)
 		LOG_ERRN("common", "tg_api_animation_send: %s", resp.error_msg);
@@ -247,7 +247,7 @@ answer_callback_text(const char id[], const char value[], int show_alert)
 int
 delete_message(const TgMessage *msg)
 {
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	const int ret = tg_api_delete(msg->chat.id, msg->id, &resp);
 	if (ret < 0)
 		LOG_ERRN("common", "tg_api_delete: %s", resp.error_msg);
@@ -476,7 +476,7 @@ pager_send(const Pager *p, const PagerList *list, int64_t *ret_id)
 static int
 _send_text(const TgApiText *t, int64_t *ret_id)
 {
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	const int ret = tg_api_text_send(t, &resp);
 	if (ret < 0)
 		LOG_ERRN("common", "tg_api_text_send: %s", resp.error_msg);
@@ -491,7 +491,7 @@ _send_text(const TgApiText *t, int64_t *ret_id)
 static int
 _send_photo(const TgApiPhoto *t, int64_t *ret_id)
 {
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	const int ret = tg_api_photo_send(t, &resp);
 	if (ret < 0)
 		LOG_ERRN("common", "tg_api_photo_send: %s", resp.error_msg);
@@ -547,7 +547,7 @@ _pager_delete(const Pager *p, int64_t user_id)
 		return -1;
 	}
 
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	ret = tg_api_delete(p->id_chat, p->id_message, &resp);
 	if (ret < 0) {
 		LOG_ERRN("common", "tg_api_delete: %s", resp.error_msg);
@@ -587,7 +587,7 @@ _pager_send(const Pager *p, const TgApiMarkupKbd *kbd, const char body[], int64_
 		return -1;
 	}
 
-	TgApiResp resp = { 0 };
+	TgApiResp resp;
 	const TgApiText api = {
 		.type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = p->id_chat,

@@ -16,8 +16,8 @@ static const char *_base_url = NULL;
 static const char *_get_text_parse_mode(int type);
 static int         _build_kbd_button(const TgApiKbdButton *b, Str *str);
 
-static int  _send_request(TgApiResp *r, const char req_type[], const char req[]);
-static int  _send_request2(TgApiResp *r, const char req_type[], const char req[], json_object **ret_obj);
+static void _init_resp(TgApiResp *r, const char req_type[]);
+static int  _send_request(TgApiResp *r, const char req[], json_object **ret_obj);
 static void _set_message_id(TgApiResp *r, json_object *obj);
 static void _set_error_message_sys(TgApiResp *r, int errn, const char msg[]);
 static void _set_error_message_api(TgApiResp *r, json_object *obj);
@@ -37,6 +37,8 @@ int
 tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
+	_init_resp(resp, "text_send");
+
 	if ((t->chat_id == 0) || (cstr_is_empty(t->text))) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'text': empty!");
 		return -1;
@@ -67,15 +69,15 @@ tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
 		goto out1;
 
-	ret = _send_request(resp, "text_send", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(text);
 	return ret;
@@ -86,6 +88,8 @@ int
 tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
+	_init_resp(resp, "text_edit");
+
 	if ((t->chat_id == 0) || (t->msg_id == 0) || (cstr_is_empty(t->text))) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id', 'msg_id', or 'text': empty!");
 		return -1;
@@ -116,15 +120,15 @@ tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
 		goto out1;
 
-	ret = _send_request(resp, "text_edit", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(text);
 	return ret;
@@ -135,6 +139,8 @@ int
 tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
+	_init_resp(resp, "photo_send");
+
 	if ((t->chat_id == 0) || (cstr_is_empty(t->photo))) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'photo': empty!");
 		return -1;
@@ -175,15 +181,15 @@ tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 		http_url_escape_free(caption);
 	}
 
-	ret = _send_request(resp, "photo_send", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(photo);
 	return ret;
@@ -194,6 +200,8 @@ int
 tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
+	_init_resp(resp, "animation_send");
+
 	if ((t->chat_id == 0) || (cstr_is_empty(t->animation))) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'animation': empty!");
 		return -1;
@@ -234,15 +242,15 @@ tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 		http_url_escape_free(caption);
 	}
 
-	ret = _send_request(resp, "animation_send", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(animation);
 	return ret;
@@ -253,6 +261,8 @@ int
 tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
+	_init_resp(resp, "caption_edit");
+
 	if ((t->chat_id == 0) || (t->msg_id == 0) || (cstr_is_empty(t->text))) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id', 'msg_id', or 'text': empty!");
 		return -1;
@@ -283,15 +293,15 @@ tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
 		goto out1;
 
-	ret = _send_request(resp, "caption_edit", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(text);
 	return ret;
@@ -302,6 +312,8 @@ int
 tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
+	_init_resp(resp, "callback_answer");
+
 	if (CSTR_IS_EMPTY_OR(t->id, t->value)) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'id' or 'value': empty!");
 		return -1;
@@ -330,16 +342,18 @@ tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 		goto out1;
 	if (str_append_fmt(&str, "%s=%s", val_key, value) == NULL)
 		goto out1;
+	if (str_append_fmt(&str, "&show_alert=%s", bool_to_cstr(t->show_alert)) == NULL)
+		goto out1;
 
-	ret = _send_request(resp, "callback_answer", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(value);
 	return ret;
@@ -349,6 +363,9 @@ out0:
 int
 tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 {
+	assert(resp != NULL);
+	_init_resp(resp, "delete_message");
+
 	if ((chat_id == 0) || (msg_id == 0)) {
 		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'msg_id': empty!");
 		return -1;
@@ -363,13 +380,13 @@ tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 	if (str_append_fmt(&str, "&message_id=%" PRIi64, msg_id) == NULL)
 		goto out0;
 
-	ret = _send_request(resp, "delete", str.cstr);
+	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "Success");
+		_set_error_message_sys(resp, 0, "");
 
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	return ret;
 }
@@ -419,11 +436,13 @@ out0:
 
 
 int
-tg_api_get_admin_list(int64_t chat_id, TgApiResp *resp)
+tg_api_get_admin_list(TgChatAdminList *list, int64_t chat_id, TgApiResp *resp)
 {
-	assert(resp != NULL);
-	if ((chat_id == 0) || (resp->udata == NULL)) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'udata': empty!");
+	assert(!VAL_IS_NULL_OR(list, resp));
+	_init_resp(resp, "get_admin_list");
+
+	if (chat_id == 0) {
+		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id': empty!");
 		return -1;
 	}
 
@@ -435,24 +454,23 @@ tg_api_get_admin_list(int64_t chat_id, TgApiResp *resp)
 		goto out1;
 
 	json_object *ret_obj;
-	ret = _send_request2(resp, "get_admin_list", str.cstr, &ret_obj);
+	ret = _send_request(resp, str.cstr, &ret_obj);
 	if (ret < 0)
 		goto out1;
 
 	ret = -1;
 	json_object *res_obj;
 	if (json_object_object_get_ex(ret_obj, "result", &res_obj) == 0) {
-		_set_error_message_sys(resp, -1, "invalid HTTP response body!");
+		_set_error_message_sys(resp, -1, "invalid http response body!");
 		goto out2;
 	}
 
-	TgChatAdminList *const list = (TgChatAdminList *)resp->udata;
 	if (tg_chat_admin_list_parse(list, res_obj) < 0) {
-		_set_error_message_sys(resp, -1, "invalid HTTP response body!");
+		_set_error_message_sys(resp, -1, "invalid http response body!");
 		goto out2;
 	}
 
-	_set_error_message_sys(resp, 0, "Success");
+	_set_error_message_sys(resp, 0, "");
 	ret = 0;
 
 out2:
@@ -461,7 +479,7 @@ out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "Failed to build HTTP request!");
+		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
 
 	return ret;
 }
@@ -528,55 +546,20 @@ _build_kbd_button(const TgApiKbdButton *b, Str *str)
 }
 
 
-static int
-_send_request(TgApiResp *r, const char req_type[], const char req[])
+static void
+_init_resp(TgApiResp *r, const char req_type[])
 {
-	char *const raw = http_send_get(req, "application/json");
-	if (raw == NULL) {
-		_set_error_message_sys(r, -1, "failed to send HTTP request!");
-		return -1;
-	}
-
-	int ret = -1;
-	enum json_tokener_error err;
-	json_object *obj = json_tokener_parse_verbose(raw, &err);
-	if (obj == NULL) {
-		_set_error_message_sys(r, -1, json_tokener_error_desc(err));
-		goto out0;
-	}
-
-	json_object *ok_obj;
-	if (json_object_object_get_ex(obj, "ok", &ok_obj) == 0) {
-		_set_error_message_sys(r, -1, "invalid HTTP response body!");
-		goto out1;
-	}
-
 	memset(r, 0, sizeof(*r));
-
-	ret = 0;
-	if (json_object_get_boolean(ok_obj)) {
-		_set_message_id(r, obj);
-	} else {
-		_set_error_message_api(r, obj);
-		ret = -1;
-	}
-
 	r->req_type = req_type;
-
-out1:
-	json_object_put(obj);
-out0:
-	free(raw);
-	return ret;
 }
 
 
 static int
-_send_request2(TgApiResp *r, const char req_type[], const char req[], json_object **ret_obj)
+_send_request(TgApiResp *r, const char req[], json_object **ret_obj)
 {
 	char *const raw = http_send_get(req, "application/json");
 	if (raw == NULL) {
-		_set_error_message_sys(r, -1, "failed to send HTTP request!");
+		_set_error_message_sys(r, -1, "failed to send http request!");
 		return -1;
 	}
 
@@ -590,7 +573,7 @@ _send_request2(TgApiResp *r, const char req_type[], const char req[], json_objec
 
 	json_object *ok_obj;
 	if (json_object_object_get_ex(obj, "ok", &ok_obj) == 0) {
-		_set_error_message_sys(r, -1, "invalid HTTP response body!");
+		_set_error_message_sys(r, -1, "invalid http response body!");
 		goto out1;
 	}
 
@@ -602,10 +585,8 @@ _send_request2(TgApiResp *r, const char req_type[], const char req[], json_objec
 		ret = -1;
 	}
 
-	r->req_type = req_type;
-
 out1:
-	if (ret == 0)
+	if ((ret == 0) && (ret_obj != NULL))
 		*ret_obj = obj;
 	else
 		json_object_put(obj);
@@ -637,9 +618,9 @@ _set_error_message_sys(TgApiResp *r, int errn, const char msg[])
 	str_init(&str, r->error_msg, LEN(r->error_msg));
 	r->error_code = (errn > 0)? -errn : errn;
 	if (r->error_code == 0)
-		str_set_fmt(&str, "Success: %d: %s", r->error_code, r->req_type);
+		str_set_fmt(&str, "%s: success: %d", r->req_type, r->error_code);
 	else
-		str_set_fmt(&str, "Error: %d: %s: %s", r->error_code, r->req_type, msg);
+		str_set_fmt(&str, "%s: error: %d: %s", r->req_type, r->error_code, msg);
 }
 
 
@@ -660,7 +641,7 @@ _set_error_message_api(TgApiResp *r, json_object *obj)
 	Str str;
 	str_init(&str, r->error_msg, LEN(r->error_msg));
 	if (r->error_code == 0)
-		str_set_fmt(&str, "Success: %d: %s", r->error_code, r->req_type);
+		str_set_fmt(&str, "%s: success: %d", r->req_type, r->error_code);
 	else
-		str_set_fmt(&str, "Error: %d: %s: %s", r->error_code, r->req_type, msg);
+		str_set_fmt(&str, "%s: error: %d: %s", r->req_type, r->error_code, msg);
 }

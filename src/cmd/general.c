@@ -91,9 +91,9 @@ cmd_general_dump_admin(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	TgChatAdminList list;
-	TgApiResp resp = { .udata = &list };
+	TgApiResp resp;
 
-	const int ret = tg_api_get_admin_list(cmd->id_chat, &resp);
+	const int ret = tg_api_get_admin_list(&list, cmd->id_chat, &resp);
 	if (ret < 0) {
 		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
 		return;
@@ -252,10 +252,13 @@ cmd_general_deleter(const CmdParam *cmd)
 
 	TgApiResp resp;
 	const int ret = tg_api_delete(cmd->id_chat, cmd->id_message, &resp);
-	if (ret < 0)
-		answer_callback_text(cmd->id_callback, resp.error_msg, 0);
-	else
-		answer_callback_text(cmd->id_callback, "Deleted!", 0);
+	if (ret < 0) {
+		LOG_ERRN("common", "tg_api_delete: %s", resp.error_msg);
+		answer_callback_text(cmd->id_callback, resp.error_msg, 1);
+		return;
+	}
+
+	answer_callback_text(cmd->id_callback, "Deleted!", 0);
 }
 
 

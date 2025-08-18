@@ -52,8 +52,8 @@ cmd_admin_reload(const CmdParam *cmd)
 	const int64_t chat_id = msg->chat.id;
 	TgChatAdminList admin_list;
 
-	TgApiResp resp = { .udata = &admin_list };
-	const int ret = tg_api_get_admin_list(chat_id, &resp);
+	TgApiResp resp;
+	const int ret = tg_api_get_admin_list(&admin_list, chat_id, &resp);
 	if (ret < 0) {
 		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
 		return;
