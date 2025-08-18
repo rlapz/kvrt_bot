@@ -209,13 +209,9 @@ send_error_text_nope(const TgMessage *msg, int64_t *ret_id, const char ctx[], co
 	};
 
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	ret = tg_api_animation_send(&api, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		LOG_ERRN("common", "tg_api_animation_send: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
-	else if (ret < 0)
-		LOG_ERRN("common", "tg_api_animation_send: errnum: %d", ret);
+	if (ret < 0)
+		LOG_ERRN("common", "tg_api_animation_send: %s", resp.error_msg);
 
 	if (ret_id != NULL)
 		*ret_id = resp.msg_id;
@@ -233,8 +229,6 @@ int
 answer_callback_text(const char id[], const char value[], int show_alert)
 {
 	TgApiResp resp;
-	char buff[1024];
-
 	const TgApiCallback api = {
 		.value_type = TG_API_CALLBACK_VALUE_TYPE_TEXT,
 		.show_alert = show_alert,
@@ -243,10 +237,8 @@ answer_callback_text(const char id[], const char value[], int show_alert)
 	};
 
 	const int ret = tg_api_callback_answer(&api, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		LOG_ERRN("common", "tg_api_callback_answer: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
-	else if (ret < 0)
-		LOG_ERRN("common", "tg_api_callback_answer: errnum: %d", ret);
+	if (ret < 0)
+		LOG_ERRN("common", "tg_api_callback_answer: %s", resp.error_msg);
 
 	return ret;
 }
@@ -256,13 +248,9 @@ int
 delete_message(const TgMessage *msg)
 {
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	const int ret = tg_api_delete(msg->chat.id, msg->id, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		LOG_ERRN("common", "tg_api_delete: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
-	else if (ret < 0)
-		LOG_ERRN("common", "tg_api_delete: errnum: %d", ret);
+	if (ret < 0)
+		LOG_ERRN("common", "tg_api_delete: %s", resp.error_msg);
 
 	return ret;
 }
@@ -489,13 +477,9 @@ static int
 _send_text(const TgApiText *t, int64_t *ret_id)
 {
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	const int ret = tg_api_text_send(t, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		LOG_ERRN("common", "tg_api_text_send: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
-	else if (ret < 0)
-		LOG_ERRN("common", "tg_api_text_send: errnum: %d", ret);
+	if (ret < 0)
+		LOG_ERRN("common", "tg_api_text_send: %s", resp.error_msg);
 
 	if (ret_id != NULL)
 		*ret_id = resp.msg_id;
@@ -508,13 +492,9 @@ static int
 _send_photo(const TgApiPhoto *t, int64_t *ret_id)
 {
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	const int ret = tg_api_photo_send(t, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		LOG_ERRN("common", "tg_api_photo_send: %s", tg_api_resp_str(&resp, buff, LEN(buff)));
-	else if (ret < 0)
-		LOG_ERRN("common", "tg_api_photo_send: errnum: %d", ret);
+	if (ret < 0)
+		LOG_ERRN("common", "tg_api_photo_send: %s", resp.error_msg);
 
 	if (ret_id != NULL)
 		*ret_id = resp.msg_id;
@@ -568,16 +548,10 @@ _pager_delete(const Pager *p, int64_t user_id)
 	}
 
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	ret = tg_api_delete(p->id_chat, p->id_message, &resp);
-	if (ret == TG_API_RESP_ERR_API) {
-		const char *const err_str = tg_api_resp_str(&resp, buff, LEN(buff));
-		LOG_ERRN("common", "tg_api_delete: %s", err_str);
-		answer_callback_text(p->id_callback, err_str, 1);
-	} else if (ret < 0) {
-		LOG_ERRN("common", "tg_api_delete: errnum: %d", ret);
-		answer_callback_text(p->id_callback, "System error!", 1);
+	if (ret < 0) {
+		LOG_ERRN("common", "tg_api_delete: %s", resp.error_msg);
+		answer_callback_text(p->id_callback, resp.error_msg, 1);
 	} else {
 		answer_callback_text(p->id_callback, "Deleted", 0);
 	}
@@ -614,8 +588,6 @@ _pager_send(const Pager *p, const TgApiMarkupKbd *kbd, const char body[], int64_
 	}
 
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	const TgApiText api = {
 		.type = TG_API_TEXT_TYPE_FORMAT,
 		.chat_id = p->id_chat,
@@ -630,12 +602,8 @@ _pager_send(const Pager *p, const TgApiMarkupKbd *kbd, const char body[], int64_
 	else
 		ret = tg_api_text_edit(&api, &resp);
 
-	if (ret == TG_API_RESP_ERR_API) {
-		const char *const err_str = tg_api_resp_str(&resp, buff, LEN(buff));
-		LOG_ERRN("common", "tg_api_text: %s", err_str);
-	} else if (ret < 0) {
-		LOG_ERRN("common", "tg_api_text: errnum: %d", ret);
-	}
+	if (ret < 0)
+		LOG_ERRN("common", "tg_api_text: %s", resp.error_msg);
 
 	if (ret_id != NULL)
 		*ret_id = resp.msg_id;

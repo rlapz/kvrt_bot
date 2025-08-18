@@ -393,9 +393,10 @@ _client_header_validate(const Client *c, const HttpRequest *req, size_t *content
 static void
 _client_body_parse(Client *c)
 {
-	json_object *const json = json_tokener_parse(c->buffer);
+	enum json_tokener_error err;
+	json_object *const json = json_tokener_parse_verbose(c->buffer, &err);
 	if (json == NULL)
-		LOG_ERRN("main", "%s", "json_tokene_parse: failed to parse");
+		LOG_ERRN("main", "json_tokene_parse: %s", json_tokener_error_desc(err));
 
 	c->body = json;
 }

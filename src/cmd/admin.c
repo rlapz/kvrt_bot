@@ -49,18 +49,13 @@ void
 cmd_admin_reload(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
-	TgChatAdminList admin_list;
-	TgApiResp resp = { .udata = &admin_list };
-	char buff[1024];
-
 	const int64_t chat_id = msg->chat.id;
+	TgChatAdminList admin_list;
+
+	TgApiResp resp = { .udata = &admin_list };
 	const int ret = tg_api_get_admin_list(chat_id, &resp);
-	if (ret == TG_API_RESP_ERR_API) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s",
-				tg_api_resp_str(&resp, buff, LEN(buff)));
-		return;
-	} else if (ret < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: errnum: %d", ret);
+	if (ret < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
 		return;
 	}
 

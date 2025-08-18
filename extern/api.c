@@ -313,13 +313,9 @@ _send_text(const Arg *arg)
 	};
 
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	ret = tg_api_text_send(&api, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		error = tg_api_resp_str(&resp, buff, LEN(buff));
-	else if (ret < 0)
-		error = "failed to send text message: system error!";
+	if (ret < 0)
+		error = resp.error_msg;
 
 	ret_id = resp.msg_id;
 	free(markup);
@@ -414,13 +410,9 @@ _send_photo(const Arg *arg)
 	};
 
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	ret = tg_api_photo_send(&api, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		error = tg_api_resp_str(&resp, buff, LEN(buff));
-	else if (ret < 0)
-		error = "failed to send photo message: system error!";
+	if (ret < 0)
+		error = resp.error_msg;
 
 	ret_id = resp.msg_id;
 	free(markup);
@@ -515,13 +507,9 @@ _send_animation(const Arg *arg)
 	};
 
 	TgApiResp resp = { 0 };
-	char buff[1024];
-
 	ret = tg_api_animation_send(&api, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		error = tg_api_resp_str(&resp, buff, LEN(buff));
-	else if (ret < 0)
-		error = "failed to send animation message: system error!";
+	if (ret < 0)
+		error = resp.error_msg;
 
 	ret_id = resp.msg_id;
 	free(markup);
@@ -564,13 +552,9 @@ _delete_message(const Arg *arg)
 	}
 
 	TgApiResp resp;
-	char buff[1024];
-
 	ret = tg_api_delete(chat_id, msg_id, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		error = tg_api_resp_str(&resp, buff, LEN(buff));
-	else if (ret < 0)
-		error = "failed to delete message: system error!";
+	if (ret < 0)
+		error = resp.error_msg;
 
 out0:
 	json_object_object_add(arg->resp, "name", json_object_new_string(arg->cmd_name));
@@ -630,8 +614,6 @@ _answer_callback(const Arg *arg)
 		ret = TG_API_CALLBACK_VALUE_TYPE_URL;
 
 	TgApiResp resp;
-	char buff[1024];
-
 	const TgApiCallback api = {
 		.value_type = TG_API_CALLBACK_VALUE_TYPE_TEXT,
 		.show_alert = show_alert,
@@ -640,10 +622,8 @@ _answer_callback(const Arg *arg)
 	};
 
 	ret = tg_api_callback_answer(&api, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		error = tg_api_resp_str(&resp, buff, LEN(buff));
-	else if (ret < 0)
-		error = "failed to delete message: system error!";
+	if (ret < 0)
+		error = resp.error_msg;
 
 out0:
 	_add_response(arg, error);

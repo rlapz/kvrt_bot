@@ -10,22 +10,20 @@
 void tg_api_init(const char base_url[]);
 
 
-enum {
-	TG_API_RESP_ERR_ARG  = -1,
-	TG_API_RESP_ERR_SYS  = -2,
-	TG_API_RESP_ERR_TYPE = -3,
-	TG_API_RESP_ERR_API  = -4,
-};
+/*
+ * Error codes:
+ *    < 0           : System error
+ *      0           : Success
+ * >= 100 and <= 500: Http error codes
+ */
 
 typedef struct tg_api_resp {
 	int64_t     msg_id;
 	const char *req_type;
-	int         error_code;		/* 0: success */
+	int         error_code;
 	char        error_msg[256];
 	void       *udata;
 } TgApiResp;
-
-const char *tg_api_resp_str(const TgApiResp *t, char buffer[], size_t size);
 
 
 /*

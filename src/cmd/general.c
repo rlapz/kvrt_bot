@@ -42,10 +42,8 @@ cmd_general_help(const CmdParam *cmd)
 		.title = "Command list:",
 	};
 
-	if (pager_init(&pager, cmd->args) < 0) {
-		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "pager_init: failed");
+	if (pager_init(&pager, cmd->args) < 0)
 		return;
-	}
 
 	const int is_private_chat = (cmd->msg->chat.type == TG_CHAT_TYPE_PRIVATE)? 1 : 0;
 	const int cflags = model_chat_get_flags(cmd->id_chat);
@@ -94,15 +92,10 @@ cmd_general_dump_admin(const CmdParam *cmd)
 	const TgMessage *const msg = cmd->msg;
 	TgChatAdminList list;
 	TgApiResp resp = { .udata = &list };
-	char buff[1024];
 
 	const int ret = tg_api_get_admin_list(cmd->id_chat, &resp);
-	if (ret == TG_API_RESP_ERR_API) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s",
-				tg_api_resp_str(&resp, buff, LEN(buff)));
-		return;
-	} else if (ret < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: errnum: %d", ret);
+	if (ret < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
 		return;
 	}
 
@@ -258,13 +251,9 @@ cmd_general_deleter(const CmdParam *cmd)
 	}
 
 	TgApiResp resp;
-	char buff[1024];
-
 	const int ret = tg_api_delete(cmd->id_chat, cmd->id_message, &resp);
-	if (ret == TG_API_RESP_ERR_API)
-		answer_callback_text(cmd->id_callback, tg_api_resp_str(&resp, buff, LEN(buff)), 0);
-	else if (ret < 0)
-		answer_callback_text(cmd->id_callback, "System error!", 0);
+	if (ret < 0)
+		answer_callback_text(cmd->id_callback, resp.error_msg, 0);
 	else
 		answer_callback_text(cmd->id_callback, "Deleted!", 0);
 }

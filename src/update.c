@@ -218,16 +218,11 @@ _admin_load(const TgMessage *msg)
 {
 	TgChatAdminList admin_list;
 	const int64_t chat_id = msg->chat.id;
-	TgApiResp resp = { .udata = &admin_list };
-	char buff[1024];
 
+	TgApiResp resp = { .udata = &admin_list };
 	const int ret = tg_api_get_admin_list(chat_id, &resp);
-	if (ret == TG_API_RESP_ERR_API) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s",
-				tg_api_resp_str(&resp, buff, LEN(buff)));
-		return;
-	} else if (ret < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: errnum: %d", ret);
+	if (ret < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
 		return;
 	}
 
