@@ -95,7 +95,7 @@ cmd_general_dump_admin(const CmdParam *cmd)
 
 	const int ret = tg_api_get_admin_list(&list, cmd->id_chat, &resp);
 	if (ret < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
+		SEND_ERROR_TEXT(msg, NULL, "tg_api_get_admin_list: %s", resp.error_msg);
 		return;
 	}
 
