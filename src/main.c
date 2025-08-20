@@ -503,6 +503,15 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (chld_add_env_kv(CFG_ENV_CONFIG_FILE, cfg_file) < 0)
 		goto err0;
 
+	const char *const db_file = realpath(config->db_path, buffer);
+	if (db_file == NULL) {
+		LOG_ERRP("main", "%s", "'%s'", config->db_path);
+		goto err0;
+	}
+
+	if (chld_add_env_kv(CFG_ENV_DB_FILE, db_file) < 0)
+		goto err0;
+
 	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0)
 		goto err0;
 

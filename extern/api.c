@@ -8,6 +8,7 @@
 #include "../src/common.h"
 #include "../src/model.h"
 #include "../src/tg_api.h"
+#include "../src/sqlite_pool.h"
 #include "../src/util.h"
 
 
@@ -17,6 +18,7 @@
 #define _TYPE_ANSWER_CALLBACK "answer_callback"
 #define _TYPE_DELETE_MESSAGE  "delete_message"
 #define _TYPE_SCHED_MESSAGE   "sched_message"
+#define _TYPE_SESSION         "session"
 
 
 /*
@@ -55,6 +57,7 @@ static int _send_animation(const Arg *arg);
 static int _delete_message(const Arg *arg);
 static int _answer_callback(const Arg *arg);
 static int _sched_message(const Arg *arg);
+static int _session(const Arg *arg);
 
 
 /*
@@ -89,6 +92,8 @@ main(int argc, char *argv[])
 		ret = -_answer_callback(&arg);
 	else if (cstr_casecmp(arg.api_type, _TYPE_SCHED_MESSAGE))
 		ret = -_sched_message(&arg);
+	else if (cstr_casecmp(arg.api_type, _TYPE_SESSION))
+		ret = -_session(&arg);
 	else
 		_add_response(&arg, "invalid api type!");
 
@@ -638,5 +643,89 @@ _sched_message(const Arg *arg)
 
 	/* TODO */
 	_add_response(arg, "not yet supported");
+	return ret;
+}
+
+
+static int
+_session(const Arg *arg)
+{
+	int ret = -1;
+	const char *error = "";
+	char *const db_file = getenv(CFG_ENV_DB_FILE);
+
+	if (sqlite_pool_init(db_file, 1) < 0)
+		return -1;
+
+	json_object *type_obj;
+	if (json_object_object_get_ex(arg->data, "type", &type_obj) == 0) {
+		error = "no 'type' field";
+		goto out0;
+	}
+
+	json_object *chat_id_obj;
+	if (json_object_object_get_ex(arg->data, "chat_id", &chat_id_obj) == 0) {
+		error = "no 'chat_id' field";
+		goto out0;
+	}
+
+	json_object *user_id_obj;
+	if (json_object_object_get_ex(arg->data, "user_id", &user_id_obj) == 0) {
+		error = "no 'user_id' field";
+		goto out0;
+	}
+
+	json_object *ctx_obj;
+	if (json_object_object_get_ex(arg->data, "ctx", &ctx_obj) == 0) {
+		error = "no 'ctx' field";
+		goto out0;
+	}
+
+	int type;
+	const char *const type_str = json_object_get_string(type_obj);
+	if (cstr_casecmp(type_str, "acquire")) {
+		type = 0;
+	} else if (cstr_casecmp(type_str, "release")) {
+		type = 1;
+	} else {
+		error = "'type': invalid value";
+		goto out0;
+	}
+
+	const int64_t chat_id = json_object_get_int64(chat_id_obj);
+	if (chat_id == 0) {
+		error = "'chat_id': invalid value";
+		goto out0;
+	}
+
+	const int64_t user_id = json_object_get_int64(user_id_obj);
+	if (user_id == 0) {
+		error = "'user_id': invalid value";
+		goto out0;
+	}
+
+	const char *const ctx_str = json_object_get_string(ctx_obj);
+	if (cstr_is_empty(ctx_str)) {
+		error = "'ctx': empty";
+		goto out0;
+	}
+
+	switch (type) {
+	case 0:
+		ret = session_acquire(chat_id, user_id, ctx_str);
+		if (ret == -1)
+			error = "failed to acquire session lock";
+		else if (ret == -2)
+			error = "session is locked";
+		break;
+	case 1:
+		ret = session_release(chat_id, user_id, ctx_str);
+		break;
+	}
+
+out0:
+	json_object_object_add(arg->resp, "name", json_object_new_string(arg->cmd_name));
+	_add_response(arg, error);
+	sqlite_pool_deinit();
 	return ret;
 }

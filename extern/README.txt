@@ -34,6 +34,7 @@ Standard ENV Variables:
 	TG_API                  -> kvrt_bot api executable file
 	TG_ROOT_DIR             -> workdir of external command
 	TG_CONFIG_FILE          -> api config file (binary)
+	TG_DB_FILE              -> api database file
 	TG_API_URL              -> telegram api
 	TG_OWNER_ID
 	TG_BOT_ID
@@ -161,6 +162,24 @@ Data list:
  resp:
  	{
 		"type": "sched_send_message", -> api type
+		"name": "xxxx",
+		"proc": "yyyy",
+ 		"error": "",                  -> empty: success
+ 	}
+
+ --------------------------------------------------------------------------
+ 	session
+ req:
+ 	{
+ 		"type": "acquire",          -> "acquire" or "release"
+ 		"chat_id": 00000,
+ 		"user_id": 000000,
+ 		"ctx": "abc",
+ 	}
+
+ resp:
+ 	{
+		"type": "session",            -> api type
 		"name": "xxxx",
 		"proc": "yyyy",
  		"error": "",                  -> empty: success

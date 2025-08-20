@@ -33,6 +33,7 @@
 
 #define CFG_ENV_API             "TG_API"
 #define CFG_ENV_ROOT_DIR        "TG_ROOT_DIR"
+#define CFG_ENV_DB_FILE         "TG_DB_FILE"
 #define CFG_ENV_CONFIG_FILE     "TG_CONFIG_FILE"
 #define CFG_ENV_TELEGRAM_API    "TG_API_URL"
 #define CFG_ENV_OWNER_ID        "TG_OWNER_ID"

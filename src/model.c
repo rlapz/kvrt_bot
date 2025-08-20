@@ -854,8 +854,9 @@ model_cmd_session_add(const ModelCmdSession *c)
 	const char *query =
 		"SELECT 1 FROM Cmd_Session "
 		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?)) "
-			"AND ((? - created_at) < " MODEL_CMD_SESSION_EXP ") "
-		"ORDER BY id DESC;";
+			"AND ((? - created_at) < " MODEL_CMD_SESSION_DEF_EXP ") "
+		"ORDER BY id DESC "
+		"LIMIT 1;";
 	int ret = _sqlite_exec_one(query, args, LEN(args), &out);
 	if (ret < 0)
 		return -1;
