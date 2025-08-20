@@ -165,6 +165,22 @@ int model_sched_message_add(const ModelSchedMessage *s, time_t interval_s);
 
 
 /*
+ * ModelCmdSession
+ */
+#define MODEL_CMD_SESSION_EXP "3600"
+
+typedef struct model_cmd_session {
+	int32_t     id;
+	int64_t     chat_id;
+	int64_t     user_id;
+	const char *ctx;
+} ModelCmdSession;
+
+int model_cmd_session_add(const ModelCmdSession *c);
+int model_cmd_session_delete(const ModelCmdSession *c);
+
+
+/*
  * ModelAnimeSched
  */
 typedef struct model_anime_sched {

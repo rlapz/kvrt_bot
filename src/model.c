@@ -40,6 +40,7 @@ static const char *_admin_query(Str *str);
 static const char *_cmd_builtin_query(Str *str);
 static const char *_cmd_extern_query(Str *str);
 static const char *_cmd_message_query(Str *str);
+static const char *_cmd_session_query(Str *str);
 static const char *_sched_message_query(Str *str);
 static const char *_anime_sched_query(Str *str);
 static int         _sqlite_step_one(sqlite3_stmt *stmt);
@@ -71,6 +72,7 @@ model_init(void)
 		{ "Cmd_Builtin", _cmd_builtin_query },
 		{ "Cmd_Extern", _cmd_extern_query },
 		{ "Cmd_Message", _cmd_message_query },
+		{ "Cmd_Session", _cmd_session_query },
 		{ "Sched_Message", _sched_message_query },
 		{ "Anime_Sched", _anime_sched_query },
 	};
@@ -819,6 +821,82 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 	return _sqlite_exec_one(query, args, LEN(args), NULL);
 }
 
+/*
+ * ModelCmdSession
+ */
+int
+model_cmd_session_add(const ModelCmdSession *c)
+{
+	if (c->chat_id == 0) {
+		LOG_ERRN("model", "%s", "invalid chat_id");
+		return -1;
+	}
+
+	if (c->user_id == 0) {
+		LOG_ERRN("model", "%s", "invalid user_id");
+		return -1;
+	}
+
+	if (cstr_is_empty(c->ctx)) {
+		LOG_ERRN("model", "%s", "ctx is empty");
+		return -1;
+	}
+
+	int fl = 0;
+	Data out = { .type = _DATA_TYPE_INT, .int_out = &fl };
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64_in = c->chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = c->user_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = c->ctx, .len = -1 } },
+		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
+	};
+
+	const char *query =
+		"SELECT 1 FROM Cmd_Session "
+		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?)) "
+			"AND ((? - created_at) < " MODEL_CMD_SESSION_EXP ") "
+		"ORDER BY id DESC;";
+	int ret = _sqlite_exec_one(query, args, LEN(args), &out);
+	if (ret < 0)
+		return -1;
+	if (ret > 0)
+		return -2;
+
+	query = "INSERT INTO Cmd_Session(chat_id, user_id, ctx, created_at) VALUES(?, ?, LOWER(?), ?);";
+	return _sqlite_exec_one(query, args, LEN(args), &out);
+}
+
+
+int
+model_cmd_session_delete(const ModelCmdSession *c)
+{
+	if (c->chat_id == 0) {
+		LOG_ERRN("model", "%s", "invalid chat_id");
+		return -1;
+	}
+
+	if (c->user_id == 0) {
+		LOG_ERRN("model", "%s", "invalid user_id");
+		return -1;
+	}
+
+	if (cstr_is_empty(c->ctx)) {
+		LOG_ERRN("model", "%s", "ctx is empty");
+		return -1;
+	}
+
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64_in = c->chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = c->user_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = c->ctx, .len = -1 } },
+	};
+
+	const char *const query =
+		"DELETE FROM Cmd_Session "
+		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?));";
+	return _sqlite_exec_one(query, args, LEN(args), NULL);
+}
+
 
 /*
  * ModelAnimeSched
@@ -1090,6 +1168,22 @@ _cmd_message_query(Str *str)
 		"	updated_at	TIMESTAMP\n"
 		");",
 		(MODEL_CMD_MESSAGE_NAME_SIZE - 1), (MODEL_CMD_MESSAGE_VALUE_SIZE - 1)
+	);
+}
+
+
+static const char *
+_cmd_session_query(Str *str)
+{
+	return str_set_fmt(str,
+		"CREATE TABLE IF NOT EXISTS Cmd_Session(\n"
+		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
+		"	chat_id		BIGINT NOT Null,\n"
+		"	user_id		BIGINT NOT Null,\n"
+		"	ctx		VARCHAR(%d) NOT Null,\n"
+		"	created_at	TIMESTAMP NOT Null\n"
+		");",
+		(MODEL_CMD_NAME_SIZE - 1)
 	);
 }
 

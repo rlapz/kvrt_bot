@@ -85,20 +85,18 @@ cmd_test_list(const CmdParam *cmd)
 void
 cmd_test_general(const CmdParam *cmd)
 {
-	//const char *const photo_url = "CgACAgIAAxkBAAIkPGih6ue8ucX75lRLhAn5ek0pXLwFAAKiAQACuIwZSPJIN1b5u4imNgQ";
-	////send_photo_plain(cmd->msg, NULL, photo_url, "a cute girl");
+	int ret = session_acquire(cmd->id_chat, cmd->id_user, cmd->name);
+	if (ret == -1) {
+		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "failed to acquire session");
+		return;
+	}
 
-	//const TgApiAnimation api = {
-	//	.chat_id = cmd->id_chat,
-	//	.msg_id = cmd->id_message,
-	//	.text_type = TG_API_TEXT_TYPE_PLAIN,
-	//	.animation = photo_url,
-	//	.text = "test",
-	//};
+	if (ret == -2) {
+		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "please wait!");
+		return;
+	}
 
-	//TgApiResp resp;
-	//tg_api_animation_send(&api, &resp);
-	SEND_ERROR_TEXT_NOPE(cmd->msg, NULL, "%s", "damn");
+	send_text_plain(cmd->msg, NULL, "ok");
 }
 
 

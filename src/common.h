@@ -39,6 +39,10 @@ char *new_deleter(int64_t user_id);
 int   is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id);
 char *tg_escape(const char src[]);
 
+/* ret: 0: success, -1: error: -2: locked */
+int session_acquire(int64_t chat_id, int64_t user_id, const char ctx[]);
+int session_release(int64_t chat_id, int64_t user_id, const char ctx[]);
+
 
 /*
  * Pager

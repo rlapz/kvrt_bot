@@ -312,6 +312,32 @@ tg_escape(const char src[])
 }
 
 
+int
+session_acquire(int64_t chat_id, int64_t user_id, const char ctx[])
+{
+	const ModelCmdSession sess = {
+		.chat_id = chat_id,
+		.user_id = user_id,
+		.ctx = ctx,
+	};
+
+	return model_cmd_session_add(&sess);
+}
+
+
+int
+session_release(int64_t chat_id, int64_t user_id, const char ctx[])
+{
+	const ModelCmdSession sess = {
+		.chat_id = chat_id,
+		.user_id = user_id,
+		.ctx = ctx,
+	};
+
+	return model_cmd_session_delete(&sess);
+}
+
+
 /*
  * Pager
  */
