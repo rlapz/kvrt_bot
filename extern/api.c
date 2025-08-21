@@ -66,6 +66,10 @@ static int _session(const Arg *arg);
 int
 main(int argc, char *argv[])
 {
+#ifdef DEBUG
+	log_init();
+#endif
+
 	int ret = 1;
 	json_object *const resp_obj = json_object_new_object();
 	if (resp_obj == NULL) {

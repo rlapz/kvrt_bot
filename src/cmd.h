@@ -28,7 +28,7 @@ typedef struct cmd_param {
 } CmdParam;
 
 int  cmd_init(void);
-void cmd_exec(CmdParam *cmd, const char req[]);
+void cmd_exec(CmdParam *c, const char req[]);
 int  cmd_get_list(ModelCmd cmd_list[], int len, PagerList *list, int flags, int is_private);
 
 

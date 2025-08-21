@@ -35,6 +35,7 @@ typedef struct data {
 	};
 } Data;
 
+static const char *_enable_wal_mode(Str *str);
 static const char *_chat_query(Str *str);
 static const char *_admin_query(Str *str);
 static const char *_cmd_builtin_query(Str *str);
@@ -67,6 +68,7 @@ model_init(void)
 		const char *table_name;
 		const char *(*func)(Str *);
 	} params[] = {
+		{ "WAL", _enable_wal_mode },
 		{ "Chat", _chat_query },
 		{ "Admin", _admin_query },
 		{ "Cmd_Builtin", _cmd_builtin_query },
@@ -1090,6 +1092,13 @@ model_anime_sched_get_creation_time(const char filter[], time_t *cre_dt)
 /*
  * Private
  */
+static const char *
+_enable_wal_mode(Str *str)
+{
+	return str_set(str, "PRAGMA journal_mode=WAL;");
+}
+
+
 static const char *
 _chat_query(Str *str)
 {

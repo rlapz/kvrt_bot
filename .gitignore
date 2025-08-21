@@ -56,6 +56,8 @@ kvrt_bot
 run.sh
 db.sql
 db.sqlite
+db.sqlite-shm
+db.sqlite-wal
 config.json
 config.json.bin
 

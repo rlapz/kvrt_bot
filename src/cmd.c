@@ -22,6 +22,8 @@ static CmdBuiltin _cmd_builtin_list[] = {
 
 static int  _register_builtin(void);
 static int  _parse_cmd(CmdParam *param, const char req[]);
+static int  _session_acquire(const CmdParam *param);
+static int  _session_release(const CmdParam *param);
 static int  _exec_builtin(const CmdParam *c, int chat_flags);
 static int  _exec_extern(const CmdParam *c, int chat_flags);
 static int  _exec_cmd_message(const CmdParam *c);
@@ -44,30 +46,36 @@ cmd_init(void)
 
 
 void
-cmd_exec(CmdParam *cmd, const char req[])
+cmd_exec(CmdParam *c, const char req[])
 {
-	if (_parse_cmd(cmd, req) < 0)
+	if (_parse_cmd(c, req) < 0)
 		return;
 
-	if (_exec_cmd_message(cmd))
+	if (_session_acquire(c) < 0)
 		return;
 
-	const int cflags = model_chat_get_flags(cmd->id_chat);
+	if (_exec_cmd_message(c))
+		goto out0;
+
+	const int cflags = model_chat_get_flags(c->id_chat);
 	if (cflags < 0) {
-		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Failed to get chat flags!");
-		return;
+		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to get chat flags!");
+		goto out0;
 	}
 
-	if (_exec_builtin(cmd, cflags))
-		return;
+	if (_exec_builtin(c, cflags))
+		goto out0;
 
-	if (_exec_extern(cmd, cflags))
-		return;
+	if (_exec_extern(c, cflags))
+		goto out0;
 
-	if ((cmd->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (cmd->has_username == 0))
-		return;
+	if ((c->msg->chat.type != TG_CHAT_TYPE_PRIVATE) && (c->has_username == 0))
+		goto out0;
 
-	SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Invalid command!");
+	SEND_ERROR_TEXT(c->msg, NULL, "%s", "Invalid command!");
+
+out0:
+	_session_release(c);
 }
 
 
@@ -172,6 +180,53 @@ _parse_cmd(CmdParam *c, const char req[])
 out0:
 	cstr_copy_lower_n2(c->name, LEN(c->name), st.value, name_len);
 	c->args = next;
+	return 0;
+}
+
+
+static int
+_session_acquire(const CmdParam *param)
+{
+	const int ret = session_acquire(param->id_chat, param->id_user, param->name);
+	if (ret == 0)
+		return 0;
+
+	if (ret == -1) {
+		SEND_ERROR_TEXT(param->msg, NULL, "%s", "Failed to get command session!");
+		return -1;
+	}
+
+	if (param->id_callback != NULL) {
+		answer_callback_text(param->id_callback, "Please wait!", 1);
+		return -1;
+	}
+
+	int64_t msg_id = 0;
+	if (SEND_ERROR_TEXT(param->msg, &msg_id, "%s", "Please wait!") < 0)
+		return 0;
+
+	const ModelSchedMessage sch = {
+		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+		.chat_id = param->id_chat,
+		.user_id = param->id_user,
+		.message_id = msg_id,
+		.expire = 10,
+	};
+
+	model_sched_message_add(&sch, 5);
+	return -1;
+}
+
+
+static int
+_session_release(const CmdParam *param)
+{
+	if (session_release(param->id_chat, param->id_user, param->name) < 0) {
+		SEND_ERROR_TEXT(param->msg, NULL, "Failed to release command session, "
+						  "please wait %s seconds!", MODEL_CMD_SESSION_DEF_EXP);
+		return -1;
+	}
+
 	return 0;
 }
 
