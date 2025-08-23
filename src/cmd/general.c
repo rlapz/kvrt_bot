@@ -100,12 +100,11 @@ cmd_general_dump_admin(const CmdParam *cmd)
 	}
 
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0) {
+	if (str_init_alloc(&str, 1024, "%s", "Admin list:\n`") < 0) {
 		SEND_ERROR_TEXT(msg, NULL, "%s", "str_init_alloc: Failed to allocate memory!");
 		goto out0;
 	}
 
-	str_set_fmt(&str, "Admin list:\n`");
 	for (unsigned i = 0; i < list.len; i++) {
 		const TgChatAdmin *const adm = &list.list[i];
 		str_append_fmt(&str, "%d. %s %s\n", i + 1, adm->user->first_name,
@@ -269,7 +268,7 @@ static char *
 _cmd_list_body(const ModelCmd list[], unsigned len, int flags, int is_private_chat)
 {
 	Str str;
-	if (str_init_alloc(&str, 2048) < 0)
+	if (str_init_alloc(&str, 2048, NULL) < 0)
 		return NULL;
 
 	const char *admin_only;

@@ -158,19 +158,16 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 	if (user->is_bot)
 		return;
 
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return;
-
 	char *const fname_e = tg_escape(user->first_name);
 	if (fname_e == NULL)
+		return;
+
+	char *const txt = cstr_fmt("Hello [%s](tg://user?id=%" PRIi64 ") \\:3", fname_e, user->id);
+	if (txt == NULL)
 		goto out0;
 
-	if (str_set_fmt(&str, "Hello [%s](tg://user?id=%" PRIi64 ") \\:3", fname_e, user->id) == NULL)
-		goto out1;
-
 	int64_t ret_id;
-	if (send_text_format(msg, &ret_id, "%s", str.cstr) < 0)
+	if (send_text_format(msg, &ret_id, "%s", txt) < 0)
 		goto out1;
 
 	const ModelSchedMessage schd = {
@@ -184,9 +181,9 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 	model_sched_message_add(&schd, 10);
 
 out1:
-	free(fname_e);
+	free(txt);
 out0:
-	str_deinit(&str);
+	free(fname_e);
 }
 
 

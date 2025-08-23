@@ -257,12 +257,10 @@ static int
 _setting_list(const CmdParam *cmd)
 {
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0) {
+	if (str_init_alloc(&str, 1024, "%s", "Status parameters:\n```Status\n") < 0) {
 		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Failed to allocate string buffer!");
 		return -1;
 	}
-
-	str_set(&str, "Status parameters:\n```Status\n");
 
 	const int flags = model_chat_get_flags(cmd->id_chat);
 	if (flags < 0) {

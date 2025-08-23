@@ -32,6 +32,8 @@ size_t cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
 size_t cstr_copy_lower_n(char dest[], size_t size, const char src[]);
 size_t cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len);
 
+char *cstr_fmt(const char fmt[], ...);
+
 /* ret: ~0: equals */
 int cstr_cmp_n2(const char a[], size_t a_len, const char b[], size_t b_len);
 int cstr_casecmp(const char a[], const char b[]);
@@ -120,8 +122,8 @@ typedef struct str {
 	char   *cstr;
 } Str;
 
-int   str_init(Str *s, char buffer[], size_t size);
-int   str_init_alloc(Str *s, size_t size);
+int   str_init(Str *s, char buffer[], size_t size, const char fmt[], ...);
+int   str_init_alloc(Str *s, size_t size, const char fmt[], ...);
 void  str_deinit(Str *s);
 char *str_set(Str *s, const char cstr[]);
 char *str_set_n(Str *s, const char cstr[], size_t len);

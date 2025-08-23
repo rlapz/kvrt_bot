@@ -40,13 +40,12 @@ cmd_test_sched(const CmdParam *cmd)
 		return;
 	}
 
-	Str str;
 	char buff[256];
-	str_init(&str, buff, LEN(buff));
-	const char *const ss = str_set_fmt(&str, "Success! Scheduled for %lus.", timeout_s);
+	if (snprintf(buff, LEN(buff), "Success! Scheduled for %lus.", timeout_s) < 0)
+		return;
 
 	int64_t ret_id;
-	if (send_text_plain(msg, &ret_id, "%s", ss) < 0)
+	if (send_text_plain(msg, &ret_id, "%s", buff) < 0)
 		return;
 
 	ModelSchedMessage del = {

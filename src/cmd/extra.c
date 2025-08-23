@@ -167,16 +167,12 @@ _anime_sched_check_cache(const char filter[])
 static int
 _anime_sched_fetch(const char filter[], int show_nsfw)
 {
-	int ret = -1;
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	char *const req = cstr_fmt("%s?filter=%s&kids=false&sfw=%s", _ANIME_SCHED_BASE_URL, filter,
+				   bool_to_cstr(!show_nsfw));
+	if (req == NULL)
 		return -1;
 
-	const char *const req = str_set_fmt(&str, "%s?filter=%s&kids=false&sfw=%s",
-					    _ANIME_SCHED_BASE_URL, filter, bool_to_cstr(!show_nsfw));
-	if (req == NULL)
-		goto out0;
-
+	int ret = -1;
 	char *const res = http_send_get(req, "application/json");
 	if (res == NULL)
 		goto out0;
@@ -205,7 +201,7 @@ out2:
 out1:
 	free(res);
 out0:
-	str_deinit(&str);
+	free(req);
 	return ret;
 }
 
@@ -284,7 +280,7 @@ _anime_sched_parse_list(json_object *list_obj, char *out[])
 		return;
 
 	Str str;
-	if (str_init_alloc(&str, 128) < 0)
+	if (str_init_alloc(&str, 128, NULL) < 0)
 		return;
 
 	const size_t list_len = array_list_length(list);
@@ -311,7 +307,7 @@ static char *
 _anime_sched_build_body(const ModelAnimeSched list[], int len, int start)
 {
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, NULL) < 0)
 		return NULL;
 
 	start++;

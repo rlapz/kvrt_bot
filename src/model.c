@@ -57,7 +57,7 @@ int
 model_init(void)
 {
 	Str str;
-	int ret = str_init_alloc(&str, 0);
+	int ret = str_init_alloc(&str, 0, NULL);
 	if (ret < 0) {
 		LOG_ERR(ret, "model", "%s", "str_init_alloc");
 		return -1;
@@ -164,15 +164,12 @@ static int
 _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 {
 	int ret = -1;
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return -1;
-
 	const char *const query =
 		"INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges, created_at) VALUES ";
 
-	if (str_set(&str, query) == NULL)
-		goto out0;
+	Str str;
+	if (str_init_alloc(&str, 1024, "%s", query) < 0)
+		return -1;
 
 	for (int i = 0; i < len; i++) {
 		if (str_append(&str, "(?, ?, ?, ?, ?), ") == NULL)
@@ -719,11 +716,8 @@ model_sched_message_delete(int32_t list[], int len)
 {
 	int ret = -1;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s", "DELETE FROM Sched_Message WHERE id IN (") < 0)
 		return -1;
-
-	if (str_set(&str, "DELETE FROM Sched_Message WHERE id IN (") == NULL)
-		goto out0;
 
 	for (int i = 0; i < len; i++) {
 		if (str_append_n(&str, "?, ", 3) == NULL)
@@ -918,18 +912,15 @@ int
 model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 {
 	int ret = -1;
-	Str str;
-	if (str_init_alloc(&str, 4096) < 0)
-		return -1;
-
 	const char *const query =
 		"INSERT INTO Anime_Sched(mal_id, filter, url, title, title_ja, title_en, type, "
 			"source, broadcast, duration, rating, score, episodes, year, "
 			"genres, themes, demographics, created_at "
 		") VALUES ";
 
-	if (str_set(&str, query) == 0)
-		goto out0;
+	Str str;
+	if (str_init_alloc(&str, 4096, "%s", query) < 0)
+		return -1;
 
 	for (int i = 0; i < len; i++) {
 		if (str_append(&str, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?), ") == NULL)

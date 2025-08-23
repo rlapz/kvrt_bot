@@ -115,6 +115,38 @@ cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len)
 }
 
 
+char *
+cstr_fmt(const char fmt[], ...)
+{
+	int ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = vsnprintf(NULL, 0, fmt, va);
+	va_end(va);
+
+	if (ret < 0)
+		return NULL;
+
+	const size_t len = ((size_t)ret) + 1;
+	char *const res = malloc(len);
+	if (res == NULL)
+		return NULL;
+
+	va_start(va, fmt);
+	ret = vsnprintf(res, len, fmt, va);
+	va_end(va);
+
+	if (ret < 0) {
+		free(res);
+		return NULL;
+	}
+
+	res[ret] = '\0';
+	return res;
+}
+
+
 int
 cstr_cmp_n2(const char a[], size_t a_len, const char b[], size_t b_len)
 {
@@ -202,7 +234,7 @@ cstr_escape(const char escape[], const char c, const char src[])
 
 	Str str;
 	const size_t src_len = strlen(src);
-	if (str_init_alloc(&str, src_len) < 0)
+	if (str_init_alloc(&str, src_len, NULL) < 0)
 		return NULL;
 
 	for (size_t i = 0; i < src_len; i++) {
@@ -506,7 +538,7 @@ _str_resize(Str *s, size_t slen)
 
 
 int
-str_init(Str *s, char buffer[], size_t size)
+str_init(Str *s, char buffer[], size_t size, const char fmt[], ...)
 {
 	if (size > 0)
 		buffer[0] = '\0';
@@ -515,12 +547,22 @@ str_init(Str *s, char buffer[], size_t size)
 	s->size = size;
 	s->len = 0;
 	s->cstr = buffer;
+	if (fmt == NULL)
+		return 0;
+
+	va_list va;
+	va_start(va, fmt);
+	const char *const ret = str_set_vfmt(s, fmt, va);
+	va_end(va);
+	if (ret == NULL)
+		return -1;
+
 	return 0;
 }
 
 
 int
-str_init_alloc(Str *s, size_t size)
+str_init_alloc(Str *s, size_t size, const char fmt[], ...)
 {
 	void *cstr = NULL;
 	if (size > 0) {
@@ -529,8 +571,22 @@ str_init_alloc(Str *s, size_t size)
 			return -ENOMEM;
 	}
 
-	str_init(s, cstr, size);
 	s->is_alloc = 1;
+	s->size = size;
+	s->len = 0;
+	s->cstr = cstr;
+	if (fmt == NULL)
+		return 0;
+
+	va_list va;
+	va_start(va, fmt);
+	const char *const ret = str_set_vfmt(s, fmt, va);
+	va_end(va);
+	if (ret == NULL) {
+		str_deinit(s);
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -1302,7 +1358,7 @@ http_url_escape2(const char src[])
 	const size_t src_len = strlen(src);
 
 	Str str;
-	if (str_init_alloc(&str, src_len * 2) < 0)
+	if (str_init_alloc(&str, src_len * 2, NULL) < 0)
 		return NULL;
 
 	const unsigned char *p = (const unsigned char *)src;
@@ -1346,7 +1402,7 @@ http_send_get(const char url[], const char content_type[])
 		return NULL;
 
 	LOG_DEBUG("http", "url: %s", url);
-	if (str_init_alloc(&str, 128) < 0)
+	if (str_init_alloc(&str, 128, NULL) < 0)
 		return NULL;
 
 	CURL *const handle = curl_easy_init();

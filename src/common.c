@@ -589,13 +589,9 @@ _pager_delete(const Pager *p, int64_t user_id)
 static char *
 _pager_add_body(const Pager *p, const PagerList *list)
 {
-	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
-		return NULL;
-
-	return str_append_fmt(&str, "*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
-			      cstr_empty_if_null(p->title), cstr_empty_if_null(p->body),
-			      list->page_num, list->page_size, list->items_size);
+	return cstr_fmt("*%s*\n%s\n\\-\\-\\-\nPage\\: \\[%u\\]\\:\\[%u\\] \\- Total\\: %u",
+			cstr_empty_if_null(p->title), cstr_empty_if_null(p->body),
+			list->page_num, list->page_size, list->items_size);
 }
 
 

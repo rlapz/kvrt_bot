@@ -58,10 +58,8 @@ tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/sendMessage?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/sendMessage?chat_id=%" PRIi64, _base_url, t->chat_id) == NULL)
-		goto out1;
 	if ((t->msg_id != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, t->msg_id) == NULL))
 		goto out1;
 	if (str_append_fmt(&str, "%s&text=%s", parse_mode, text) == NULL)
@@ -109,10 +107,8 @@ tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/editMessageText?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/editMessageText?chat_id=%" PRIi64, _base_url, t->chat_id) == NULL)
-		goto out1;
 	if (str_append_fmt(&str, "&message_id=%" PRIi64, t->msg_id) == NULL)
 		goto out1;
 	if (str_append_fmt(&str, "%s&text=%s", parse_mode, text) == NULL)
@@ -163,10 +159,8 @@ tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/sendPhoto?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/sendPhoto?chat_id=%" PRIi64, _base_url, t->chat_id) == NULL)
-		goto out1;
 	if (str_append_fmt(&str, "&photo=%s", photo) == NULL)
 		goto out1;
 	if ((t->msg_id != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, t->msg_id) == NULL))
@@ -224,10 +218,8 @@ tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/sendAnimation?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/sendAnimation?chat_id=%" PRIi64, _base_url, t->chat_id) == NULL)
-		goto out1;
 	if (str_append_fmt(&str, "&animation=%s", animation) == NULL)
 		goto out1;
 	if ((t->msg_id != 0) && (str_append_fmt(&str, "&reply_to_message_id=%" PRIi64, t->msg_id) == NULL))
@@ -282,10 +274,8 @@ tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/editMessageCaption?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/editMessageCaption?chat_id=%" PRIi64, _base_url, t->chat_id) == NULL)
-		goto out1;
 	if (str_append_fmt(&str, "&message_id=%" PRIi64, t->msg_id) == NULL)
 		goto out1;
 	if (str_append_fmt(&str, "%s&caption=%s", parse_mode, text) == NULL)
@@ -336,10 +326,8 @@ tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/answerCallbackQuery?callback_query_id=%s", _base_url, t->id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/answerCallbackQuery?callback_query_id=%s", _base_url, t->id) == NULL)
-		goto out1;
 	if (str_append_fmt(&str, "%s=%s", val_key, value) == NULL)
 		goto out1;
 	if (str_append_fmt(&str, "&show_alert=%s", bool_to_cstr(t->show_alert)) == NULL)
@@ -373,14 +361,12 @@ tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 
 	int ret = -2;
 	char buffer[1024];
-	Str str;
-	str_init(&str, buffer, LEN(buffer));
-	if (str_set_fmt(&str, "%s/deleteMessage?chat_id=%" PRIi64, _base_url, chat_id) == NULL)
+	if (snprintf(buffer, LEN(buffer), "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64,
+		     _base_url, chat_id, msg_id) < 0) {
 		goto out0;
-	if (str_append_fmt(&str, "&message_id=%" PRIi64, msg_id) == NULL)
-		goto out0;
+	}
 
-	ret = _send_request(resp, str.cstr, NULL);
+	ret = _send_request(resp, buffer, NULL);
 	if (ret >= 0)
 		_set_error_message_sys(resp, 0, "");
 
@@ -396,7 +382,7 @@ char *
 tg_api_markup_kbd(const TgApiMarkupKbd *t)
 {
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, NULL) < 0)
 		return NULL;
 
 	char *ret = NULL;
@@ -448,10 +434,8 @@ tg_api_get_admin_list(TgChatAdminList *list, int64_t chat_id, TgApiResp *resp)
 
 	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024) < 0)
+	if (str_init_alloc(&str, 1024, "%s/getChatAdministrators?chat_id=%" PRIi64, _base_url, chat_id) < 0)
 		goto out0;
-	if (str_set_fmt(&str, "%s/getChatAdministrators?chat_id=%" PRIi64, _base_url, chat_id) == NULL)
-		goto out1;
 
 	json_object *ret_obj;
 	ret = _send_request(resp, str.cstr, &ret_obj);
@@ -614,13 +598,11 @@ _set_message_id(TgApiResp *r, json_object *obj)
 static void
 _set_error_message_sys(TgApiResp *r, int errn, const char msg[])
 {
-	Str str;
-	str_init(&str, r->error_msg, LEN(r->error_msg));
 	r->error_code = (errn > 0)? -errn : errn;
 	if (r->error_code == 0)
-		str_set_fmt(&str, "%s: success: %d", r->req_type, r->error_code);
+		snprintf(r->error_msg, LEN(r->error_msg), "%s: success: %d", r->req_type, r->error_code);
 	else
-		str_set_fmt(&str, "%s: error: %d: %s", r->req_type, r->error_code, msg);
+		snprintf(r->error_msg, LEN(r->error_msg), "%s: error: %d: %s", r->req_type, r->error_code, msg);
 }
 
 
@@ -636,12 +618,11 @@ _set_error_message_api(TgApiResp *r, json_object *obj)
 		return;
 
 	r->error_code = json_object_get_int(err_code_obj);
-	const char *const msg = json_object_get_string(err_desc_obj);
+	if (r->error_code == 0) {
+		snprintf(r->error_msg, LEN(r->error_msg), "%s: success: %d", r->req_type, r->error_code);
+		return;
+	}
 
-	Str str;
-	str_init(&str, r->error_msg, LEN(r->error_msg));
-	if (r->error_code == 0)
-		str_set_fmt(&str, "%s: success: %d", r->req_type, r->error_code);
-	else
-		str_set_fmt(&str, "%s: error: %d: %s", r->req_type, r->error_code, msg);
+	const char *const msg = json_object_get_string(err_desc_obj);
+	snprintf(r->error_msg, LEN(r->error_msg), "%s: error: %d: %s", r->req_type, r->error_code, msg);
 }
