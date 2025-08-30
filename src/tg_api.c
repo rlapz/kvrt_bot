@@ -21,10 +21,13 @@
 	_set_error(T, __func__, TG_API_RESP_ERR_TYPE_SYS, -(abs(ERRN)), MSG)
 
 #define _SET_NO_ERROR(T)\
-	_set_error(T, __func__, -1, 0, NULL)
+	_set_error(T, __func__, TG_API_RESP_ERR_TYPE_NONE, 0, NULL)
+
+#define _ERR_BUILD_HTTP_REQ "failed to build http request!"
 
 
 static const char *_base_url = NULL;
+
 
 static const char *_get_text_parse_mode(int type);
 static int         _build_kbd_button(const TgApiKbdButton *b, Str *str);
@@ -66,7 +69,7 @@ tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s/sendMessage?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
@@ -77,15 +80,17 @@ tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
 		goto out1;
 
-	ret = _send_request(resp, str.cstr, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, str.cstr, NULL) < 0)
+		goto out1;
+
+	_SET_NO_ERROR(resp);
+	ret = 0;
 
 out1:
 	str_deinit(&str);
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
 
 	http_url_escape_free(text);
 	return ret;
@@ -113,7 +118,7 @@ tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s/editMessageText?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
@@ -124,15 +129,17 @@ tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
 		goto out1;
 
-	ret = _send_request(resp, str.cstr, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, str.cstr, NULL) < 0)
+		goto out1;
+
+	_SET_NO_ERROR(resp);
+	ret = 0;
 
 out1:
 	str_deinit(&str);
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
 
 	http_url_escape_free(text);
 	return ret;
@@ -163,7 +170,7 @@ tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s/sendPhoto?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
@@ -181,15 +188,17 @@ tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 		http_url_escape_free(caption);
 	}
 
-	ret = _send_request(resp, str.cstr, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, str.cstr, NULL) < 0)
+		goto out1;
+
+	_SET_NO_ERROR(resp);
+	ret = 0;
 
 out1:
 	str_deinit(&str);
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
 
 	http_url_escape_free(photo);
 	return ret;
@@ -220,7 +229,7 @@ tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s/sendAnimation?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
@@ -238,15 +247,17 @@ tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 		http_url_escape_free(caption);
 	}
 
-	ret = _send_request(resp, str.cstr, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, str.cstr, NULL) < 0)
+		goto out1;
+
+	_SET_NO_ERROR(resp);
+	ret = 0;
 
 out1:
 	str_deinit(&str);
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
 
 	http_url_escape_free(animation);
 	return ret;
@@ -274,7 +285,7 @@ tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s/editMessageCaption?chat_id=%" PRIi64, _base_url, t->chat_id) < 0)
 		goto out0;
@@ -285,15 +296,17 @@ tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 	if ((cstr_is_empty(t->markup) == 0) && (str_append_fmt(&str, "&reply_markup=%s", t->markup) == NULL))
 		goto out1;
 
-	ret = _send_request(resp, str.cstr, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, str.cstr, NULL) < 0)
+		goto out1;
+
+	_SET_NO_ERROR(resp);
+	ret = 0;
 
 out1:
 	str_deinit(&str);
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
 
 	http_url_escape_free(text);
 	return ret;
@@ -324,7 +337,7 @@ tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s/answerCallbackQuery?callback_query_id=%s", _base_url, t->id) < 0)
 		goto out0;
@@ -333,15 +346,17 @@ tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 	if (str_append_fmt(&str, "&show_alert=%s", bool_to_cstr(t->show_alert)) == NULL)
 		goto out1;
 
-	ret = _send_request(resp, str.cstr, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, str.cstr, NULL) < 0)
+		goto out1;
+
+	_SET_NO_ERROR(resp);
+	ret = 0;
 
 out1:
 	str_deinit(&str);
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
 
 	http_url_escape_free(value);
 	return ret;
@@ -357,22 +372,20 @@ tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
 	char buffer[1024];
-	if (snprintf(buffer, LEN(buffer), "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64,
-		     _base_url, chat_id, msg_id) < 0) {
-		goto out0;
+	const int ret = snprintf(buffer, LEN(buffer), "%s/deleteMessage?chat_id=%" PRIi64 "&message_id=%" PRIi64,
+				 _base_url, chat_id, msg_id);
+
+	if ((ret < 0) || ((size_t)ret >= LEN(buffer))) {
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
+		return -1;
 	}
 
-	ret = _send_request(resp, buffer, NULL);
-	if (ret >= 0)
-		_SET_NO_ERROR(resp);
+	if (_send_request(resp, buffer, NULL) < 0)
+		return -1;
 
-out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
-
-	return ret;
+	_SET_NO_ERROR(resp);
+	return 0;
 }
 
 
@@ -430,39 +443,33 @@ tg_api_get_admin_list(TgChatAdminList *list, int64_t chat_id, TgApiResp *resp)
 		return -1;
 	}
 
-	int ret = -2;
 	Str str;
-	if (str_init_alloc(&str, 1024, "%s/getChatAdministrators?chat_id=%" PRIi64, _base_url, chat_id) < 0)
-		goto out0;
+	if (str_init_alloc(&str, 1024, "%s/getChatAdministrators?chat_id=%" PRIi64, _base_url, chat_id) < 0) {
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
+		return -1;
+	}
 
+	int ret = -1;
 	json_object *ret_obj;
 	ret = _send_request(resp, str.cstr, &ret_obj);
 	if (ret < 0)
-		goto out1;
+		goto out0;
 
-	ret = -1;
 	json_object *res_obj;
-	if (json_object_object_get_ex(ret_obj, "result", &res_obj) == 0) {
-		_SET_ERROR_SYS(resp, -1, "invalid http response body!");
-		goto out2;
-	}
-
-	if (tg_chat_admin_list_parse(list, res_obj) < 0) {
-		_SET_ERROR_SYS(resp, -1, "invalid http response body!");
-		goto out2;
-	}
+	if (json_object_object_get_ex(ret_obj, "result", &res_obj) == 0)
+		goto out1;
+	if (tg_chat_admin_list_parse(list, res_obj) < 0)
+		goto out1;
 
 	_SET_NO_ERROR(resp);
 	ret = 0;
 
-out2:
-	json_object_put(ret_obj);
 out1:
-	str_deinit(&str);
+	json_object_put(ret_obj);
+	if (ret < 0)
+		_SET_ERROR_SYS(resp, -1, "invalid http response body!");
 out0:
-	if (ret == -2)
-		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
-
+	str_deinit(&str);
 	return ret;
 }
 
@@ -539,7 +546,7 @@ _send_request(TgApiResp *r, const char req[], json_object **ret_obj)
 
 	int ret = -1;
 	enum json_tokener_error err;
-	json_object *obj = json_tokener_parse_verbose(raw, &err);
+	json_object *const obj = json_tokener_parse_verbose(raw, &err);
 	if (obj == NULL) {
 		_SET_ERROR_SYS(r, -1, json_tokener_error_desc(err));
 		goto out0;
@@ -551,13 +558,13 @@ _send_request(TgApiResp *r, const char req[], json_object **ret_obj)
 		goto out1;
 	}
 
-	ret = 0;
-	if (json_object_get_boolean(ok_obj)) {
-		_set_message_id(r, obj);
-	} else {
+	if (json_object_get_boolean(ok_obj) == 0) {
 		_SET_ERROR_API(r, obj);
-		ret = -1;
+		goto out1;
 	}
+
+	_set_message_id(r, obj);
+	ret = 0;
 
 out1:
 	if ((ret == 0) && (ret_obj != NULL))

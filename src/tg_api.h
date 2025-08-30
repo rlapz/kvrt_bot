@@ -18,6 +18,7 @@ void tg_api_init(const char base_url[]);
  */
 
 enum {
+	TG_API_RESP_ERR_TYPE_NONE,
 	TG_API_RESP_ERR_TYPE_ARG,
 	TG_API_RESP_ERR_TYPE_API,
 	TG_API_RESP_ERR_TYPE_SYS,
