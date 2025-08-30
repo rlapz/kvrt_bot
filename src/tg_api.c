@@ -11,17 +11,28 @@
 #include "util.h"
 
 
+#define _SET_ERROR_ARG(T, MSG)\
+	_set_error(T, __func__, TG_API_RESP_ERR_TYPE_ARG, -EINVAL, MSG)
+
+#define _SET_ERROR_API(T, OBJ)\
+	_set_error_api(T, __func__, OBJ)
+
+#define _SET_ERROR_SYS(T, ERRN, MSG)\
+	_set_error(T, __func__, TG_API_RESP_ERR_TYPE_SYS, -(abs(ERRN)), MSG)
+
+#define _SET_NO_ERROR(T)\
+	_set_error(T, __func__, -1, 0, NULL)
+
+
 static const char *_base_url = NULL;
 
 static const char *_get_text_parse_mode(int type);
 static int         _build_kbd_button(const TgApiKbdButton *b, Str *str);
 
-static void _init_resp(TgApiResp *r, const char req_type[]);
 static int  _send_request(TgApiResp *r, const char req[], json_object **ret_obj);
 static void _set_message_id(TgApiResp *r, json_object *obj);
-static void _set_error_message(TgApiResp *r, int errn, const char msg[]);
-static void _set_error_message_sys(TgApiResp *r, int errn, const char msg[]);
-static void _set_error_message_api(TgApiResp *r, json_object *obj);
+static void _set_error(TgApiResp *r, const char ctx[], int type, int errn, const char msg[]);
+static void _set_error_api(TgApiResp *r, const char ctx[], json_object *obj);
 
 
 /*
@@ -38,22 +49,20 @@ int
 tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
-	_init_resp(resp, "text_send");
-
 	if ((t->chat_id == 0) || (cstr_is_empty(t->text))) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'text': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id' or 'text': empty!");
 		return -1;
 	}
 
 	const char *const parse_mode = _get_text_parse_mode(t->type);
 	if (parse_mode == NULL) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'type': invalid value!");
+		_SET_ERROR_ARG(resp, "'type': invalid value!");
 		return -1;
 	}
 
 	char *const text = http_url_escape(t->text);
 	if (text == NULL) {
-		_set_error_message_sys(resp, ENOMEM, "arg: 'text': failed to encode!");
+		_SET_ERROR_SYS(resp, ENOMEM, "'text': failed to encode!");
 		return -1;
 	}
 
@@ -70,13 +79,13 @@ tg_api_text_send(const TgApiText *t, TgApiResp *resp)
 
 	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(text);
 	return ret;
@@ -87,22 +96,20 @@ int
 tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
-	_init_resp(resp, "text_edit");
-
 	if ((t->chat_id == 0) || (t->msg_id == 0) || (cstr_is_empty(t->text))) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id', 'msg_id', or 'text': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id', 'msg_id', or 'text': empty!");
 		return -1;
 	}
 
 	const char *const parse_mode = _get_text_parse_mode(t->type);
 	if (parse_mode == NULL) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'type': invalid value!");
+		_SET_ERROR_ARG(resp, "'type': invalid value!");
 		return -1;
 	}
 
 	char *const text = http_url_escape(t->text);
 	if (text == NULL) {
-		_set_error_message_sys(resp, ENOMEM, "arg: 'text': failed to encode!");
+		_SET_ERROR_SYS(resp, ENOMEM, "'text': failed to encode!");
 		return -1;
 	}
 
@@ -119,13 +126,13 @@ tg_api_text_edit(const TgApiText *t, TgApiResp *resp)
 
 	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(text);
 	return ret;
@@ -136,10 +143,8 @@ int
 tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
-	_init_resp(resp, "photo_send");
-
 	if ((t->chat_id == 0) || (cstr_is_empty(t->photo))) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'photo': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id' or 'photo': empty!");
 		return -1;
 	}
 
@@ -147,14 +152,14 @@ tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 	if (cstr_is_empty(t->text) == 0) {
 		parse_mode = _get_text_parse_mode(t->text_type);
 		if (parse_mode == NULL) {
-			_set_error_message_sys(resp, EINVAL, "arg: 'text_type': invalid value!");
+			_SET_ERROR_ARG(resp, "'text_type': invalid value!");
 			return -1;
 		}
 	}
 
 	char *const photo = http_url_escape(t->photo);
 	if (photo == NULL) {
-		_set_error_message_sys(resp, ENOMEM, "arg: 'photo': failed to encode!");
+		_SET_ERROR_SYS(resp, ENOMEM, "'photo': failed to encode!");
 		return -1;
 	}
 
@@ -178,13 +183,13 @@ tg_api_photo_send(const TgApiPhoto *t, TgApiResp *resp)
 
 	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(photo);
 	return ret;
@@ -195,10 +200,8 @@ int
 tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
-	_init_resp(resp, "animation_send");
-
 	if ((t->chat_id == 0) || (cstr_is_empty(t->animation))) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'animation': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id' or 'animation': empty!");
 		return -1;
 	}
 
@@ -206,14 +209,14 @@ tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 	if (cstr_is_empty(t->text) == 0) {
 		parse_mode = _get_text_parse_mode(t->text_type);
 		if (parse_mode == NULL) {
-			_set_error_message_sys(resp, EINVAL, "arg: 'text_type': invalid value!");
+			_SET_ERROR_ARG(resp, "'text_type': invalid value!");
 			return -1;
 		}
 	}
 
 	char *const animation = http_url_escape(t->animation);
 	if (animation == NULL) {
-		_set_error_message_sys(resp, ENOMEM, "arg: 'animation': failed to encode!");
+		_SET_ERROR_SYS(resp, ENOMEM, "'animation': failed to encode!");
 		return -1;
 	}
 
@@ -237,13 +240,13 @@ tg_api_animation_send(const TgApiAnimation *t, TgApiResp *resp)
 
 	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(animation);
 	return ret;
@@ -254,22 +257,20 @@ int
 tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
-	_init_resp(resp, "caption_edit");
-
 	if ((t->chat_id == 0) || (t->msg_id == 0) || (cstr_is_empty(t->text))) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id', 'msg_id', or 'text': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id', 'msg_id', or 'text': empty!");
 		return -1;
 	}
 
 	const char *const parse_mode = _get_text_parse_mode(t->text_type);
 	if (parse_mode == NULL) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'text_type': invalid value!");
+		_SET_ERROR_ARG(resp, "'text_type': invalid value!");
 		return -1;
 	}
 
 	char *const text = http_url_escape(t->text);
 	if (text == NULL) {
-		_set_error_message_sys(resp, ENOMEM, "arg: 'text': failed to encode!");
+		_SET_ERROR_SYS(resp, ENOMEM, "'text': failed to encode!");
 		return -1;
 	}
 
@@ -286,13 +287,13 @@ tg_api_caption_edit(const TgApiCaption *t, TgApiResp *resp)
 
 	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(text);
 	return ret;
@@ -303,10 +304,8 @@ int
 tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(t, resp));
-	_init_resp(resp, "callback_answer");
-
 	if (CSTR_IS_EMPTY_OR(t->id, t->value)) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'id' or 'value': empty!");
+		_SET_ERROR_ARG(resp, "'id' or 'value': empty!");
 		return -1;
 	}
 
@@ -315,13 +314,13 @@ tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 	case TG_API_CALLBACK_VALUE_TYPE_TEXT: val_key = "&text"; break;
 	case TG_API_CALLBACK_VALUE_TYPE_URL: val_key = "&url"; break;
 	default:
-		_set_error_message_sys(resp, EINVAL, "arg: 'value_type': invalid value!");
+		_SET_ERROR_ARG(resp, "'value_type': invalid value!");
 		return -1;
 	}
 
 	char *const value = http_url_escape(t->value);
 	if (value == NULL) {
-		_set_error_message_sys(resp, ENOMEM, "arg: 'value': failed to encode!");
+		_SET_ERROR_SYS(resp, ENOMEM, "'value': failed to encode!");
 		return -1;
 	}
 
@@ -336,13 +335,13 @@ tg_api_callback_answer(const TgApiCallback *t, TgApiResp *resp)
 
 	ret = _send_request(resp, str.cstr, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	http_url_escape_free(value);
 	return ret;
@@ -353,10 +352,8 @@ int
 tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 {
 	assert(resp != NULL);
-	_init_resp(resp, "delete_message");
-
 	if ((chat_id == 0) || (msg_id == 0)) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id' or 'msg_id': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id' or 'msg_id': empty!");
 		return -1;
 	}
 
@@ -369,11 +366,11 @@ tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 
 	ret = _send_request(resp, buffer, NULL);
 	if (ret >= 0)
-		_set_error_message_sys(resp, 0, "");
+		_SET_NO_ERROR(resp);
 
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	return ret;
 }
@@ -428,10 +425,8 @@ int
 tg_api_get_admin_list(TgChatAdminList *list, int64_t chat_id, TgApiResp *resp)
 {
 	assert(!VAL_IS_NULL_OR(list, resp));
-	_init_resp(resp, "get_admin_list");
-
 	if (chat_id == 0) {
-		_set_error_message_sys(resp, EINVAL, "arg: 'chat_id': empty!");
+		_SET_ERROR_ARG(resp, "'chat_id': empty!");
 		return -1;
 	}
 
@@ -448,16 +443,16 @@ tg_api_get_admin_list(TgChatAdminList *list, int64_t chat_id, TgApiResp *resp)
 	ret = -1;
 	json_object *res_obj;
 	if (json_object_object_get_ex(ret_obj, "result", &res_obj) == 0) {
-		_set_error_message_sys(resp, -1, "invalid http response body!");
+		_SET_ERROR_SYS(resp, -1, "invalid http response body!");
 		goto out2;
 	}
 
 	if (tg_chat_admin_list_parse(list, res_obj) < 0) {
-		_set_error_message_sys(resp, -1, "invalid http response body!");
+		_SET_ERROR_SYS(resp, -1, "invalid http response body!");
 		goto out2;
 	}
 
-	_set_error_message_sys(resp, 0, "");
+	_SET_NO_ERROR(resp);
 	ret = 0;
 
 out2:
@@ -466,7 +461,7 @@ out1:
 	str_deinit(&str);
 out0:
 	if (ret == -2)
-		_set_error_message_sys(resp, ENOMEM, "failed to build http request!");
+		_SET_ERROR_SYS(resp, ENOMEM, "failed to build http request!");
 
 	return ret;
 }
@@ -533,20 +528,12 @@ _build_kbd_button(const TgApiKbdButton *b, Str *str)
 }
 
 
-static void
-_init_resp(TgApiResp *r, const char req_type[])
-{
-	memset(r, 0, sizeof(*r));
-	r->req_type = req_type;
-}
-
-
 static int
 _send_request(TgApiResp *r, const char req[], json_object **ret_obj)
 {
 	char *const raw = http_send_get(req, "application/json");
 	if (raw == NULL) {
-		_set_error_message_sys(r, -1, "failed to send http request!");
+		_SET_ERROR_SYS(r, -1, "failed to send http request!");
 		return -1;
 	}
 
@@ -554,13 +541,13 @@ _send_request(TgApiResp *r, const char req[], json_object **ret_obj)
 	enum json_tokener_error err;
 	json_object *obj = json_tokener_parse_verbose(raw, &err);
 	if (obj == NULL) {
-		_set_error_message_sys(r, -1, json_tokener_error_desc(err));
+		_SET_ERROR_SYS(r, -1, json_tokener_error_desc(err));
 		goto out0;
 	}
 
 	json_object *ok_obj;
 	if (json_object_object_get_ex(obj, "ok", &ok_obj) == 0) {
-		_set_error_message_sys(r, -1, "invalid http response body!");
+		_SET_ERROR_SYS(r, -1, "invalid http response body!");
 		goto out1;
 	}
 
@@ -568,7 +555,7 @@ _send_request(TgApiResp *r, const char req[], json_object **ret_obj)
 	if (json_object_get_boolean(ok_obj)) {
 		_set_message_id(r, obj);
 	} else {
-		_set_error_message_api(r, obj);
+		_SET_ERROR_API(r, obj);
 		ret = -1;
 	}
 
@@ -599,53 +586,43 @@ _set_message_id(TgApiResp *r, json_object *obj)
 
 
 static void
-_set_error_message(TgApiResp *r, int errn, const char msg[])
+_set_error(TgApiResp *r, const char ctx[], int type, int errn, const char msg[])
 {
-	assert(!VAL_IS_NULL_OR(r, msg));
+	assert(!VAL_IS_NULL_OR(r, ctx, (errn != 0)? msg : ""));
 	assert(LEN(r->error_msg) > 0);
-	const char *const status = (errn == 0)? "success" : "error";
+	memset(r, 0, sizeof(*r));
 
-	int len;
-	if (errn == 0)
-		len = snprintf(NULL, 0, "%s: %s: %d", r->req_type, status, errn);
-	else
-		len = snprintf(NULL, 0, "%s: %s: %d: %s", r->req_type, status, errn, msg);
+	const char *const status = (errn == 0)? "success" : "error";
+	const char *err_type = "none";
+	switch (type) {
+	case TG_API_RESP_ERR_TYPE_ARG: err_type = "arg"; break;
+	case TG_API_RESP_ERR_TYPE_API: err_type = "api"; break;
+	case TG_API_RESP_ERR_TYPE_SYS: err_type = "sys"; break;
+	}
 
 	r->error_code = errn;
-	if (len <= 0)
-		goto err0;
+	r->err_type = type;
 
-	size_t nlen = (size_t)len;
-	if ((size_t)len >= LEN(r->error_msg))
-		nlen = LEN(r->error_msg) - 4;
-
+	int len;
+	const size_t nlen = LEN(r->error_msg);
 	if (errn == 0)
-		len = snprintf(r->error_msg, nlen, "%s: %s: %d", r->req_type, status, errn);
+		len = snprintf(r->error_msg, nlen, "%s: %s: %d", ctx, status, errn);
 	else
-		len = snprintf(r->error_msg, nlen, "%s: %s: %d: %s", r->req_type, status, errn, msg);
+		len = snprintf(r->error_msg, nlen, "%s: %s: [%s]: %d: %s", ctx, status, err_type, errn, msg);
 
-	if (len <= 0)
-		goto err0;
+	if (len <= 0) {
+		cstr_copy_n(r->error_msg, LEN(r->error_msg), status);
+		return;
+	}
 
-	if (nlen != (size_t)len)
-		cstr_copy_n(r->error_msg + len - 1, 4, "...");
-
-	return;
-
-err0:
-	cstr_copy_n(r->error_msg, LEN(r->error_msg), status);
+	/* truncated */
+	if ((size_t)len >= nlen)
+		cstr_copy_n(r->error_msg + (nlen - 1) , 4, "...");
 }
 
 
 static void
-_set_error_message_sys(TgApiResp *r, int errn, const char msg[])
-{
-	_set_error_message(r, -(abs(errn)) , msg);
-}
-
-
-static void
-_set_error_message_api(TgApiResp *r, json_object *obj)
+_set_error_api(TgApiResp *r, const char ctx[], json_object *obj)
 {
 	json_object *err_code_obj;
 	if (json_object_object_get_ex(obj, "error_code", &err_code_obj) == 0)
@@ -657,5 +634,5 @@ _set_error_message_api(TgApiResp *r, json_object *obj)
 
 	const char *const msg = json_object_get_string(err_desc_obj);
 	const int errn = json_object_get_int(err_code_obj);
-	_set_error_message(r, errn, msg);
+	_set_error(r, ctx, TG_API_RESP_ERR_TYPE_API, errn, msg);
 }

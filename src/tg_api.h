@@ -17,11 +17,17 @@ void tg_api_init(const char base_url[]);
  * >= 100 and <= 500: Http error codes
  */
 
+enum {
+	TG_API_RESP_ERR_TYPE_ARG,
+	TG_API_RESP_ERR_TYPE_API,
+	TG_API_RESP_ERR_TYPE_SYS,
+};
+
 typedef struct tg_api_resp {
-	int64_t     msg_id;
-	const char *req_type;
-	int         error_code;
-	char        error_msg[256];
+	int64_t msg_id;
+	int     err_type;
+	int     error_code;
+	char    error_msg[256];
 } TgApiResp;
 
 
