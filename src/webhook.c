@@ -84,7 +84,7 @@ webhook_info(const Config *config)
 	char *const req = cstr_fmt("%s%s/getWebhookInfo", CFG_TELEGRAM_API, config->api_token);
 	if (req == NULL) {
 		LOG_ERRP("webhook", "%s", "str_set_fmt: NULL");
-		goto out0;
+		return -1;
 	}
 
 	int ret = -1;
