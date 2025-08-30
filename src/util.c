@@ -1503,9 +1503,11 @@ static FILE *
 _log_get_file(int type)
 {
 	switch (type) {
-	case LOG_TYPE_DEBUG: return stdout;
-	case LOG_TYPE_INFO: return stdout;
-	case LOG_TYPE_ERR: return stderr;
+	case LOG_TYPE_INFO:
+		return stdout;
+	case LOG_TYPE_ERR:
+	case LOG_TYPE_DEBUG:
+		return stderr;
 	}
 
 	// Invalid log type
