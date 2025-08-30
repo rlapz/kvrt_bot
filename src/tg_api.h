@@ -25,9 +25,10 @@ enum {
 
 typedef struct tg_api_resp {
 	int64_t msg_id;
-	int     err_type;
-	int     error_code;
-	char    error_msg[256];
+
+	int  err_type;
+	int  error_code;
+	char error_msg[256];
 } TgApiResp;
 
 

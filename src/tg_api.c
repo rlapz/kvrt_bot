@@ -590,30 +590,24 @@ _set_error(TgApiResp *r, const char ctx[], int type, int errn, const char msg[])
 {
 	assert(!VAL_IS_NULL_OR(r, ctx, (errn != 0)? msg : ""));
 	assert(LEN(r->error_msg) > 0);
-	memset(r, 0, sizeof(*r));
 
-	const char *const status = (errn == 0)? "success" : "error";
-	const char *err_type = "none";
+	const char *err_type = "unknown";
 	switch (type) {
 	case TG_API_RESP_ERR_TYPE_ARG: err_type = "arg"; break;
 	case TG_API_RESP_ERR_TYPE_API: err_type = "api"; break;
 	case TG_API_RESP_ERR_TYPE_SYS: err_type = "sys"; break;
 	}
 
-	r->error_code = errn;
 	r->err_type = type;
-
-	int len;
-	const size_t nlen = LEN(r->error_msg);
+	r->error_code = errn;
+	r->error_msg[0] = '\0';
 	if (errn == 0)
-		len = snprintf(r->error_msg, nlen, "%s: %s: %d", ctx, status, errn);
-	else
-		len = snprintf(r->error_msg, nlen, "%s: %s: [%s]: %d: %s", ctx, status, err_type, errn, msg);
-
-	if (len <= 0) {
-		cstr_copy_n(r->error_msg, LEN(r->error_msg), status);
 		return;
-	}
+
+	const size_t nlen = LEN(r->error_msg);
+	const int len = snprintf(r->error_msg, nlen, "%s: [%s]: %d: %s", ctx, err_type, errn, msg);
+	if (len < 0)
+		return;
 
 	/* truncated */
 	if ((size_t)len >= nlen)
