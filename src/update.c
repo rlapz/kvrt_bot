@@ -15,6 +15,7 @@ static void _handle_message_command(const Update *u, const TgMessage *msg);
 static void _handle_member_new(const Update *u, const TgMessage *msg);
 static void _handle_member_leave(const Update *u, const TgMessage *msg);
 static void _admin_load(const TgMessage *msg);
+static void _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]);
 
 
 /*
@@ -134,56 +135,14 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 {
 	LOG_DEBUG("update", "%s", "");
 
-	const int64_t chat_id = msg->chat.id;
 	const TgUser *const user = &msg->new_member;
 	if (user->id == u->id_bot) {
 		_admin_load(msg);
-		model_chat_init(chat_id);
+		model_chat_init(msg->chat.id);
 		return;
 	}
 
-	if (model_admin_get_privileges(chat_id, u->id_bot) > 0) {
-		const ModelSchedMessage schd = {
-			.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
-			.chat_id = chat_id,
-			.message_id = msg->id,
-			.user_id = user->id,
-			.expire = 5,
-		};
-
-		if (model_sched_message_add(&schd, 3) <= 0)
-			delete_message(msg);
-	}
-
-	if (user->is_bot)
-		return;
-
-	char *const fname_e = tg_escape(user->first_name);
-	if (fname_e == NULL)
-		return;
-
-	char *const txt = cstr_fmt("Hello [%s](tg://user?id=%" PRIi64 ") \\:3", fname_e, user->id);
-	if (txt == NULL)
-		goto out0;
-
-	int64_t ret_id;
-	if (send_text_format(msg, &ret_id, "%s", txt) < 0)
-		goto out1;
-
-	const ModelSchedMessage schd = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
-		.chat_id = chat_id,
-		.message_id = ret_id,
-		.user_id = user->id,
-		.expire = 5
-	};
-
-	model_sched_message_add(&schd, 10);
-
-out1:
-	free(txt);
-out0:
-	free(fname_e);
+	_handle_member_state(msg, user, "Hello");
 }
 
 
@@ -191,22 +150,9 @@ static void
 _handle_member_leave(const Update *u, const TgMessage *msg)
 {
 	LOG_DEBUG("update", "%s", "");
-	if (msg->left_chat_member.id == u->id_bot)
-		return;
 
-	if (model_admin_get_privileges(msg->chat.id, u->id_bot) <= 0)
-		return;
-
-	const ModelSchedMessage schd = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
-		.chat_id = msg->chat.id,
-		.message_id = msg->id,
-		.user_id = msg->left_chat_member.id,
-		.expire = 5,
-	};
-
-	if (model_sched_message_add(&schd, 3) <= 0)
-		delete_message(msg);
+	_handle_member_state(msg, &msg->left_chat_member, "See you later");
+	(void)u;
 }
 
 
@@ -236,4 +182,53 @@ _admin_load(const TgMessage *msg)
 
 	model_admin_reload(db_admin_list, db_admin_list_len);
 	tg_chat_admin_list_free(&admin_list);
+}
+
+
+static void
+_handle_member_state(const TgMessage *msg, const TgUser *user, const char text[])
+{
+	const int64_t chat_id = msg->chat.id;
+	if (model_admin_get_privileges(chat_id, user->id) > 0) {
+		const ModelSchedMessage schd = {
+			.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+			.chat_id = chat_id,
+			.message_id = msg->id,
+			.user_id = user->id,
+			.expire = 5,
+		};
+
+		if (model_sched_message_add(&schd, 3) <= 0)
+			delete_message(msg);
+	}
+
+	if (user->is_bot)
+		return;
+
+	char *const fname = tg_escape(user->first_name);
+	if (fname == NULL)
+		return;
+
+	char *const msg_body = cstr_fmt("%s [%s](tg://user?id=%" PRIi64 ") \\:3", text, fname, user->id);
+	if (msg_body == NULL)
+		goto out0;
+
+	int64_t ret_id;
+	if (send_text_format(msg, &ret_id, "%s", msg_body) < 0)
+		goto out1;
+
+	const ModelSchedMessage schd = {
+		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+		.chat_id = msg->chat.id,
+		.message_id = ret_id,
+		.user_id = user->id,
+		.expire = 5,
+	};
+
+	model_sched_message_add(&schd, 20);
+
+out1:
+	free(msg_body);
+out0:
+	free(fname);
 }
