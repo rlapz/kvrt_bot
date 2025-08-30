@@ -275,15 +275,19 @@ _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *ob
 static void
 _anime_sched_parse_list(json_object *list_obj, char *out[])
 {
+	char *res = NULL;
 	array_list *const list = json_object_get_array(list_obj);
 	if (list == NULL)
-		return;
+		goto out0;
+
+	const size_t list_len = array_list_length(list);
+	if (list_len == 0)
+		goto out0;
 
 	Str str;
 	if (str_init_alloc(&str, 128, NULL) < 0)
-		return;
+		goto out0;
 
-	const size_t list_len = array_list_length(list);
 	for (size_t i = 0; i < list_len; i++) {
 		json_object *const obj = array_list_get_idx(list, i);
 		if (obj == NULL)
@@ -298,8 +302,10 @@ _anime_sched_parse_list(json_object *list_obj, char *out[])
 	}
 
 	str_pop(&str, 2);
+	res = str.cstr;
 
-	*out = str.cstr;
+out0:
+	*out = res;
 }
 
 

@@ -32,6 +32,7 @@ size_t cstr_copy_n2(char dest[], size_t size, const char src[], size_t len);
 size_t cstr_copy_lower_n(char dest[], size_t size, const char src[]);
 size_t cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len);
 
+char *cstr_vfmt(const char fmt[], va_list args);
 char *cstr_fmt(const char fmt[], ...);
 
 /* ret: ~0: equals */
@@ -201,8 +202,6 @@ typedef struct http_request {
 char *http_url_escape(const char src[]);
 void  http_url_escape_free(char url[]);
 char *http_send_get(const char url[], const char content_type[]);
-
-char *http_url_escape2(const char src[]);
 
 
 /*

@@ -16,7 +16,6 @@
 
 static int   _send_text(const TgApiText *t, int64_t *ret_id);
 static int   _send_photo(const TgApiPhoto *t, int64_t *ret_id);
-static char *_fmt(const char fmt[], va_list args);
 static int   _pager_delete(const Pager *p, int64_t user_id);
 static char *_pager_add_body(const Pager *p, const PagerList *list);
 static int   _pager_send(const Pager *p, const TgApiMarkupKbd *kbd, const char body[], int64_t *ret_id);
@@ -32,7 +31,7 @@ send_text_plain(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 	va_list va;
 
 	va_start(va, fmt);
-	text = _fmt(fmt, va);
+	text = cstr_vfmt(fmt, va);
 	va_end(va);
 
 	if (text == NULL)
@@ -61,7 +60,7 @@ send_text_format(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 	va_list va;
 
 	va_start(va, fmt);
-	text = _fmt(fmt, va);
+	text = cstr_vfmt(fmt, va);
 	va_end(va);
 
 	if (text == NULL)
@@ -90,7 +89,7 @@ send_photo_plain(const TgMessage *msg, int64_t *ret_id, const char photo[], cons
 	va_list va;
 
 	va_start(va, fmt);
-	text = _fmt(fmt, va);
+	text = cstr_vfmt(fmt, va);
 	va_end(va);
 
 	if (text == NULL)
@@ -120,7 +119,7 @@ send_photo_format(const TgMessage *msg, int64_t *ret_id, const char photo[], con
 	va_list va;
 
 	va_start(va, fmt);
-	text = _fmt(fmt, va);
+	text = cstr_vfmt(fmt, va);
 	va_end(va);
 
 	if (text == NULL)
@@ -150,7 +149,7 @@ send_error_text(const TgMessage *msg, int64_t *ret_id, const char ctx[], const c
 	va_list va;
 
 	va_start(va, fmt);
-	text = _fmt(fmt, va);
+	text = cstr_vfmt(fmt, va);
 	va_end(va);
 
 	int ret = -1;
@@ -187,7 +186,7 @@ send_error_text_nope(const TgMessage *msg, int64_t *ret_id, const char ctx[], co
 	va_list va;
 
 	va_start(va, fmt);
-	text = _fmt(fmt, va);
+	text = cstr_vfmt(fmt, va);
 	va_end(va);
 
 	int ret = -1;
@@ -526,33 +525,6 @@ _send_photo(const TgApiPhoto *t, int64_t *ret_id)
 		*ret_id = resp.msg_id;
 
 	return ret;
-}
-
-
-static char *
-_fmt(const char fmt[], va_list args)
-{
-	va_list va;
-	va_copy(va, args);
-
-	int ret = vsnprintf(NULL, 0, fmt, va);
-	if (ret < 0)
-		return NULL;
-
-	const size_t len = ((size_t)ret) + 1;
-	char *const res = malloc(len);
-	if (res == NULL)
-		return NULL;
-
-	va_copy(va, args);
-	ret = vsnprintf(res, len, fmt, va);
-	if (ret < 0) {
-		free(res);
-		return NULL;
-	}
-
-	res[ret] = '\0';
-	return res;
 }
 
 

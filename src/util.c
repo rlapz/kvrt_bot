@@ -75,7 +75,8 @@ cstr_copy_n2(char dest[], size_t size, const char src[], size_t len)
 }
 
 
-size_t cstr_copy_lower_n(char dest[], size_t size, const char src[])
+size_t
+cstr_copy_lower_n(char dest[], size_t size, const char src[])
 {
 	assert(dest != NULL);
 	if (size == 0)
@@ -116,15 +117,12 @@ cstr_copy_lower_n2(char dest[], size_t size, const char src[], size_t len)
 
 
 char *
-cstr_fmt(const char fmt[], ...)
+cstr_vfmt(const char fmt[], va_list args)
 {
-	int ret;
 	va_list va;
+	va_copy(va, args);
 
-	va_start(va, fmt);
-	ret = vsnprintf(NULL, 0, fmt, va);
-	va_end(va);
-
+	int ret = vsnprintf(NULL, 0, fmt, va);
 	if (ret < 0)
 		return NULL;
 
@@ -133,10 +131,8 @@ cstr_fmt(const char fmt[], ...)
 	if (res == NULL)
 		return NULL;
 
-	va_start(va, fmt);
+	va_copy(va, args);
 	ret = vsnprintf(res, len, fmt, va);
-	va_end(va);
-
 	if (ret < 0) {
 		free(res);
 		return NULL;
@@ -144,6 +140,20 @@ cstr_fmt(const char fmt[], ...)
 
 	res[ret] = '\0';
 	return res;
+}
+
+
+char *
+cstr_fmt(const char fmt[], ...)
+{
+	char *ret;
+	va_list va;
+
+	va_start(va, fmt);
+	ret = cstr_vfmt(fmt, va);
+	va_end(va);
+
+	return ret;
 }
 
 
@@ -526,13 +536,13 @@ _str_resize(Str *s, size_t slen)
 		return -1;
 	}
 
-	const size_t _rsize = (slen - remn_size) + size + 1;
-	char *const _new_cstr = realloc(s->cstr, _rsize);
-	if (_new_cstr == NULL)
+	const size_t new_size = (slen - remn_size) + size + 10;
+	char *const new_cstr = realloc(s->cstr, new_size);
+	if (new_cstr == NULL)
 		return -1;
 
-	s->size = _rsize;
-	s->cstr = _new_cstr;
+	s->size = new_size;
+	s->cstr = new_cstr;
 	return 0;
 }
 
@@ -564,11 +574,13 @@ str_init(Str *s, char buffer[], size_t size, const char fmt[], ...)
 int
 str_init_alloc(Str *s, size_t size, const char fmt[], ...)
 {
-	void *cstr = NULL;
+	char *cstr = NULL;
 	if (size > 0) {
 		cstr = malloc(size);
 		if (cstr == NULL)
 			return -ENOMEM;
+
+		cstr[0] = '\0';
 	}
 
 	s->is_alloc = 1;
@@ -1347,41 +1359,6 @@ http_url_escape_free(char url[])
 }
 
 
-static const char *const _hex = "0123456789abcdef";
-
-char *
-http_url_escape2(const char src[])
-{
-	if (cstr_is_empty(src))
-		return NULL;
-
-	const size_t src_len = strlen(src);
-
-	Str str;
-	if (str_init_alloc(&str, src_len * 2, NULL) < 0)
-		return NULL;
-
-	const unsigned char *p = (const unsigned char *)src;
-	for (size_t i = 0; i < src_len; i++) {
-		if (isalnum(p[i]) == 0) {
-			if (str_append_fmt(&str, "%%%c%c", _hex[(p[i] >> 4) & 15], _hex[p[i] & 15]) == NULL)
-				goto err0;
-
-			continue;
-		}
-
-		if (str_append_c(&str, (char)p[i]) == NULL)
-			goto err0;
-	}
-
-	return str.cstr;
-
-err0:
-	str_deinit(&str);
-	return NULL;
-}
-
-
 static size_t
 _http_writer(void *ctx, size_t size, size_t nmemb, void *udata)
 {
@@ -1402,7 +1379,7 @@ http_send_get(const char url[], const char content_type[])
 		return NULL;
 
 	LOG_DEBUG("http", "url: %s", url);
-	if (str_init_alloc(&str, 128, NULL) < 0)
+	if (str_init_alloc(&str, 1024, NULL) < 0)
 		return NULL;
 
 	CURL *const handle = curl_easy_init();
@@ -1457,14 +1434,17 @@ http_send_get(const char url[], const char content_type[])
 			goto out2;
 	}
 
-	ret = str_dup(&str);
+	LOG_DEBUG("http", "url: %s: resp_len: %zu", url, str.len);
+	ret = str.cstr;
 
 out2:
 	curl_slist_free_all(slist);
 out1:
 	curl_easy_cleanup(handle);
 out0:
-	str_deinit(&str);
+	if (ret == NULL)
+		str_deinit(&str);
+
 	return ret;
 }
 

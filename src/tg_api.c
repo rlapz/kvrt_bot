@@ -19,6 +19,7 @@ static int         _build_kbd_button(const TgApiKbdButton *b, Str *str);
 static void _init_resp(TgApiResp *r, const char req_type[]);
 static int  _send_request(TgApiResp *r, const char req[], json_object **ret_obj);
 static void _set_message_id(TgApiResp *r, json_object *obj);
+static void _set_error_message(TgApiResp *r, int errn, const char msg[]);
 static void _set_error_message_sys(TgApiResp *r, int errn, const char msg[]);
 static void _set_error_message_api(TgApiResp *r, json_object *obj);
 
@@ -382,19 +383,16 @@ char *
 tg_api_markup_kbd(const TgApiMarkupKbd *t)
 {
 	Str str;
-	if (str_init_alloc(&str, 1024, NULL) < 0)
+	if (str_init_alloc(&str, 1024, "%s", "{\"inline_keyboard\": [") < 0)
 		return NULL;
 
 	char *ret = NULL;
-	if (str_set_n(&str, "{\"inline_keyboard\": [", 21) == NULL)
-		goto out0;
-
 	const unsigned rows_len = t->rows_len;
 	for (unsigned i = 0; i < rows_len; i++) {
 		if (str_append_c(&str, '[') == NULL)
 			goto out0;
 
-		const TgApiKbdButton *cols = t->rows[i].cols;
+		const TgApiKbdButton *const cols = t->rows[i].cols;
 		const unsigned cols_len = t->rows[i].cols_len;
 		for (unsigned j = 0; j < cols_len; j++) {
 			if (_build_kbd_button(&cols[j], &str) < 0)
@@ -413,7 +411,12 @@ tg_api_markup_kbd(const TgApiMarkupKbd *t)
 	if (str_append_n(&str, "]}", 2) == NULL)
 		goto out0;
 
-	ret = http_url_escape2(str.cstr);
+	char *const esc = http_url_escape(str.cstr);
+	if (esc == NULL)
+		goto out0;
+
+	ret = strdup(esc);
+	free(esc);
 
 out0:
 	str_deinit(&str);
@@ -596,13 +599,48 @@ _set_message_id(TgApiResp *r, json_object *obj)
 
 
 static void
+_set_error_message(TgApiResp *r, int errn, const char msg[])
+{
+	assert(!VAL_IS_NULL_OR(r, msg));
+	assert(LEN(r->error_msg) > 0);
+	const char *const status = (errn == 0)? "success" : "error";
+
+	int len;
+	if (errn == 0)
+		len = snprintf(NULL, 0, "%s: %s: %d", r->req_type, status, errn);
+	else
+		len = snprintf(NULL, 0, "%s: %s: %d: %s", r->req_type, status, errn, msg);
+
+	r->error_code = errn;
+	if (len <= 0)
+		goto err0;
+
+	size_t nlen = (size_t)len;
+	if ((size_t)len >= LEN(r->error_msg))
+		nlen = LEN(r->error_msg) - 4;
+
+	if (errn == 0)
+		len = snprintf(r->error_msg, nlen, "%s: %s: %d", r->req_type, status, errn);
+	else
+		len = snprintf(r->error_msg, nlen, "%s: %s: %d: %s", r->req_type, status, errn, msg);
+
+	if (len <= 0)
+		goto err0;
+
+	if (nlen != (size_t)len)
+		cstr_copy_n(r->error_msg + len - 1, 4, "...");
+
+	return;
+
+err0:
+	cstr_copy_n(r->error_msg, LEN(r->error_msg), status);
+}
+
+
+static void
 _set_error_message_sys(TgApiResp *r, int errn, const char msg[])
 {
-	r->error_code = (errn > 0)? -errn : errn;
-	if (r->error_code == 0)
-		snprintf(r->error_msg, LEN(r->error_msg), "%s: success: %d", r->req_type, r->error_code);
-	else
-		snprintf(r->error_msg, LEN(r->error_msg), "%s: error: %d: %s", r->req_type, r->error_code, msg);
+	_set_error_message(r, -(abs(errn)) , msg);
 }
 
 
@@ -617,12 +655,7 @@ _set_error_message_api(TgApiResp *r, json_object *obj)
 	if (json_object_object_get_ex(obj, "description", &err_desc_obj) == 0)
 		return;
 
-	r->error_code = json_object_get_int(err_code_obj);
-	if (r->error_code == 0) {
-		snprintf(r->error_msg, LEN(r->error_msg), "%s: success: %d", r->req_type, r->error_code);
-		return;
-	}
-
 	const char *const msg = json_object_get_string(err_desc_obj);
-	snprintf(r->error_msg, LEN(r->error_msg), "%s: error: %d: %s", r->req_type, r->error_code, msg);
+	const int errn = json_object_get_int(err_code_obj);
+	_set_error_message(r, errn, msg);
 }
