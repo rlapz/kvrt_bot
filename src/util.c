@@ -942,29 +942,29 @@ chld_spawn(const char file[], char *const argv[])
 
 	posix_spawn_file_actions_t act;
 	if (posix_spawn_file_actions_init(&act) != 0) {
-		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_init: \"%s\"", file);
+		LOG_ERRP("chld", "posix_spawn_file_actions_init: \"%s\"", file);
 		goto out0;
 	}
 
 	const int flags = O_WRONLY | O_CREAT | O_APPEND;
 	if (posix_spawn_file_actions_addopen(&act, STDOUT_FILENO, c->log_file, flags, 0644) != 0) {
-		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_addopen: STDOUT: \"%s\"", file);
+		LOG_ERRP("chld", "posix_spawn_file_actions_addopen: STDOUT: \"%s\"", file);
 		goto out1;
 	}
 
 	if (posix_spawn_file_actions_adddup2(&act, STDOUT_FILENO, STDERR_FILENO) != 0) {
-		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_adddup2: \"%s\"", file);
+		LOG_ERRP("chld", "posix_spawn_file_actions_adddup2: \"%s\"", file);
 		goto out1;
 	}
 
 	if (posix_spawn_file_actions_addchdir_np(&act, c->path) != 0) {
-		LOG_ERRP("chld", "chld", "posix_spawn_file_actions_addchdir_np: \"%s\"", file);
+		LOG_ERRP("chld", "posix_spawn_file_actions_addchdir_np: \"%s\"", file);
 		goto out1;
 	}
 
 	const unsigned slot = c->slots[count];
 	if (posix_spawn(&c->pids[slot], file, &act, NULL, argv, c->envp) != 0) {
-		LOG_ERRP("chld", "chld", "posix_spawn: \"%s\"", file);
+		LOG_ERRP("chld", "posix_spawn: \"%s\"", file);
 		goto out1;
 	}
 
