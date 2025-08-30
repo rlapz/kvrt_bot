@@ -212,8 +212,9 @@ _get_parent_proc(Arg *a)
 	if (ret < 0)
 		return -1;
 
+	if ((size_t)ret >= LEN(path)
+		return -1;
 
-	path[ret] = '\0';
 	const int fd = open(path, O_RDONLY);
 	if (fd < 0)
 		return -1;

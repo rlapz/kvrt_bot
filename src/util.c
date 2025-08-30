@@ -138,7 +138,6 @@ cstr_vfmt(const char fmt[], va_list args)
 		return NULL;
 	}
 
-	res[ret] = '\0';
 	return res;
 }
 
@@ -731,7 +730,6 @@ str_set_vfmt(Str *s, const char fmt[], va_list args)
 		return NULL;
 
 	s->len = (size_t)ret;
-	s->cstr[ret] = '\0';
 	return s->cstr;
 }
 
@@ -762,7 +760,6 @@ str_append_vfmt(Str *s, const char fmt[], va_list args)
 
 	len += (size_t)ret;
 	s->len = len;
-	s->cstr[len] = '\0';
 	return s->cstr;
 }
 
