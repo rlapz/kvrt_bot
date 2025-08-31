@@ -22,6 +22,8 @@ static void _cmd_toggle_extern(const Setting *s, const CmdParam *param);
 static void _cmd_toggle_extra(const Setting *s, const CmdParam *param);
 static void _cmd_toggle_nsfw(const Setting *s, const CmdParam *param);
 static void _cmd_toggle_flags(const CmdParam *cmd, int rflags);
+static void _cmd_ban_user(const CmdParam *cmd, int kick_only);
+
 
 static const Setting _setting_list_e[] = {
 	{
@@ -226,6 +228,20 @@ cmd_admin_settings(const CmdParam *cmd)
 }
 
 
+void
+cmd_admin_ban(const CmdParam *cmd)
+{
+	_cmd_ban_user(cmd, 0);
+}
+
+
+void
+cmd_admin_kick(const CmdParam *cmd)
+{
+	_cmd_ban_user(cmd, 1);
+}
+
+
 /*
  * Private
  */
@@ -305,4 +321,49 @@ _cmd_toggle_flags(const CmdParam *cmd, int rflags)
 		send_text_plain(cmd->msg, NULL, "Disabled");
 	else
 		send_text_plain(cmd->msg, NULL, "Enabled");
+}
+
+
+static void
+_cmd_ban_user(const CmdParam *cmd, int kick_only)
+{
+	const TgMessage *msg = cmd->msg;
+	if (msg->reply_to == NULL) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Please reply a message.");
+		return;
+	}
+
+	if (is_admin(cmd->id_bot, cmd->id_chat, 0) == 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "This bot is not an admin!");
+		return;
+	}
+
+	const TgUser *const tg_user = msg->reply_to->from;
+	if (tg_user == NULL) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Invalid response from the Telegram server.");
+		return;
+	}
+
+	if (tg_user->id == cmd->id_bot) {
+		SEND_ERROR_TEXT_NOPE(msg, NULL, "%s", "Uh, wrong! Couldn't self ban/kick!");
+		return;
+	}
+
+	TgApiResp resp;
+	if (tg_api_ban(cmd->id_chat, tg_user->id, &resp) < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "Failed to ban/kick a user: %s", resp.error_msg);
+		return;
+	}
+
+	if (kick_only == 0) {
+		send_text_plain(msg, NULL, "User: %" PRIi64 ": Banned.", tg_user->id);
+		return;
+	}
+
+	if (tg_api_unban(cmd->id_chat, tg_user->id, &resp) < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "Failed to unban a user: %s", resp.error_msg);
+		return;
+	}
+
+	send_text_plain(msg, NULL, "User: %" PRIi64 ": Kicked.", tg_user->id);
 }

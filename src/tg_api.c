@@ -389,6 +389,59 @@ tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp)
 }
 
 
+int
+tg_api_ban(int64_t chat_id, int64_t user_id, TgApiResp *resp)
+{
+	assert(resp != NULL);
+	if ((chat_id == 0) || (user_id == 0)) {
+		_SET_ERROR_ARG(resp, "'chat_id' or 'msg_id': empty!");
+		return -1;
+	}
+
+	char buffer[1024];
+	const int ret = snprintf(buffer, LEN(buffer), "%s/banChatMember?chat_id=%" PRIi64
+						      "&user_id=%" PRIi64 "&revoke_messages=false",
+				 _base_url, chat_id, user_id);
+
+	if ((ret < 0) || ((size_t)ret >= LEN(buffer))) {
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
+		return -1;
+	}
+
+	if (_send_request(resp, buffer, NULL) < 0)
+		return -1;
+
+	_SET_NO_ERROR(resp);
+	return 0;
+}
+
+
+int
+tg_api_unban(int64_t chat_id, int64_t user_id, TgApiResp *resp)
+{
+	assert(resp != NULL);
+	if ((chat_id == 0) || (user_id == 0)) {
+		_SET_ERROR_ARG(resp, "'chat_id' or 'msg_id': empty!");
+		return -1;
+	}
+
+	char buffer[1024];
+	const int ret = snprintf(buffer, LEN(buffer), "%s/unbanChatMember?chat_id=%" PRIi64 "&user_id=%" PRIi64,
+				 _base_url, chat_id, user_id);
+
+	if ((ret < 0) || ((size_t)ret >= LEN(buffer))) {
+		_SET_ERROR_SYS(resp, ENOMEM, _ERR_BUILD_HTTP_REQ);
+		return -1;
+	}
+
+	if (_send_request(resp, buffer, NULL) < 0)
+		return -1;
+
+	_SET_NO_ERROR(resp);
+	return 0;
+}
+
+
 char *
 tg_api_markup_kbd(const TgApiMarkupKbd *t)
 {

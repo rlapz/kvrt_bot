@@ -122,6 +122,13 @@ int tg_api_delete(int64_t chat_id, int64_t msg_id, TgApiResp *resp);
 
 
 /*
+ * Ban
+ */
+int tg_api_ban(int64_t chat_id, int64_t user_id, TgApiResp *resp);
+int tg_api_unban(int64_t chat_id, int64_t user_id, TgApiResp *resp);
+
+
+/*
  * Markup
  */
 enum {
