@@ -165,14 +165,15 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 {
 	int ret = -1;
 	const char *const query =
-		"INSERT INTO Admin(chat_id, user_id, is_anonymous, privileges, created_at) VALUES ";
+		"INSERT INTO Admin(chat_id, user_id, first_name, is_bot, is_anonymous, privileges, created_at) "
+		"VALUES ";
 
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s", query) < 0)
 		return -1;
 
 	for (int i = 0; i < len; i++) {
-		if (str_append(&str, "(?, ?, ?, ?, ?), ") == NULL)
+		if (str_append(&str, "(?, ?, ?, ?, ?, ?, ?), ") == NULL)
 			goto out0;
 	}
 
@@ -189,6 +190,8 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 	for (int i = 0, j = 1; i < len; i++) {
 		sqlite3_bind_int64(stmt, j++, list[i].chat_id);
 		sqlite3_bind_int64(stmt, j++, list[i].user_id);
+		sqlite3_bind_text(stmt, j++, list[i].first_name_in, -1, NULL);
+		sqlite3_bind_int(stmt, j++, list[i].is_bot);
 		sqlite3_bind_int(stmt, j++, list[i].is_anonymous);
 		sqlite3_bind_int(stmt, j++, list[i].privileges);
 		sqlite3_bind_int64(stmt, j++, now);
@@ -278,6 +281,66 @@ model_admin_get_privileges(int64_t chat_id, int64_t user_id)
 		return -1;
 
 	return privs;
+}
+
+
+int
+model_admin_get_list(ModelAdmin list[], int len, int64_t chat_id)
+{
+	const char *const query =
+		"SELECT id, chat_id, user_id, first_name, is_bot, is_anonymous, privileges, created_at "
+		"FROM Admin "
+		"WHERE (chat_id = ?) "
+		"LIMIT ?;";
+
+	sqlite3_stmt *stmt;
+	DbConn *const conn = sqlite_pool_get();
+	if (conn == NULL)
+		return -1;
+
+	int ret = -1;
+	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		goto out0;
+	}
+
+	sqlite3_bind_int64(stmt, 1, chat_id);
+	sqlite3_bind_int(stmt, 2, len);
+
+	int count = 0;
+	for (; count < len; count++) {
+		res = sqlite3_step(stmt);
+		if (res == SQLITE_DONE)
+			break;
+
+		if (res != SQLITE_ROW) {
+			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
+			goto out1;
+		}
+
+		int i = 0;
+		ModelAdmin *const adm = &list[count];
+		adm->id = sqlite3_column_int(stmt, i++);
+		adm->chat_id = sqlite3_column_int64(stmt, i++);
+		adm->user_id = sqlite3_column_int64(stmt, i++);
+
+		const char *const fname = (const char *)sqlite3_column_text(stmt, i++);
+		cstr_copy_n(adm->first_name, LEN(adm->first_name), fname);
+
+		adm->is_bot = sqlite3_column_int(stmt, i++);
+		adm->is_anonymous = sqlite3_column_int(stmt, i++);
+		adm->privileges = sqlite3_column_int(stmt, i++);
+		adm->created_at = sqlite3_column_int64(stmt, i++);
+	}
+
+	ret = count;
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return ret;
 }
 
 
@@ -1107,15 +1170,18 @@ _chat_query(Str *str)
 static const char *
 _admin_query(Str *str)
 {
-	return str_set(str,
+	return str_set_fmt(str,
 		"CREATE TABLE IF NOT EXISTS Admin(\n"
 		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
 		"	chat_id		BIGINT NOT Null,\n"
 		"	user_id		BIGINT NOT Null,\n"
+		"	first_name	VARCHAR(%d) NOT Null,\n"
+		"	is_bot		BOOLEAN NOT Null,\n"
 		"	is_anonymous	BOOLEAN NOT Null,\n"
 		"	privileges	INTEGER NOT NUll,\n"
 		"	created_at	TIMESTAMP NOT Null\n"
-		");"
+		");",
+		(MODEL_USER_FIRST_NAME_SIZE - 1)
 	);
 }
 

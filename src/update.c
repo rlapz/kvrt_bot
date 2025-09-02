@@ -176,6 +176,9 @@ _admin_load(const TgMessage *msg)
 		db_admin_list[i] = (ModelAdmin) {
 			.chat_id = chat_id,
 			.user_id = adm->user->id,
+			.first_name_in = adm->user->first_name,
+			.is_bot = adm->user->is_bot,
+			.is_anonymous = adm->is_anonymous,
 			.privileges = adm->privileges,
 		};
 	}

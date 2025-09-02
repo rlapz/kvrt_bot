@@ -54,6 +54,7 @@ void cmd_general_help(const CmdParam *cmd);
 void cmd_general_dump(const CmdParam *cmd);
 void cmd_general_dump_admin(const CmdParam *cmd);
 void cmd_general_schedule_message(const CmdParam *cmd);
+void cmd_general_report(const CmdParam *cmd);
 void cmd_general_deleter(const CmdParam *cmd);
 
 void cmd_extra_anime_sched(const CmdParam *cmd);
@@ -100,6 +101,12 @@ void cmd_test_edit(const CmdParam *cmd);
 	.name = "/sched",							\
 	.description = "Schedule message",					\
 	.callback_fn = cmd_general_schedule_message,				\
+},										\
+{										\
+	.name = "/report",							\
+	.description = "Report message to admin",				\
+	.callback_fn = cmd_general_report,					\
+	.flags = MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT,				\
 },										\
 {										\
 	.name = "/deleter",							\
