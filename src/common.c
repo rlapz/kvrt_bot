@@ -300,7 +300,7 @@ is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
 		return -1;
 	}
 
-	return (privs != 0);
+	return privs;
 }
 
 
