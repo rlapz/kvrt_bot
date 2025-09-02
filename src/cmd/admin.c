@@ -362,7 +362,7 @@ _cmd_ban_user(const CmdParam *cmd, int kick_only)
 	}
 
 	if (kick_only == 0) {
-		send_text_plain(msg, NULL, "User: %" PRIi64 ": Banned.", tg_user->id);
+		send_text_plain(msg, NULL, "%s (%" PRIi64 "): Banned", tg_user->first_name, tg_user->id);
 		return;
 	}
 
@@ -371,5 +371,5 @@ _cmd_ban_user(const CmdParam *cmd, int kick_only)
 		return;
 	}
 
-	send_text_plain(msg, NULL, "User: %" PRIi64 ": Kicked.", tg_user->id);
+	send_text_plain(msg, NULL, "%s (%" PRIi64 "): Kicked", tg_user->first_name, tg_user->id);
 }
