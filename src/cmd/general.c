@@ -284,11 +284,15 @@ cmd_general_report(const CmdParam *cmd)
 
 	str_pop(&str, 1);
 
-	send_text_format(&(TgMessage){
-		.chat = (TgChat) { .id = msg->chat.id },
-		.id = msg->reply_to->id,
-		.from = &(TgUser) { .id = msg->from->id },
-	}, NULL, "%s", str.cstr);
+	if ((msg->reply_to->from == NULL) || (msg->reply_to->from->is_bot == 0)) {
+		send_text_format(&(TgMessage){
+			.chat = (TgChat) { .id = msg->chat.id },
+			.id = msg->reply_to->id,
+			.from = &(TgUser) { .id = msg->from->id },
+		}, NULL, "%s", str.cstr);
+	} else {
+		send_text_format(msg, NULL, "%s", str.cstr);
+	}
 
 	str_deinit(&str);
 }
