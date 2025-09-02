@@ -283,7 +283,13 @@ cmd_general_report(const CmdParam *cmd)
 	}
 
 	str_pop(&str, 1);
-	send_text_format(msg, NULL, "%s", str.cstr);
+
+	send_text_format(&(TgMessage){
+		.chat = (TgChat) { .id = msg->chat.id },
+		.id = msg->reply_to->id,
+		.from = &(TgUser) { .id = msg->from->id },
+	}, NULL, "%s", str.cstr);
+
 	str_deinit(&str);
 }
 
