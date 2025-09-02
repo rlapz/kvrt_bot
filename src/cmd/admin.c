@@ -334,6 +334,11 @@ _cmd_ban_user(const CmdParam *cmd, int kick_only)
 	}
 
 	const int priv = is_admin(cmd->id_bot, cmd->id_chat, 0);
+	if (priv < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Failed to get admin list!");
+		return;
+	}
+
 	if ((priv & TG_CHAT_ADMIN_PRI_CAN_RESTRICT_MEMBERS) == 0) {
 		SEND_ERROR_TEXT(msg, NULL, "%s", "This bot has no permission to restrict/unrestrict chat member!");
 		return;
