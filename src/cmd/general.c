@@ -110,7 +110,11 @@ cmd_general_dump_admin(const CmdParam *cmd)
 		str_append_fmt(&str, "%d. %s %s\n", i + 1, adm->user->first_name,
 			       cstr_empty_if_null(adm->user->last_name));
 		str_append_fmt(&str, "    Id        : %" PRIi64 "\n", adm->user->id);
-		str_append_fmt(&str, "    Username  : @%s\n", adm->user->username);
+		str_append_fmt(&str, "    First name: %s\n", adm->user->first_name);
+
+		if (adm->user->username != NULL)
+			str_append_fmt(&str, "    Username  : @%s\n", adm->user->username);
+
 		str_append_fmt(&str, "    Is bot    : %s\n", bool_to_cstr(adm->user->is_bot));
 		str_append_fmt(&str, "    Is premium: %s\n", bool_to_cstr(adm->user->is_premium));
 		str_append_fmt(&str, "    Is anon   : %s\n", bool_to_cstr(adm->is_anonymous));
@@ -218,6 +222,69 @@ out0:
 		"  s: second\n  m: minute\n  h: hour\n  d: day\n\n"
 		"Example: \n"
 		"  %s 10s Hello world!", cmd->name, cmd->name);
+}
+
+
+void
+cmd_general_report(const CmdParam *cmd)
+{
+	const TgMessage *const msg = cmd->msg;
+	if (msg->reply_to == NULL) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Please reply a message.");
+		return;
+	}
+
+	SpaceTokenizer st;
+	const char *const next = space_tokenizer_next(&st, cmd->args);
+	if (next == NULL)
+		st.value = "General";
+
+	ModelAdmin list[8];
+	int ret = model_admin_get_list(list, (int)LEN(list), msg->chat.id);
+	if (ret < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Failed to get admin list.");
+		return;
+	}
+
+	if (ret == 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Please reload the admin list.");
+		return;
+	}
+
+	Str str;
+	char *const reason = tg_escape(st.value);
+	if (reason == NULL) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Internal error!");
+		return;
+	}
+
+	if (str_init_alloc(&str, 1024, "Report: \"%s\"\n", reason) < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "%s", "Internal error!");
+		free(reason);
+		return;
+	}
+
+	free(reason);
+
+	int j = 1;
+	for (int i = 0; i < ret; i++) {
+		const ModelAdmin *const adm = &list[i];
+		if (adm->is_bot)
+			continue;
+
+		char *const fname = tg_escape(adm->first_name);
+		if (fname == NULL)
+			continue;
+
+		str_append_fmt(&str, "%d\\. [%s](tg://user?id=%" PRIi64 ")\n", j, fname, adm->user_id);
+
+		free(fname);
+		j++;
+	}
+
+	str_pop(&str, 1);
+	send_text_format(msg, NULL, "%s", str.cstr);
+	str_deinit(&str);
 }
 
 

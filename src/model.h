@@ -10,6 +10,9 @@
 int model_init(void);
 
 
+#define MODEL_USER_FIRST_NAME_SIZE (65)
+
+
 /*
  * ModelChat
  */
@@ -38,6 +41,8 @@ typedef struct model_admin {
 	int32_t id;
 	int64_t chat_id;
 	int64_t user_id;
+	union { const char *first_name_in; char first_name[MODEL_USER_FIRST_NAME_SIZE]; };
+	int     is_bot;
 	int     is_anonymous;
 	int     privileges;
 	time_t  created_at;
@@ -45,6 +50,7 @@ typedef struct model_admin {
 
 int model_admin_reload(const ModelAdmin list[], int len);
 int model_admin_get_privileges(int64_t chat_id, int64_t user_id);
+int model_admin_get_list(ModelAdmin list[], int len, int64_t chat_id);
 
 
 /*

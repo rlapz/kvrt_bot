@@ -77,8 +77,10 @@ cmd_admin_reload(const CmdParam *cmd)
 		db_admin_list[i] = (ModelAdmin) {
 			.chat_id = chat_id,
 			.user_id = adm->user->id,
-			.privileges = adm->privileges,
+			.first_name_in = adm->user->first_name,
+			.is_bot = adm->user->is_bot,
 			.is_anonymous = adm->is_anonymous,
+			.privileges = adm->privileges,
 		};
 	}
 
