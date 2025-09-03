@@ -205,7 +205,7 @@ void
 cmd_admin_settings(const CmdParam *cmd)
 {
 	SpaceTokenizer st;
-	const char *next = space_tokenizer_next(&st, cmd->args);
+	const char *const next = space_tokenizer_next(&st, cmd->args);
 	if (next == NULL) {
 		_setting_list(cmd);
 		return;
@@ -274,6 +274,7 @@ _cmd_toggle_nsfw(const Setting *s, const CmdParam *param)
 static int
 _setting_list(const CmdParam *cmd)
 {
+	int ret = -1;
 	Str str;
 	if (str_init_alloc(&str, 1024, "%s", "Status parameters:\n```Status\n") < 0) {
 		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Failed to allocate string buffer!");
@@ -283,7 +284,7 @@ _setting_list(const CmdParam *cmd)
 	const int flags = model_chat_get_flags(cmd->id_chat);
 	if (flags < 0) {
 		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Failed to get chat flags!");
-		return -1;
+		goto out0;
 	}
 
 	str_append_fmt(&str, "1. Cmd Extern: %s\n", (flags & MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN)? "enabled" : "disabled");
@@ -300,8 +301,11 @@ _setting_list(const CmdParam *cmd)
 	str_append(&str, "```\n\\-\\-\\-\\-\nUsage: /settings \\[parameter\\] \\[ARGS\\]\n");
 	str_append(&str, "Example: /settings cmd\\_toggle\\_extern\n");
 
-	send_photo_format(cmd->msg, NULL, "%s", str.cstr);
-	return 0;
+	ret = send_text_format(cmd->msg, NULL, "%s", str.cstr);
+
+out0:
+	str_deinit(&str);
+	return ret;
 }
 
 
