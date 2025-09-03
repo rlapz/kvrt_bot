@@ -1392,6 +1392,9 @@ http_send_get(const char url[], const char content_type[])
 	if (curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, _http_writer) != CURLE_OK)
 		goto out1;
 
+	if (curl_easy_setopt(handle, CURLOPT_TIMEOUT, CFG_HTTP_REQUEST_TIMEOUT) != CURLE_OK)
+		goto out1;
+
 	struct curl_slist *slist = NULL;
 	if (cstr_is_empty(content_type) == 0) {
 		char *const ctp = CSTR_CONCAT("Content-Type: ", content_type);

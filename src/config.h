@@ -20,6 +20,7 @@
 #define CFG_LOG_BUFFER_SIZE      (1024 * 1024)
 #define CFG_BUFFER_SIZE          (1024 * 512)
 #define CFG_EVENTS_SIZE          (128)
+#define CFG_HTTP_REQUEST_TIMEOUT (5)
 #define CFG_HTTP_RESPONSE_OK     "HTTP/1.1 200 OK\r\nContent-Length:0\r\n\r\n"
 #define CFG_HTTP_RESPONSE_ERROR  "HTTP/1.1 400 Bad Request\r\nContent-Length:0\r\n\r\n"
 #define CFG_TELEGRAM_API         "https://api.telegram.org/bot"
