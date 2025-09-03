@@ -329,7 +329,7 @@ _cmd_toggle_flags(const CmdParam *cmd, int rflags)
 static void
 _cmd_ban_user(const CmdParam *cmd, int kick_only)
 {
-	const TgMessage *msg = cmd->msg;
+	const TgMessage *const msg = cmd->msg;
 	if (msg->reply_to == NULL) {
 		SEND_ERROR_TEXT(msg, NULL, "%s", "Please reply a message.");
 		return;

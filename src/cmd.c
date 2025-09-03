@@ -20,15 +20,15 @@ static CmdBuiltin _cmd_builtin_list[] = {
 	CMD_BUILTIN_LIST_TEST,
 };
 
-static int  _register_builtin(void);
-static int  _parse_cmd(CmdParam *param, const char req[]);
-static int  _session_acquire(const CmdParam *param);
-static int  _session_release(const CmdParam *param);
-static int  _exec_builtin(const CmdParam *c, int chat_flags);
-static int  _exec_extern(const CmdParam *c, int chat_flags);
-static int  _exec_cmd_message(const CmdParam *c);
-static int  _verify(const CmdParam *c, int chat_flags, int flags);
-static int  _spawn_child_process(const CmdParam *c, int chat_flags, const char file_name[]);
+static int _register_builtin(void);
+static int _parse_cmd(CmdParam *param, const char req[]);
+static int _session_acquire(const CmdParam *param);
+static int _session_release(const CmdParam *param);
+static int _exec_builtin(const CmdParam *c, int chat_flags);
+static int _exec_extern(const CmdParam *c, int chat_flags);
+static int _exec_cmd_message(const CmdParam *c);
+static int _verify(const CmdParam *c, int chat_flags, int flags);
+static int _spawn_child_process(const CmdParam *c, int chat_flags, const char file_name[]);
 
 
 /*
@@ -302,8 +302,8 @@ _exec_cmd_message(const CmdParam *c)
 	if (ret == 0)
 		return 0;
 
-	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s",
-		 c->id_chat, c->id_user, c->msg->id, c->name);
+	LOG_INFO("cmd", "[%" PRIi64 ":%" PRIi64 ":%" PRIi64 "]: %s", c->id_chat, c->id_user,
+		 c->msg->id, c->name);
 
 	send_text_plain(c->msg, NULL, value);
 	return 1;
@@ -314,8 +314,10 @@ static int
 _verify(const CmdParam *c, int chat_flags, int flags)
 {
 	const int is_private = (c->msg->chat.type == TG_CHAT_TYPE_PRIVATE);
-	if ((is_private) && (flags & MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT))
+	if ((is_private) && (flags & MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT)) {
+		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Not allowed in the private chat!");
 		return 0;
+	}
 
 	if ((c->id_callback != NULL) && ((flags & MODEL_CMD_FLAG_CALLBACK) == 0))
 		return 0;

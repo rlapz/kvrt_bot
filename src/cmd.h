@@ -52,7 +52,7 @@ void cmd_admin_kick(const CmdParam *cmd);
 void cmd_general_start(const CmdParam *cmd);
 void cmd_general_help(const CmdParam *cmd);
 void cmd_general_dump(const CmdParam *cmd);
-void cmd_general_dump_admin(const CmdParam *cmd);
+void cmd_general_list_admin(const CmdParam *cmd);
 void cmd_general_schedule_message(const CmdParam *cmd);
 void cmd_general_report(const CmdParam *cmd);
 void cmd_general_deleter(const CmdParam *cmd);
@@ -92,9 +92,9 @@ void cmd_test_edit(const CmdParam *cmd);
 	.callback_fn = cmd_general_dump,					\
 },										\
 {										\
-	.name = "/admin_dump",							\
+	.name = "/admin_list",							\
 	.description = "Dump admin list in raw json",				\
-	.callback_fn = cmd_general_dump_admin,					\
+	.callback_fn = cmd_general_list_admin,					\
 	.flags = MODEL_CMD_FLAG_DISALLOW_PRIVATE_CHAT,				\
 },										\
 {										\

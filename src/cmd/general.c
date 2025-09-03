@@ -87,7 +87,7 @@ cmd_general_dump(const CmdParam *cmd)
 
 
 void
-cmd_general_dump_admin(const CmdParam *cmd)
+cmd_general_list_admin(const CmdParam *cmd)
 {
 	const TgMessage *const msg = cmd->msg;
 	TgChatAdminList list;
