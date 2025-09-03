@@ -198,9 +198,6 @@ cmd_admin_cmd_message(const CmdParam *cmd)
 }
 
 
-/*
- * TODO
- */
 void
 cmd_admin_settings(const CmdParam *cmd)
 {
@@ -227,6 +224,18 @@ cmd_admin_settings(const CmdParam *cmd)
 	}
 
 	SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Invalid parameter!");
+}
+
+
+void
+cmd_admin_reset(const CmdParam *cmd)
+{
+	if (model_chat_reset(cmd->id_chat) < 0) {
+		SEND_ERROR_TEXT(cmd->msg, NULL, "%s", "Failed to reset bot configurations!");
+		return;
+	}
+
+	send_text_plain(cmd->msg, NULL, "%s", "Success");
 }
 
 

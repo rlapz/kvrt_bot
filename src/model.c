@@ -8,6 +8,9 @@
 #include "util.h"
 
 
+#define _CHAT_DEF_FLAGS (MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN)
+
+
 enum {
 	_DATA_TYPE_NULL = 0,
 	_DATA_TYPE_INT,
@@ -107,10 +110,9 @@ out0:
 int
 model_chat_init(int64_t chat_id)
 {
-	const int flags = MODEL_CHAT_FLAG_ALLOW_CMD_EXTRA | MODEL_CHAT_FLAG_ALLOW_CMD_EXTERN;
 	const Data args[] = {
 		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
-		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT, .int_in = _CHAT_DEF_FLAGS },
 		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
 	};
 
@@ -154,6 +156,13 @@ model_chat_get_flags(int64_t chat_id)
 		return -1;
 
 	return flags;
+}
+
+
+int
+model_chat_reset(int64_t chat_id)
+{
+	return model_chat_set_flags(chat_id, _CHAT_DEF_FLAGS);
 }
 
 

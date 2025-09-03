@@ -32,6 +32,7 @@ typedef struct model_chat {
 int model_chat_init(int64_t chat_id);
 int model_chat_set_flags(int64_t chat_id, int flags);
 int model_chat_get_flags(int64_t chat_id);
+int model_chat_reset(int64_t chat_id);
 
 
 /*
