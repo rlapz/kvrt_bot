@@ -38,6 +38,7 @@ char *new_deleter(int64_t user_id);
  */
 int   is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id);
 char *tg_escape(const char src[]);
+int   admin_reload(const TgMessage *msg);
 
 /* ret: 0: success, -1: error: -2: locked */
 int session_acquire(int64_t chat_id, int64_t user_id, const char ctx[]);

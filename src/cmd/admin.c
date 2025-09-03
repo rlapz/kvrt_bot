@@ -50,54 +50,11 @@ static const Setting _setting_list_e[] = {
 void
 cmd_admin_reload(const CmdParam *cmd)
 {
-	const TgMessage *const msg = cmd->msg;
-	const int64_t chat_id = msg->chat.id;
-	TgChatAdminList admin_list;
-
-	TgApiResp resp;
-	const int ret = tg_api_get_admin_list(&admin_list, chat_id, &resp);
-	if (ret < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "tg_api_get_admin_list: %s", resp.error_msg);
+	const int ret = admin_reload(cmd->msg);
+	if (ret < 0)
 		return;
-	}
 
-	int is_priv = 0;
-	const int64_t from_id = msg->from->id;
-	ModelAdmin db_admin_list[TG_CHAT_ADMIN_LIST_SIZE];
-	const int db_admin_list_len = (int)admin_list.len;
-	for (int i = 0; (i < db_admin_list_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
-		const TgChatAdmin *const adm = &admin_list.list[i];
-		if (from_id == adm->user->id) {
-			if (adm->privileges == 0)
-				break;
-
-			is_priv = 1;
-		}
-
-		db_admin_list[i] = (ModelAdmin) {
-			.chat_id = chat_id,
-			.user_id = adm->user->id,
-			.first_name_in = adm->user->first_name,
-			.is_bot = adm->user->is_bot,
-			.is_anonymous = adm->is_anonymous,
-			.privileges = adm->privileges,
-		};
-	}
-
-	if ((from_id != cmd->id_owner) && (is_priv == 0)) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "Permission denied!");
-		goto out0;
-	}
-
-	if (model_admin_reload(db_admin_list, db_admin_list_len) < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "Failed to reload admin list DB!");
-		goto out0;
-	}
-
-	send_text_plain(msg, NULL, "Done! %d admin(s) loaded", db_admin_list_len);
-
-out0:
-	tg_chat_admin_list_free(&admin_list);
+	send_text_plain(cmd->msg, NULL, "Done! %d admin(s) loaded", ret);
 }
 
 

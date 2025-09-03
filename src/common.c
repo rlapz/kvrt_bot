@@ -296,7 +296,7 @@ is_admin(int64_t user_id, int64_t chat_id, int64_t owner_id)
 
 	const int privs = model_admin_get_privileges(chat_id, user_id);
 	if (privs < 0) {
-		LOG_ERRN("common", "%s", "is_admin: Failed to get admin list");
+		LOG_ERRN("common", "%s", "model_admin_get_privileges: Failed to get admin list");
 		return -1;
 	}
 
@@ -308,6 +308,46 @@ char *
 tg_escape(const char src[])
 {
 	return cstr_escape("_*[]()~`>#+-|{}.!", '\\', src);
+}
+
+
+int
+admin_reload(const TgMessage *msg)
+{
+	TgChatAdminList admin_list;
+	const int64_t chat_id = msg->chat.id;
+
+	TgApiResp resp;
+	if (tg_api_get_admin_list(&admin_list, chat_id, &resp) < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "tg_api_get_admin_list: %s", resp.error_msg);
+		return -1;
+	}
+
+	ModelAdmin db_admin_list[TG_CHAT_ADMIN_LIST_SIZE];
+	const int db_admin_list_len = (int)admin_list.len;
+	for (int i = 0; (i < db_admin_list_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
+		const TgChatAdmin *const adm = &admin_list.list[i];
+		db_admin_list[i] = (ModelAdmin) {
+			.chat_id = chat_id,
+			.user_id = adm->user->id,
+			.first_name_in = adm->user->first_name,
+			.is_bot = adm->user->is_bot,
+			.is_anonymous = adm->is_anonymous,
+			.privileges = adm->privileges,
+		};
+	}
+
+	int ret = -1;
+	if (model_admin_reload(db_admin_list, db_admin_list_len) < 0) {
+		SEND_ERROR_TEXT(msg, NULL, "model_admin_reload: %s", "Failed to reload admin list DB!");
+		goto out0;
+	}
+
+	ret = (int)admin_list.len;
+
+out0:
+	tg_chat_admin_list_free(&admin_list);
+	return ret;
 }
 
 

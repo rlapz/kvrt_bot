@@ -14,7 +14,6 @@ static void _handle_callback(const Update *u, const TgCallbackQuery *cb);
 static void _handle_message_command(const Update *u, const TgMessage *msg);
 static void _handle_member_new(const Update *u, const TgMessage *msg);
 static void _handle_member_leave(const Update *u, const TgMessage *msg);
-static void _admin_load(const TgMessage *msg);
 static void _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]);
 
 
@@ -137,7 +136,7 @@ _handle_member_new(const Update *u, const TgMessage *msg)
 
 	const TgUser *const user = &msg->new_member;
 	if (user->id == u->id_bot) {
-		_admin_load(msg);
+		admin_reload(msg);
 		model_chat_init(msg->chat.id);
 		return;
 	}
@@ -153,38 +152,6 @@ _handle_member_leave(const Update *u, const TgMessage *msg)
 
 	_handle_member_state(msg, &msg->left_chat_member, "See you later");
 	(void)u;
-}
-
-
-static void
-_admin_load(const TgMessage *msg)
-{
-	TgChatAdminList admin_list;
-	const int64_t chat_id = msg->chat.id;
-
-	TgApiResp resp;
-	const int ret = tg_api_get_admin_list(&admin_list, chat_id, &resp);
-	if (ret < 0) {
-		SEND_ERROR_TEXT(msg, NULL, "%s", "tg_api_get_admin_list: %s", resp.error_msg);
-		return;
-	}
-
-	ModelAdmin db_admin_list[TG_CHAT_ADMIN_LIST_SIZE];
-	const int db_admin_list_len = (int)admin_list.len;
-	for (int i = 0; (i < db_admin_list_len) && (i < TG_CHAT_ADMIN_LIST_SIZE); i++) {
-		const TgChatAdmin *const adm = &admin_list.list[i];
-		db_admin_list[i] = (ModelAdmin) {
-			.chat_id = chat_id,
-			.user_id = adm->user->id,
-			.first_name_in = adm->user->first_name,
-			.is_bot = adm->user->is_bot,
-			.is_anonymous = adm->is_anonymous,
-			.privileges = adm->privileges,
-		};
-	}
-
-	model_admin_reload(db_admin_list, db_admin_list_len);
-	tg_chat_admin_list_free(&admin_list);
 }
 
 
