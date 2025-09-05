@@ -1328,6 +1328,16 @@ epoch_to_str(char buffer[], size_t size, const char fmt[], time_t time)
 }
 
 
+const char *
+epoch_to_str_default(char buffer[], size_t size, time_t time)
+{
+	if (size < 20)
+		return NULL;
+
+	return epoch_to_str(buffer, size, "%Y-%m-%d %H:%M:%S", time);
+}
+
+
 /*
  * Http
  */
@@ -1529,7 +1539,7 @@ log_writer(int type, const char ctx[], const char fn_name[], int errnum, const c
 
 	char buffer[128];
 	const time_t raw = time(NULL);
-	const char *const time_str = epoch_to_str(buffer, LEN(buffer), "%Y-%m-%d %H:%M:%S", raw);
+	const char *const time_str = epoch_to_str_default(buffer, LEN(buffer), raw);
 
 	mtx_lock(&_log_mutex);
 	{
