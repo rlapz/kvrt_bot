@@ -766,13 +766,9 @@ _server_handle_client(EvCtx *ctx)
 	if (_client_handle_state(c))
 		return;
 
-	if (c->body == NULL)
-		goto out0;
-
-	if (thrd_pool_add_job(_server_handle_update, s, c->body) == 0)
+	if ((c->body != NULL) && (thrd_pool_add_job(_server_handle_update, s, c->body) == 0))
 		c->body = NULL;
 
-out0:
 	json_object_put(c->body);
 	_server_del_client(s, c);
 }
