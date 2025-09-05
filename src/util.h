@@ -169,7 +169,7 @@ bool_to_cstr(int cond)
 	return (cond != 0)? "true" : "false";
 }
 
-const char *epoch_to_str(char buffer[], size_t size, time_t time);
+const char *epoch_to_str(char buffer[], size_t size, const char fmt[], time_t time);
 
 
 /*

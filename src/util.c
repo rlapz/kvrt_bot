@@ -1318,23 +1318,12 @@ is_valid_index(int val, size_t max_items)
 
 
 const char *
-epoch_to_str(char buffer[], size_t size, time_t time)
+epoch_to_str(char buffer[], size_t size, const char fmt[], time_t time)
 {
 	const struct tm *const tm = localtime(&time);
-	if (tm == NULL)
-		return NULL;
+	const size_t rlen = strftime(buffer, size, fmt, tm);
 
-	const char *const res = asctime(tm);
-	if (res == NULL)
-		return NULL;
-
-	size_t res_len = strlen(res);
-
-	// skip '\n'
-	if (res[res_len - 1] == '\n')
-		res_len--;
-
-	cstr_copy_n2(buffer, size, res, res_len);
+	buffer[rlen] = '\0';
 	return buffer;
 }
 
@@ -1538,20 +1527,14 @@ log_writer(int type, const char ctx[], const char fn_name[], int errnum, const c
 	FILE *const log_file = _log_get_file(type);
 	const char *const log_prefix = _log_prefix[type];
 
-	time_t raw;
-	char timestamp[128];
-	if (time(&raw) < 0) {
-		// Error getting current time
-		assert(0);
-	}
-
-	struct tm *const tm = localtime(&raw);
-	strftime(timestamp, LEN(timestamp), "%Y-%m-%d %H:%M:%S", tm);
+	char buffer[128];
+	const time_t raw = time(NULL);
+	const char *const time_str = epoch_to_str(buffer, LEN(buffer), "%Y-%m-%d %H:%M:%S", raw);
 
 	mtx_lock(&_log_mutex);
 	{
 		ctx = (ctx == NULL)? "(default)" : ctx;
-		fprintf(log_file, "%s: [%s]: %s: %s: ", log_prefix, timestamp, ctx, fn_name);
+		fprintf(log_file, "%s: [%s]: %s: %s: ", log_prefix, time_str, ctx, fn_name);
 
 		va_list args;
 		va_start(args, fmt);
