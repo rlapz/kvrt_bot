@@ -89,7 +89,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	}
 
 	char buff[256];
-	const char *const chc_str = epoch_to_str(buff, LEN(buff), ma_list[0].created_at);
+	const char *const chc_str = epoch_to_str_default(buff, LEN(buff), ma_list[0].created_at);
 	pager.title = CSTR_CONCAT("Anime Schedule: ", "\\(", filter, "\\)\nCache: ", chc_str, "\n");
 	pager.body = body;
 
