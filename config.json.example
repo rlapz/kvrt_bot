@@ -13,7 +13,7 @@
         "bot_username": "@eeeeeeeeeee"
     },
     "sys": {
-        "import_sys_envp": "false",
+        "import_sys_envp": false,
         "worker_size": 8,
         "db_pool_conn_size": 4,
         "db_file": "./db.sqlite"

@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <sys/sysinfo.h>
+
 #include "config.h"
 
 #include "util.h"
@@ -313,6 +315,14 @@ _parse_json_sys(Config *c, json_object *root_obj)
 
 	if (json_object_object_get_ex(sys_obj, "worker_size", &tmp_obj) != 0)
 		worker_size = (unsigned)json_object_get_uint64(tmp_obj);
+
+	if (worker_size <= 1) {
+		int nprocs = get_nprocs();
+		if (nprocs <= 1)
+			nprocs = CFG_DEF_SYS_WORKER_SIZE;
+
+		worker_size = (uint16_t)nprocs;
+	}
 
 	if (json_object_object_get_ex(sys_obj, "db_file", &tmp_obj) != 0) {
 		const char *const _db_file = json_object_get_string(tmp_obj);
