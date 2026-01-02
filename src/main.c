@@ -471,70 +471,93 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 	if (config->import_sys_envp) {
 		char **envp_ptr = envp;
 		while (*envp_ptr != NULL) {
-			if (chld_add_env(*envp_ptr) < 0)
+			if (chld_add_env(*envp_ptr) < 0) {
+				LOG_ERRP("main", "%s: '%s'", "chld_add_env", *envp_ptr);
 				goto err0;
+			}
 
 			envp_ptr++;
 		}
 	}
 
 	const char *const root_dir = realpath(config->cmd_extern_root_dir, buffer);
-	if (root_dir == NULL)
+	if (root_dir == NULL) {
+		LOG_ERRP("main", "%s: '%s'", "realpath", config->cmd_extern_root_dir);
 		goto err0;
+	}
 
-	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0)
+	if (chld_add_env_kv(CFG_ENV_ROOT_DIR, root_dir) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_ROOT_DIR);
 		goto err0;
+	}
 
 	const char *const api_exe = realpath(config->cmd_extern_api, buffer);
 	if (api_exe == NULL) {
-		LOG_ERRP("main", "%s", "'%s'", config->cmd_extern_api);
+		LOG_ERRP("main", "%s: '%s'", "realpath", config->cmd_extern_api);
 		goto err0;
 	}
 
-	if (chld_add_env_kv(CFG_ENV_API, api_exe) < 0)
+	if (chld_add_env_kv(CFG_ENV_API, api_exe) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_API);
 		goto err0;
+	}
 
 	const char *const cfg_file = realpath(s->config_file, buffer);
 	if (cfg_file == NULL) {
-		LOG_ERRP("main", "%s", "'%s'", s->config_file);
+		LOG_ERRP("main", "%s: '%s'", "realpath", s->config_file);
 		goto err0;
 	}
 
-	if (chld_add_env_kv(CFG_ENV_CONFIG_FILE, cfg_file) < 0)
+	if (chld_add_env_kv(CFG_ENV_CONFIG_FILE, cfg_file) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_CONFIG_FILE);
 		goto err0;
+	}
 
 	const char *const db_file = realpath(config->db_path, buffer);
 	if (db_file == NULL) {
-		LOG_ERRP("main", "%s", "'%s'", config->db_path);
+		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_path);
 		goto err0;
 	}
 
-	if (chld_add_env_kv(CFG_ENV_DB_FILE, db_file) < 0)
+	if (chld_add_env_kv(CFG_ENV_DB_FILE, db_file) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_DB_FILE);
 		goto err0;
+	}
 
-	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0)
+	if (chld_add_env_kv(CFG_ENV_TELEGRAM_API, api) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_TELEGRAM_API);
 		goto err0;
+	}
 
-	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->owner_id) < 0)
+	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->owner_id) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_TELEGRAM_API);
 		goto err0;
+	}
 
-	if (chld_add_env_kv(CFG_ENV_OWNER_ID, buffer) < 0)
+	if (chld_add_env_kv(CFG_ENV_OWNER_ID, buffer) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", buffer);
 		goto err0;
+	}
 
-	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->bot_id) < 0)
+	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->bot_id) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "snprintf", CFG_ENV_OWNER_ID);
 		goto err0;
+	}
 
-	if (chld_add_env_kv(CFG_ENV_BOT_ID, buffer) < 0)
+	if (chld_add_env_kv(CFG_ENV_BOT_ID, buffer) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_BOT_ID);
 		goto err0;
+	}
 
-	if (chld_add_env_kv(CFG_ENV_BOT_USERNAME, config->bot_username) < 0)
+	if (chld_add_env_kv(CFG_ENV_BOT_USERNAME, config->bot_username) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_BOT_USERNAME);
 		goto err0;
+	}
 
 	return 0;
 
 err0:
 	chld_deinit();
-	LOG_ERRN("main", "%s", "chld_add_env*: failed");
 	return -1;
 }
 
