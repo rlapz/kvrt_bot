@@ -38,6 +38,21 @@ typedef struct data {
 	};
 } Data;
 
+static int _sqlite_step_one(sqlite3_stmt *stmt);
+static int _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt);
+static int _sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out);
+
+
+/*
+ * InitQueries
+ */
+typedef struct init_query {
+	int         db_index;
+	const char *table_name;
+	const char *(*func)(Str *);
+} TableQuery;
+
+static int         _init_tables(const TableQuery queries[], int len);
 static const char *_enable_wal_mode(Str *str);
 static const char *_chat_query(Str *str);
 static const char *_admin_query(Str *str);
@@ -47,10 +62,6 @@ static const char *_cmd_message_query(Str *str);
 static const char *_cmd_session_query(Str *str);
 static const char *_sched_message_query(Str *str);
 static const char *_anime_sched_query(Str *str);
-static int         _sqlite_step_one(sqlite3_stmt *stmt);
-static int         _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt);
-static int         _sqlite_exec_one(const char query[], const Data args[], int args_len,
-				    Data *out);
 
 
 /*
@@ -59,48 +70,21 @@ static int         _sqlite_exec_one(const char query[], const Data args[], int a
 int
 model_init(void)
 {
-	Str str;
-	int ret = str_init_alloc(&str, 0, NULL);
-	if (ret < 0) {
-		LOG_ERR(ret, "model", "%s", "str_init_alloc");
-		return -1;
-	}
+	const TableQuery queries[] = {
+		{ MODEL_DB_INDEX_MAIN, "WAL",         _enable_wal_mode },
+		{ MODEL_DB_INDEX_MAIN, "Chat",        _chat_query },
+		{ MODEL_DB_INDEX_MAIN, "Admin",       _admin_query },
+		{ MODEL_DB_INDEX_MAIN, "Cmd_Builtin", _cmd_builtin_query },
+		{ MODEL_DB_INDEX_MAIN, "Cmd_Extern",  _cmd_extern_query },
+		{ MODEL_DB_INDEX_MAIN, "Cmd_Message", _cmd_message_query },
+		{ MODEL_DB_INDEX_MAIN, "Cmd_Session", _cmd_session_query },
+		{ MODEL_DB_INDEX_MAIN, "Anime_Sched", _anime_sched_query },
 
-	char *err_msg;
-	struct {
-		const char *table_name;
-		const char *(*func)(Str *);
-	} params[] = {
-		{ "WAL", _enable_wal_mode },
-		{ "Chat", _chat_query },
-		{ "Admin", _admin_query },
-		{ "Cmd_Builtin", _cmd_builtin_query },
-		{ "Cmd_Extern", _cmd_extern_query },
-		{ "Cmd_Message", _cmd_message_query },
-		{ "Cmd_Session", _cmd_session_query },
-		{ "Sched_Message", _sched_message_query },
-		{ "Anime_Sched", _anime_sched_query },
+		{ MODEL_DB_INDEX_SCHED, "WAL",           _enable_wal_mode },
+		{ MODEL_DB_INDEX_SCHED, "Sched_Message", _sched_message_query },
 	};
 
-	DbConn *const conn = sqlite_pool_get();
-	for (size_t i = 0; i < LEN(params); i++) {
-		const char *const query = params[i].func(&str);
-		ret = sqlite3_exec(conn->sql, query, NULL, NULL, &err_msg);
-		if (ret != SQLITE_OK) {
-			const char *const table_name = params[i].table_name;
-			LOG_ERRN("model", "sqlite3_exec: %s: %s", table_name, err_msg);
-			ret = -ret;
-			goto out0;
-		}
-	}
-
-	ret = 0;
-
-out0:
-	free(err_msg);
-	sqlite_pool_put(conn);
-	str_deinit(&str);
-	return ret;
+	return _init_tables(queries, (int)LEN(queries));
 }
 
 
@@ -246,7 +230,7 @@ model_admin_reload(const ModelAdmin list[], int len)
 {
 	int ret = -1;
 	int is_ok = 0;
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -303,7 +287,7 @@ model_admin_get_list(ModelAdmin list[], int len, int64_t chat_id)
 		"LIMIT ?;";
 
 	sqlite3_stmt *stmt;
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -384,7 +368,7 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 
 
 	sqlite3_stmt *stmt;
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -476,7 +460,7 @@ model_cmd_builtin_clear(void)
 	int ret = -1;
 	sqlite3_stmt *stmt;
 
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -557,7 +541,7 @@ model_cmd_extern_get(ModelCmdExtern *c, const char name[])
 	int ret = -1;
 	sqlite3_stmt *stmt;
 
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -616,7 +600,7 @@ model_cmd_message_set(const ModelCmdMessage *c)
 	int ret = -1;
 	sqlite3_stmt *stmt;
 
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -724,7 +708,7 @@ model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 	int ret = -1;
 	sqlite3_stmt *stmt;
 
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_SCHED);
 	if (conn == NULL)
 		return -1;
 
@@ -800,7 +784,7 @@ model_sched_message_delete(int32_t list[], int len)
 	if (str_append_n(&str, ");", 2) == NULL)
 		goto out0;
 
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_SCHED);
 	if (conn == NULL)
 		goto out0;
 
@@ -1001,7 +985,7 @@ model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 
 	str_pop(&str, 2);
 
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		goto out0;
 
@@ -1073,7 +1057,7 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 		");";
 
 	sqlite3_stmt *stmt;
-	DbConn *const conn = sqlite_pool_get();
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
 	if (conn == NULL)
 		return -1;
 
@@ -1155,6 +1139,163 @@ model_anime_sched_get_creation_time(const char filter[], time_t *cre_dt)
 /*
  * Private
  */
+static int
+_sqlite_step_one(sqlite3_stmt *stmt)
+{
+	const int ret = sqlite3_step(stmt);
+	if (ret == SQLITE_DONE)
+		return 0;
+
+	if (ret != SQLITE_ROW) {
+		LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(ret));
+		return -1;
+	}
+
+	return 1;
+}
+
+
+static int
+_sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
+{
+	while (ev_is_alive()) {
+		const int ret = sqlite3_step(stmt);
+		switch (ret) {
+		case SQLITE_BUSY:
+			LOG_INFO("model", "sqlite3_step: %s", sqlite3_errstr(ret));
+			sqlite3_busy_timeout(sql, CFG_DB_WAIT);
+			continue;
+		case SQLITE_DONE: return 0;
+		case SQLITE_ROW: return 1;
+		}
+
+		LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(ret));
+		break;
+	}
+
+	return -1;
+}
+
+
+static int
+_sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out)
+{
+	int ret = -1;
+	sqlite3_stmt *stmt;
+
+	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
+	if (conn == NULL)
+		return -1;
+
+	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+		goto out0;
+	}
+
+	for (int i = 0, j = 1; i < args_len; i++, j++) {
+		const Data *const a = &args[i];
+		switch (a->type) {
+		case _DATA_TYPE_INT:
+			sqlite3_bind_int(stmt, j, a->int_in);
+			break;
+		case _DATA_TYPE_INT64:
+			sqlite3_bind_int64(stmt, j, a->int64_in);
+			break;
+		case _DATA_TYPE_TEXT:
+			sqlite3_bind_text(stmt, j, a->text.value_in, a->text.len, NULL);
+			break;
+		case _DATA_TYPE_NULL:
+			sqlite3_bind_null(stmt, j);
+			break;
+		default:
+			LOG_ERRN("model", "arg: invalid type: [%d]:%d", i, a->type);
+			goto out1;
+		}
+	}
+
+	ret = _sqlite_step_one(stmt);
+	if (ret < 0)
+		goto out1;
+
+	if (out == NULL) {
+		ret = sqlite3_changes(conn->sql);
+		goto out1;
+	}
+
+	if (ret == 0)
+		goto out1;
+
+	const int type = sqlite3_column_type(stmt, 0);
+	if (type == SQLITE_NULL) {
+		out->type = _DATA_TYPE_NULL;
+		goto out1;
+	}
+
+	switch (out->type) {
+	case _DATA_TYPE_INT:
+		*out->int_out = sqlite3_column_int(stmt, 0);
+		break;
+	case _DATA_TYPE_INT64:
+		*out->int64_out = sqlite3_column_int64(stmt, 0);
+		break;
+	case _DATA_TYPE_TEXT:
+		out->text.len = cstr_copy_n(out->text.value_out, out->text.size,
+					    (const char *)sqlite3_column_text(stmt, 0));
+		break;
+	default:
+		LOG_ERRN("model", "out: invalid type: %d", out->type);
+		ret = -1;
+		break;
+	}
+
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return ret;
+}
+
+
+/*
+ * InitQueries
+ */
+static int
+_init_tables(const TableQuery queries[], int len)
+{
+	Str str;
+	int ret = str_init_alloc(&str, 0, NULL);
+	if (ret < 0) {
+		LOG_ERR(ret, "model", "%s", "str_init_alloc");
+		return -1;
+	}
+
+	char *err_msg = NULL;
+
+	for (int i = 0; i < len; i++) {
+		const TableQuery *const q = &queries[i];
+		DbConn *const conn = sqlite_pool_get(q->db_index);
+		const char *const query = q->func(&str);
+		if (sqlite3_exec(conn->sql, query, NULL, NULL, &err_msg) != SQLITE_OK) {
+			const char *const table_name = queries[i].table_name;
+			LOG_ERRN("model", "sqlite3_exec[%d]: %s: %s", q->db_index,
+				 table_name, err_msg);
+
+			ret = -1;
+
+			// breaks the loop
+			i = len;
+		}
+
+		sqlite_pool_put(conn);
+	}
+
+	free(err_msg);
+	str_deinit(&str);
+	return ret;
+}
+
+
 static const char *
 _enable_wal_mode(Str *str)
 {
@@ -1314,122 +1455,4 @@ _anime_sched_query(Str *str)
 		LEN(ma.broadcast) -1, LEN(ma.duration), LEN(ma.rating) -1, LEN(ma.genres) -1,
 		LEN(ma.themes) -1, LEN(ma.demographics) -1
 	);
-}
-
-
-static int
-_sqlite_step_one(sqlite3_stmt *stmt)
-{
-	const int ret = sqlite3_step(stmt);
-	if (ret == SQLITE_DONE)
-		return 0;
-
-	if (ret != SQLITE_ROW) {
-		LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(ret));
-		return -1;
-	}
-
-	return 1;
-}
-
-
-static int
-_sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
-{
-	while (ev_is_alive()) {
-		const int ret = sqlite3_step(stmt);
-		switch (ret) {
-		case SQLITE_BUSY:
-			LOG_INFO("model", "sqlite3_step: %s", sqlite3_errstr(ret));
-			sqlite3_busy_timeout(sql, CFG_DB_WAIT);
-			continue;
-		case SQLITE_DONE: return 0;
-		case SQLITE_ROW: return 1;
-		}
-
-		LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(ret));
-		break;
-	}
-
-	return -1;
-}
-
-
-static int
-_sqlite_exec_one(const char query[], const Data args[], int args_len, Data *out)
-{
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get();
-	if (conn == NULL)
-		return -1;
-
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
-		goto out0;
-	}
-
-	for (int i = 0, j = 1; i < args_len; i++, j++) {
-		const Data *const a = &args[i];
-		switch (a->type) {
-		case _DATA_TYPE_INT:
-			sqlite3_bind_int(stmt, j, a->int_in);
-			break;
-		case _DATA_TYPE_INT64:
-			sqlite3_bind_int64(stmt, j, a->int64_in);
-			break;
-		case _DATA_TYPE_TEXT:
-			sqlite3_bind_text(stmt, j, a->text.value_in, a->text.len, NULL);
-			break;
-		case _DATA_TYPE_NULL:
-			sqlite3_bind_null(stmt, j);
-			break;
-		default:
-			LOG_ERRN("model", "arg: invalid type: [%d]:%d", i, a->type);
-			goto out1;
-		}
-	}
-
-	ret = _sqlite_step_one(stmt);
-	if (ret < 0)
-		goto out1;
-
-	if (out == NULL) {
-		ret = sqlite3_changes(conn->sql);
-		goto out1;
-	}
-
-	if (ret == 0)
-		goto out1;
-
-	const int type = sqlite3_column_type(stmt, 0);
-	if (type == SQLITE_NULL) {
-		out->type = _DATA_TYPE_NULL;
-		goto out1;
-	}
-
-	switch (out->type) {
-	case _DATA_TYPE_INT:
-		*out->int_out = sqlite3_column_int(stmt, 0);
-		break;
-	case _DATA_TYPE_INT64:
-		*out->int64_out = sqlite3_column_int64(stmt, 0);
-		break;
-	case _DATA_TYPE_TEXT:
-		out->text.len = cstr_copy_n(out->text.value_out, out->text.size,
-					    (const char *)sqlite3_column_text(stmt, 0));
-		break;
-	default:
-		LOG_ERRN("model", "out: invalid type: %d", out->type);
-		ret = -1;
-		break;
-	}
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
 }

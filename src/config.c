@@ -62,27 +62,29 @@ config_dump(const Config *c)
 	puts("---[CONFIG]---");
 
 #ifdef DEBUG
-	printf("Api Token            : %s\n", c->api_token);
-	printf("Api Secret           : %s\n", c->api_secret);
+	printf("Api Token                : %s\n", c->api_token);
+	printf("Api Secret               : %s\n", c->api_secret);
 #else
-	printf("Api Token            : *****************\n");
-	printf("Api Secret           : *****************\n");
+	printf("Api Token                : *****************\n");
+	printf("Api Secret               : *****************\n");
 #endif
 
-	printf("Hook URL             : %s%s\n", c->hook_url, c->hook_path);
+	printf("Hook URL                 : %s%s\n", c->hook_url, c->hook_path);
 
-	printf("Listen Host          : %s\n", c->listen_host);
-	printf("Listen Port          : %u\n", c->listen_port);
-	printf("Worker Size          : %u\n", c->worker_size);
-	printf("Child Process Max    : %u\n", CFG_CHLD_ITEMS_SIZE);
-	printf("DB path              : %s\n", c->db_path);
-	printf("DB pool connections  : %d\n", c->db_pool_conn_size);
-	printf("Owner ID             : %" PRIi64 "\n", c->owner_id);
-	printf("Bot ID               : %" PRIi64 "\n", c->bot_id);
-	printf("Bot username         : %s\n", c->bot_username);
-	printf("External cmd api     : %s\n", c->cmd_extern_api);
-	printf("External cmd root dir: %s\n", c->cmd_extern_root_dir);
-	printf("External cmd log file: %s\n", c->cmd_extern_log_file);
+	printf("Listen Host              : %s\n", c->listen_host);
+	printf("Listen Port              : %u\n", c->listen_port);
+	printf("Worker Size              : %u\n", c->worker_size);
+	printf("Child Process Max        : %u\n", CFG_CHLD_ITEMS_SIZE);
+	printf("DB main path             : %s\n", c->db_main_path);
+	printf("DB main pool connections : %d\n", c->db_main_pool_conn_size);
+	printf("DB sched path            : %s\n", c->db_sched_path);
+	printf("DB sched pool connections: %d\n", c->db_sched_pool_conn_size);
+	printf("Owner ID                 : %" PRIi64 "\n", c->owner_id);
+	printf("Bot ID                   : %" PRIi64 "\n", c->bot_id);
+	printf("Bot username             : %s\n", c->bot_username);
+	printf("External cmd api         : %s\n", c->cmd_extern_api);
+	printf("External cmd root dir    : %s\n", c->cmd_extern_root_dir);
+	printf("External cmd log file    : %s\n", c->cmd_extern_log_file);
 	puts("---[CONFIG]---");
 }
 
@@ -300,8 +302,10 @@ _parse_json_sys(Config *c, json_object *root_obj)
 {
 	uint16_t import_envp = CFG_DEF_SYS_IMPORT_SYS_ENVP;
 	uint16_t worker_size = CFG_DEF_SYS_WORKER_SIZE;
-	const char *db_file = CFG_DEF_SYS_DB_PATH;
-	uint16_t db_pool_conn_size = CFG_DEF_DB_CONN_POOL_SIZE;
+	const char *db_main_file = CFG_DEF_SYS_DB_MAIN_PATH;
+	uint16_t db_main_pool_conn_size = CFG_DEF_DB_MAIN_CONN_POOL_SIZE;
+	const char *db_sched_file = CFG_DEF_SYS_DB_SCHED_PATH;
+	uint16_t db_sched_pool_conn_size = CFG_DEF_DB_SCHED_CONN_POOL_SIZE;
 
 	json_object *sys_obj;
 	if (json_object_object_get_ex(root_obj, "sys", &sys_obj) == 0)
@@ -324,23 +328,37 @@ _parse_json_sys(Config *c, json_object *root_obj)
 		worker_size = (uint16_t)nprocs;
 	}
 
-	if (json_object_object_get_ex(sys_obj, "db_file", &tmp_obj) != 0) {
+	if (json_object_object_get_ex(sys_obj, "db_main_file", &tmp_obj) != 0) {
 		const char *const _db_file = json_object_get_string(tmp_obj);
 		if (cstr_is_empty(_db_file) == 0)
-			db_file = _db_file;
+			db_main_file = _db_file;
 	}
 
-	if (json_object_object_get_ex(sys_obj, "db_pool_conn_size", &tmp_obj) != 0) {
+	if (json_object_object_get_ex(sys_obj, "db_main_pool_conn_size", &tmp_obj) != 0) {
 		const int sz = json_object_get_int(tmp_obj);
 		if (sz > 0)
-			db_pool_conn_size = sz;
+			db_main_pool_conn_size = sz;
+	}
+
+	if (json_object_object_get_ex(sys_obj, "db_sched_file", &tmp_obj) != 0) {
+		const char *const _db_file = json_object_get_string(tmp_obj);
+		if (cstr_is_empty(_db_file) == 0)
+			db_sched_file = _db_file;
+	}
+
+	if (json_object_object_get_ex(sys_obj, "db_sched_pool_conn_size", &tmp_obj) != 0) {
+		const int sz = json_object_get_int(tmp_obj);
+		if (sz > 0)
+			db_sched_pool_conn_size = sz;
 	}
 
 out0:
 	c->import_sys_envp = import_envp;
 	c->worker_size = worker_size;
-	c->db_pool_conn_size = db_pool_conn_size;
-	cstr_copy_n(c->db_path, LEN(c->db_path), db_file);
+	c->db_main_pool_conn_size = db_main_pool_conn_size;
+	c->db_sched_pool_conn_size = db_sched_pool_conn_size;
+	cstr_copy_n(c->db_main_path, LEN(c->db_main_path), db_main_file);
+	cstr_copy_n(c->db_sched_path, LEN(c->db_sched_path), db_sched_file);
 }
 
 

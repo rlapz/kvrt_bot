@@ -7,15 +7,17 @@
 
 
 /* default */
-#define CFG_DEF_LISTEN_HOST         "127.0.0.1"
-#define CFG_DEF_LISTEN_PORT         (22224)
-#define CFG_DEF_SYS_IMPORT_SYS_ENVP (0)
-#define CFG_DEF_SYS_WORKER_SIZE     4
-#define CFG_DEF_SYS_DB_PATH         "./db.sqlite"
-#define CFG_DEF_CMD_EXTERN_API      "./extern/api"
-#define CFG_DEF_CMD_EXTERN_ROOT_DIR "./extern"
-#define CFG_DEF_CMD_EXTERN_LOG_FILE "./extern/log.txt"
-#define CFG_DEF_DB_CONN_POOL_SIZE   (4)
+#define CFG_DEF_LISTEN_HOST             "127.0.0.1"
+#define CFG_DEF_LISTEN_PORT             (22224)
+#define CFG_DEF_SYS_IMPORT_SYS_ENVP     (0)
+#define CFG_DEF_SYS_WORKER_SIZE         4
+#define CFG_DEF_SYS_DB_MAIN_PATH        "./db_main.sqlite"
+#define CFG_DEF_SYS_DB_SCHED_PATH       "./db_sched.sqlite"
+#define CFG_DEF_CMD_EXTERN_API          "./extern/api"
+#define CFG_DEF_CMD_EXTERN_ROOT_DIR     "./extern"
+#define CFG_DEF_CMD_EXTERN_LOG_FILE     "./extern/log.txt"
+#define CFG_DEF_DB_MAIN_CONN_POOL_SIZE  (4)
+#define CFG_DEF_DB_SCHED_CONN_POOL_SIZE (2)
 
 #define CFG_LOG_BUFFER_SIZE      (1024 * 1024)
 #define CFG_BUFFER_SIZE          (1024 * 512)
@@ -68,8 +70,10 @@ typedef struct config {
 	uint16_t listen_port;
 	uint16_t import_sys_envp;
 	uint16_t worker_size;
-	uint16_t db_pool_conn_size;
-	char     db_path[CFG_DB_FILE_SIZE];
+	uint16_t db_main_pool_conn_size;
+	char     db_main_path[CFG_DB_FILE_SIZE];
+	uint16_t db_sched_pool_conn_size;
+	char     db_sched_path[CFG_DB_FILE_SIZE];
 	char     cmd_extern_api[CFG_CMD_EXTERN_API_SIZE];
 	char     cmd_extern_root_dir[CFG_CMD_EXTERN_ROOT_DIR];
 	char     cmd_extern_log_file[CFG_CMD_EXTERN_LOG_FILE_SIZE];

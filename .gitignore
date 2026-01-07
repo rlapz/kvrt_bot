@@ -58,6 +58,10 @@ db.sql
 db.sqlite
 db.sqlite-shm
 db.sqlite-wal
+db_sched.sql
+db_sched.sqlite
+db_sched.sqlite-shm
+db_sched.sqlite-wal
 config.json
 config.json.bin
 
