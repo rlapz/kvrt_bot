@@ -513,9 +513,9 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		goto err0;
 	}
 
-	const char *const db_file = realpath(config->db_path, buffer);
+	const char *const db_file = realpath(config->db_main_path, buffer);
 	if (db_file == NULL) {
-		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_path);
+		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_main_path);
 		goto err0;
 	}
 
@@ -570,12 +570,22 @@ _server_run(Server *s, char *envp[])
 	EvListener listener;
 	Sched sched;
 	const Config *const config = &s->config;
+	const SqlitePoolParam db_params[] = {
+		[MODEL_DB_INDEX_MAIN] = {
+			.path = config->db_main_path,
+			.size = config->db_main_pool_conn_size,
+		},
+		[MODEL_DB_INDEX_SCHED] = {
+			.path = config->db_sched_path,
+			.size = config->db_sched_pool_conn_size,
+		},
+	};
 
 
 	config_dump(config);
 	tg_api_init(config->api_url);
 
-	int ret = sqlite_pool_init(config->db_path, config->db_pool_conn_size);
+	int ret = sqlite_pool_init(db_params, (int)LEN(db_params));
 	if (ret < 0)
 		return ret;
 

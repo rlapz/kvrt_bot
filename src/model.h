@@ -7,6 +7,14 @@
 #include "util.h"
 
 
+enum {
+	MODEL_DB_INDEX_MAIN = 0,
+	MODEL_DB_INDEX_SCHED,
+
+	_MODEL_DB_INDEX_SIZE,
+};
+
+
 int model_init(void);
 
 
