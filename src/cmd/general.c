@@ -5,6 +5,7 @@
 #include "../cmd.h"
 #include "../common.h"
 #include "../model.h"
+#include "../sched.h"
 #include "../util.h"
 
 
@@ -199,16 +200,17 @@ cmd_general_schedule_message(const CmdParam *cmd)
 		return;
 	}
 
-	ModelSchedMessage sch = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_SEND,
+	const SchedParam sch = {
+		.type = SCHED_MESSAGE_TYPE_SEND,
 		.chat_id = msg->chat.id,
 		.message_id = msg->id,
 		.user_id = msg->from->id,
-		.value_in = st_message.value,
+		.message = st_message.value,
 		.expire = 5,
+		.interval = deadline_res,
 	};
 
-	if (model_sched_message_add(&sch, deadline_res) <= 0)
+	if (sched_add(&sch) <= 0)
 		SEND_ERROR_TEXT(msg, NULL, "%s", "Failed to set sechedule message!");
 	else
 		send_text_plain(msg, NULL, "Success! Scheduled in: %s %s", deadline, desc);

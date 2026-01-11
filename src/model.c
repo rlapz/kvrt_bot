@@ -817,43 +817,6 @@ out0:
 int
 model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 {
-	const int type = s->type;
-	if ((type < MODEL_SCHED_MESSAGE_TYPE_SEND) || (type >= _MODEL_SCHED_MESSAGE_TYPE_SIZE)) {
-		LOG_ERRN("model", "%s", "invalid type");
-		return -1;
-	}
-
-	if (s->chat_id == 0) {
-		LOG_ERRN("model", "%s", "invalid chat_id");
-		return -1;
-	}
-
-	if (s->user_id == 0) {
-		LOG_ERRN("model", "%s", "invalid user_id");
-		return -1;
-	}
-
-	if ((type == MODEL_SCHED_MESSAGE_TYPE_DELETE) && (s->message_id == 0)) {
-		LOG_ERRN("model", "%s", "invalid message_id");
-		return -1;
-	}
-
-	if (s->expire < 5) {
-		LOG_ERRN("model", "%s", "invalid expiration time");
-		return -1;
-	}
-
-	if (interval_s <= 0) {
-		LOG_ERRN("model", "%s", "invalid interval");
-		return -1;
-	}
-
-	if ((type == MODEL_SCHED_MESSAGE_TYPE_SEND) && cstr_is_empty(s->value_in)) {
-		LOG_ERRN("model", "%s", "value is empty");
-		return -1;
-	}
-
-
 	Data args[] = {
 		{ .type = _DATA_TYPE_INT, .int_in = s->type },
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->chat_id },
@@ -864,7 +827,7 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->expire },
 	};
 
-	if (type != MODEL_SCHED_MESSAGE_TYPE_SEND)
+	if (s->type != MODEL_SCHED_MESSAGE_TYPE_SEND)
 		args[4].type = _DATA_TYPE_NULL;
 
 	const char *const query =

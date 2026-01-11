@@ -64,6 +64,70 @@ sched_deinit(const Sched *s)
 }
 
 
+int
+sched_add(const SchedParam *param)
+{
+	int type = param->type;
+	if ((type < SCHED_MESSAGE_TYPE_SEND) || (type >= _SCHED_MESSAGE_TYPES_SIZE)) {
+		LOG_ERRN("sched", "%s", "invalid type");
+		return -1;
+	}
+
+	if (param->chat_id == 0) {
+		LOG_ERRN("sched", "%s", "invalid chat_id");
+		return -1;
+	}
+
+	if (param->user_id == 0) {
+		LOG_ERRN("sched", "%s", "invalid user_id");
+		return -1;
+	}
+
+	if ((type == SCHED_MESSAGE_TYPE_DELETE) && (param->message_id == 0)) {
+		LOG_ERRN("sched", "%s", "invalid message_id");
+		return -1;
+	}
+
+	if (param->expire < 5) {
+		LOG_ERRN("sched", "%s", "invalid expiration time");
+		return -1;
+	}
+
+	if (param->interval <= 0) {
+		LOG_ERRN("sched", "%s", "invalid interval");
+		return -1;
+	}
+
+	if ((type == SCHED_MESSAGE_TYPE_SEND) && cstr_is_empty(param->message)) {
+		LOG_ERRN("sched", "%s", "value is empty");
+		return -1;
+	}
+
+	switch (type) {
+	case SCHED_MESSAGE_TYPE_SEND:
+		type = MODEL_SCHED_MESSAGE_TYPE_SEND;
+		break;
+	case SCHED_MESSAGE_TYPE_DELETE:
+		type = MODEL_SCHED_MESSAGE_TYPE_DELETE;
+		break;
+	default:
+		LOG_ERRN("sched", "%s", "model: invalid type");
+		return -1;
+	}
+
+	const ModelSchedMessage sched = {
+		.type = type,
+		.chat_id = param->chat_id,
+		.message_id = param->message_id,
+		.user_id = param->user_id,
+		.value_in = param->message,
+		.expire = param->expire,
+	};
+
+	return model_sched_message_add(&sched, param->interval);
+}
+
+
 /*
  * Private
  */

@@ -5,6 +5,7 @@
 #include "update.h"
 
 #include "cmd.h"
+#include "sched.h"
 #include "tg.h"
 #include "util.h"
 
@@ -160,15 +161,16 @@ _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]
 {
 	const int64_t chat_id = msg->chat.id;
 	if (model_admin_get_privileges(chat_id, user->id) > 0) {
-		const ModelSchedMessage schd = {
-			.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+		const SchedParam schd = {
+			.type = SCHED_MESSAGE_TYPE_DELETE,
 			.chat_id = chat_id,
 			.message_id = msg->id,
 			.user_id = user->id,
 			.expire = 5,
+			.interval = 3,
 		};
 
-		if (model_sched_message_add(&schd, 3) <= 0)
+		if (sched_add(&schd) <= 0)
 			delete_message(msg);
 	}
 
@@ -187,15 +189,16 @@ _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]
 	if (send_text_format(msg, &ret_id, "%s", msg_body) < 0)
 		goto out1;
 
-	const ModelSchedMessage schd = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+	const SchedParam schd = {
+		.type = SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = msg->chat.id,
 		.message_id = ret_id,
 		.user_id = user->id,
 		.expire = 5,
+		.interval = 20,
 	};
 
-	model_sched_message_add(&schd, 20);
+	sched_add(&schd);
 
 out1:
 	free(msg_body);

@@ -6,6 +6,7 @@
 #include "cmd.h"
 
 #include "common.h"
+#include "sched.h"
 #include "tg.h"
 #include "util.h"
 
@@ -204,16 +205,17 @@ _session_acquire(const CmdParam *param)
 	int64_t msg_id = 0;
 	if (SEND_ERROR_TEXT(param->msg, &msg_id, "%s", "Please wait!") < 0)
 		return 0;
-
-	const ModelSchedMessage sch = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+	
+	const SchedParam sch = {
+		.type = SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = param->id_chat,
-		.user_id = param->id_user,
 		.message_id = msg_id,
+		.user_id = param->id_user,
 		.expire = 10,
+		.interval = 5,
 	};
 
-	model_sched_message_add(&sch, 5);
+	sched_add(&sch);
 	return -1;
 }
 
