@@ -3,6 +3,7 @@
 #include "../cmd.h"
 #include "../common.h"
 #include "../model.h"
+#include "../sched.h"
 #include "../tg_api.h"
 #include "../util.h"
 
@@ -26,16 +27,17 @@ cmd_test_sched(const CmdParam *cmd)
 		cstr_to_int64_n(st_timeout.value, st_timeout.len, &timeout_s);
 
 	const TgMessage *const msg = cmd->msg;
-	ModelSchedMessage sch = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_SEND,
+	const SchedParam sch = {
+		.type = SCHED_MESSAGE_TYPE_SEND,
 		.chat_id = cmd->id_chat,
 		.message_id = cmd->id_message,
 		.user_id = cmd->id_user,
-		.value_in = "Hello world\\!\\!\\! :3",
+		.message = "Hello world\\!\\!\\! :3",
 		.expire = 5,
+		.interval = (time_t)timeout_s,
 	};
 
-	if (model_sched_message_add(&sch, (int64_t)timeout_s) <= 0) {
+	if (sched_add(&sch) <= 0) {
 		send_text_plain(msg, NULL, "Failed to set sechedule message");
 		return;
 	}
@@ -48,15 +50,16 @@ cmd_test_sched(const CmdParam *cmd)
 	if (send_text_plain(msg, &ret_id, "%s", buff) < 0)
 		return;
 
-	ModelSchedMessage del = {
-		.type = MODEL_SCHED_MESSAGE_TYPE_DELETE,
+	const SchedParam del = {
+		.type = SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = cmd->id_chat,
 		.message_id = ret_id,
 		.user_id = cmd->id_user,
 		.expire = 5,
+		.interval = 10,
 	};
 
-	model_sched_message_add(&del, 10);
+	sched_add(&del);
 }
 
 

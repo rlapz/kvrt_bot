@@ -34,7 +34,8 @@ Standard ENV Variables:
 	TG_API                  -> kvrt_bot api executable file
 	TG_ROOT_DIR             -> workdir of external command
 	TG_CONFIG_FILE          -> api config file (binary)
-	TG_DB_FILE              -> api database file
+	TG_DB_MAIN_FILE         -> api database main file
+	TG_DB_SCHED_FILE        -> api database scheduler file
 	TG_API_URL              -> telegram api
 	TG_OWNER_ID
 	TG_BOT_ID

@@ -513,14 +513,25 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		goto err0;
 	}
 
-	const char *const db_file = realpath(config->db_main_path, buffer);
-	if (db_file == NULL) {
+	const char *const db_main_file = realpath(config->db_main_path, buffer);
+	if (db_main_file == NULL) {
 		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_main_path);
 		goto err0;
 	}
 
-	if (chld_add_env_kv(CFG_ENV_DB_FILE, db_file) < 0) {
-		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_DB_FILE);
+	if (chld_add_env_kv(CFG_ENV_DB_MAIN_FILE, db_main_file) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_DB_MAIN_FILE);
+		goto err0;
+	}
+
+	const char *const db_sched_file = realpath(config->db_sched_path, buffer);
+	if (db_sched_file == NULL) {
+		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_sched_path);
+		goto err0;
+	}
+
+	if (chld_add_env_kv(CFG_ENV_DB_SCHED_FILE, db_sched_file) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_DB_SCHED_FILE);
 		goto err0;
 	}
 

@@ -208,7 +208,6 @@ _get_parent_proc(Arg *a)
 {
 	const pid_t ppid = getppid();
 	char path[4096];
-
 	int ret = snprintf(path, LEN(path), "/proc/%d/cmdline", ppid);
 	if (ret < 0)
 		return -1;
@@ -216,18 +215,36 @@ _get_parent_proc(Arg *a)
 	if ((size_t)ret >= LEN(path))
 		return -1;
 
-	char *const buffer = a->proc_name;
-	size_t rsize = LEN(a->proc_name);
-	if (file_read_all(path, buffer, &rsize) < 0)
+	const int fd = open(path, O_RDONLY);
+	if (fd < 0)
 		return -1;
 
-	for (size_t i = 0; i < rsize; i++) {
+	ret = -1;
+	size_t total = 0;
+	const size_t rsize = LEN(a->proc_name);
+	char *const buffer = a->proc_name;
+	while (total < rsize) {
+		const ssize_t rd = read(fd, buffer + total, rsize - total);
+		if (rd < 0)
+			goto out0;
+
+		if (rd == 0)
+			break;
+
+		total += (size_t)rd;
+	}
+
+	for (size_t i = 0; i < total; i++) {
 		if (buffer[i] == '\0')
 			buffer[i] = ' ';
 	}
 
-	buffer[rsize] = '\0';
-	return 0;
+	buffer[total] = '\0';
+	ret = 0;
+
+out0:
+	close(fd);
+	return ret;
 }
 
 
@@ -640,13 +657,15 @@ _session(const Arg *arg)
 {
 	int ret = -1;
 	const char *error = "";
-	char *const db_file = getenv(CFG_ENV_DB_FILE);
 	const SqlitePoolParam db_params[] = {
 		[MODEL_DB_INDEX_MAIN] = {
-			.path = db_file,
+			.path = getenv(CFG_ENV_DB_MAIN_FILE),
 			.size = 1,
 		},
-		/* TODO: add DB Sched */
+		[MODEL_DB_INDEX_SCHED] = {
+			.path = getenv(CFG_ENV_DB_SCHED_FILE),
+			.size = 1,
+		},
 	};
 
 	if (sqlite_pool_init(db_params, (int)LEN(db_params)) < 0)
@@ -712,9 +731,15 @@ _session(const Arg *arg)
 			error = "failed to acquire session lock";
 		else if (ret == -2)
 			error = "session is locked";
+		else
+			ret = 0;
 		break;
 	case 1:
 		ret = session_release(chat_id, user_id, ctx_str);
+		if (ret < 0)
+			error = "failed to release session lock";
+		else
+			ret = 0;
 		break;
 	}
 
