@@ -162,7 +162,6 @@ _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]
 	const int64_t chat_id = msg->chat.id;
 	if (model_admin_get_privileges(chat_id, user->id) > 0) {
 		const SchedParam schd = {
-			.type = SCHED_MESSAGE_TYPE_DELETE,
 			.chat_id = chat_id,
 			.message_id = msg->id,
 			.user_id = user->id,
@@ -170,7 +169,7 @@ _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]
 			.interval = 3,
 		};
 
-		if (sched_add(&schd) <= 0)
+		if (sched_delete_message(&schd) <= 0)
 			delete_message(msg);
 	}
 
@@ -190,7 +189,6 @@ _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]
 		goto out1;
 
 	const SchedParam schd = {
-		.type = SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = msg->chat.id,
 		.message_id = ret_id,
 		.user_id = user->id,
@@ -198,7 +196,7 @@ _handle_member_state(const TgMessage *msg, const TgUser *user, const char text[]
 		.interval = 20,
 	};
 
-	sched_add(&schd);
+	sched_delete_message(&schd);
 
 out1:
 	free(msg_body);

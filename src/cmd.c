@@ -207,7 +207,6 @@ _session_acquire(const CmdParam *param)
 		return 0;
 	
 	const SchedParam sch = {
-		.type = SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = param->id_chat,
 		.message_id = msg_id,
 		.user_id = param->id_user,
@@ -215,7 +214,7 @@ _session_acquire(const CmdParam *param)
 		.interval = 5,
 	};
 
-	sched_add(&sch);
+	sched_delete_message(&sch);
 	return -1;
 }
 

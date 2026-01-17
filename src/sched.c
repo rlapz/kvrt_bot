@@ -16,6 +16,7 @@
 static void _spawn_handler(EvCtx *ctx);
 static void _handler(void *ctx, void *udata);
 static void _run_task(void *ctx, void *udata);
+static int  _add(const SchedParam *param, int type);
 
 
 /*
@@ -65,66 +66,23 @@ sched_deinit(const Sched *s)
 
 
 int
-sched_add(const SchedParam *param)
+sched_send_text_plain(const SchedParam *param)
 {
-	int type = param->type;
-	if ((type < SCHED_MESSAGE_TYPE_SEND) || (type >= _SCHED_MESSAGE_TYPES_SIZE)) {
-		LOG_ERRN("sched", "%s", "invalid type");
-		return -1;
-	}
+	return _add(param, MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_PLAIN);
+}
 
-	if (param->chat_id == 0) {
-		LOG_ERRN("sched", "%s", "invalid chat_id");
-		return -1;
-	}
 
-	if (param->user_id == 0) {
-		LOG_ERRN("sched", "%s", "invalid user_id");
-		return -1;
-	}
+int
+sched_send_text_format(const SchedParam *param)
+{
+	return _add(param, MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_FORMAT);
+}
 
-	if ((type == SCHED_MESSAGE_TYPE_DELETE) && (param->message_id == 0)) {
-		LOG_ERRN("sched", "%s", "invalid message_id");
-		return -1;
-	}
 
-	if (param->expire < 5) {
-		LOG_ERRN("sched", "%s", "invalid expiration time");
-		return -1;
-	}
-
-	if (param->interval <= 0) {
-		LOG_ERRN("sched", "%s", "invalid interval");
-		return -1;
-	}
-
-	if ((type == SCHED_MESSAGE_TYPE_SEND) && cstr_is_empty(param->message)) {
-		LOG_ERRN("sched", "%s", "value is empty");
-		return -1;
-	}
-
-	switch (type) {
-	case SCHED_MESSAGE_TYPE_SEND:
-		type = MODEL_SCHED_MESSAGE_TYPE_SEND;
-		break;
-	case SCHED_MESSAGE_TYPE_DELETE:
-		type = MODEL_SCHED_MESSAGE_TYPE_DELETE;
-		break;
-	default:
-		LOG_ERRN("sched", "%s", "model: invalid type");
-		return -1;
-	}
-
-	const ModelSchedMessage sched = {
-		.type = type,
-		.chat_id = param->chat_id,
-		.message_id = param->message_id,
-		.user_id = param->user_id,
-		.value_in = param->message,
-		.expire = param->expire,
-	};
-
-	return model_sched_message_add(&sched, param->interval);
+int
+sched_delete_message(const SchedParam *param)
+{
+	return _add(param, MODEL_SCHED_MESSAGE_TYPE_DELETE);
 }
 
 
@@ -160,7 +118,6 @@ _handler(void *ctx, void *udata)
 {
 	Sched *const s = (Sched *)ctx;
 
-	int is_err = 1;
 	const time_t now = time(NULL);
 	ModelSchedMessage *msg_list[32];
 	int32_t id_list[LEN(msg_list)];
@@ -171,17 +128,18 @@ _handler(void *ctx, void *udata)
 
 	int count = 0;
 	for (; count < list_len; count++) {
+		/* run function handler and transfer memory ownership */
 		if (thrd_pool_add_job(_run_task, msg_list[count], NULL) < 0)
 			goto out1;
 
 		id_list[count] = msg_list[count]->id;
 	}
 
-	is_err = 0;
-
 out1:
 	model_sched_message_delete(id_list, count);
-	for (int j = 0; (j < count) && (is_err); j++)
+
+	/* free() remaining items, in case error was occured */
+	for (int j = count; (j < list_len); j++)
 		free(msg_list[j]);
 out0:
 	atomic_store(&s->is_ready, true);
@@ -193,23 +151,24 @@ static void
 _run_task(void *ctx, void *udata)
 {
 	ModelSchedMessage *const msg = (ModelSchedMessage *)ctx;
+	const TgMessage tgm = {
+		.id = msg->message_id,
+		.chat = (TgChat) { .id = msg->chat_id },
+		.from = &(TgUser) { .id = msg->user_id },
+	};
 
 	int count = 3;
 	while (count--) {
 		int ret;
 		switch (msg->type) {
-		case MODEL_SCHED_MESSAGE_TYPE_SEND:
-			ret = send_text_format(&(TgMessage){
-				.chat = (TgChat) { .id = msg->chat_id },
-				.id = msg->message_id,
-				.from = &(TgUser) { .id = msg->user_id },
-			}, NULL, "%s", msg->value);
+		case MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_PLAIN:
+			ret = send_text_plain(&tgm, NULL, "%s", msg->value);
+			break;
+		case MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_FORMAT:
+			ret = send_text_format(&tgm, NULL, "%s", msg->value);
 			break;
 		case MODEL_SCHED_MESSAGE_TYPE_DELETE:
-			ret = delete_message(&(TgMessage){
-				.chat = (TgChat) { .id = msg->chat_id },
-				.id = msg->message_id,
-			});
+			ret = delete_message(&tgm);
 			break;
 		default:
 			LOG_ERRN("sched", "%s", "invalid task type");
@@ -217,9 +176,10 @@ _run_task(void *ctx, void *udata)
 			break;
 		}
 
-		// error occured, try again
-		if (ret < 0)
+		if (ret < 0) {
+			LOG_ERRN("sched", "error occured! Try again (%d)", count);
 			continue;
+		}
 		
 		break;
 	}
@@ -227,4 +187,62 @@ _run_task(void *ctx, void *udata)
 
 	free(msg);
 	(void)udata;
+}
+
+
+static int
+_add(const SchedParam *param, int type)
+{
+	if (param->chat_id == 0) {
+		LOG_ERRN("sched", "%s", "invalid chat_id");
+		return -1;
+	}
+
+	if (param->user_id == 0) {
+		LOG_ERRN("sched", "%s", "invalid user_id");
+		return -1;
+	}
+
+	if (param->expire < 5) {
+		LOG_ERRN("sched", "%s", "invalid expiration time");
+		return -1;
+	}
+
+	if (param->interval <= 0) {
+		LOG_ERRN("sched", "%s", "invalid interval");
+		return -1;
+	}
+
+	switch (type) {
+	case MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_PLAIN:
+	case MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_FORMAT:
+		if (cstr_is_empty(param->message)) {
+			LOG_ERRN("sched", "%s", "value is empty");
+			return -1;
+		}
+
+		break;
+	case MODEL_SCHED_MESSAGE_TYPE_DELETE:
+		if (param->message_id == 0) {
+			LOG_ERRN("sched", "%s", "invalid message_id");
+			return -1;
+		}
+
+		break;
+	default:
+		LOG_ERRN("sched", "%s", "model: invalid type");
+		return -1;
+	}
+
+
+	const ModelSchedMessage sched = {
+		.type = type,
+		.chat_id = param->chat_id,
+		.message_id = param->message_id,
+		.user_id = param->user_id,
+		.value_in = param->message,
+		.expire = param->expire,
+	};
+
+	return model_sched_message_add(&sched, param->interval);
 }

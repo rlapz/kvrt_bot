@@ -827,8 +827,14 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->expire },
 	};
 
-	if (s->type != MODEL_SCHED_MESSAGE_TYPE_SEND)
+	switch (s->type) {
+	case MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_PLAIN:
+	case MODEL_SCHED_MESSAGE_TYPE_SEND_TEXT_FORMAT:
+		break;
+	default:
 		args[4].type = _DATA_TYPE_NULL;
+		break;
+	}
 
 	const char *const query =
 		"INSERT INTO Sched_Message(type, chat_id, message_id, user_id, value, next_run, expire) "

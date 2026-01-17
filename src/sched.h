@@ -21,15 +21,7 @@ int  sched_init(Sched *s, time_t timeout_s);
 void sched_deinit(const Sched *s);
 
 
-enum {
-	SCHED_MESSAGE_TYPE_SEND = 0,
-	SCHED_MESSAGE_TYPE_DELETE,
-
-	_SCHED_MESSAGE_TYPES_SIZE,
-};
-
 typedef struct sched_param {
-	int         type;
 	int64_t     chat_id;
 	int64_t     message_id;
 	int64_t     user_id;
@@ -38,7 +30,9 @@ typedef struct sched_param {
 	time_t      interval;		/* in seconds */
 } SchedParam;
 
-int sched_add(const SchedParam *param);
+int sched_send_text_plain(const SchedParam *param);
+int sched_send_text_format(const SchedParam *param);
+int sched_delete_message(const SchedParam *param);
 
 
 #endif

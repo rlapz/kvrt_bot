@@ -28,7 +28,6 @@ cmd_test_sched(const CmdParam *cmd)
 
 	const TgMessage *const msg = cmd->msg;
 	const SchedParam sch = {
-		.type = SCHED_MESSAGE_TYPE_SEND,
 		.chat_id = cmd->id_chat,
 		.message_id = cmd->id_message,
 		.user_id = cmd->id_user,
@@ -37,7 +36,7 @@ cmd_test_sched(const CmdParam *cmd)
 		.interval = (time_t)timeout_s,
 	};
 
-	if (sched_add(&sch) <= 0) {
+	if (sched_send_text_plain(&sch) <= 0) {
 		send_text_plain(msg, NULL, "Failed to set sechedule message");
 		return;
 	}
@@ -51,7 +50,6 @@ cmd_test_sched(const CmdParam *cmd)
 		return;
 
 	const SchedParam del = {
-		.type = SCHED_MESSAGE_TYPE_DELETE,
 		.chat_id = cmd->id_chat,
 		.message_id = ret_id,
 		.user_id = cmd->id_user,
@@ -59,7 +57,7 @@ cmd_test_sched(const CmdParam *cmd)
 		.interval = 10,
 	};
 
-	sched_add(&del);
+	sched_delete_message(&del);
 }
 
 
