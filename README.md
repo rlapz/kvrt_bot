@@ -1,8 +1,8 @@
 # kvrt_bot: A Simple Telegram Bot Server
 
 
-# How to Build
-## Required packages
+## How to Build
+### Required packages
 
 ```
         libcurl (tested on libcurl/7.81.0 and libcurl/8.15.0)
@@ -16,7 +16,7 @@
                 apt install libcurl4-openssl-dev libjson-c-dev libsqlite3-dev
 ```
 
-## Building
+### Building
 ```
         Debug mode:
                 make IS_DEBUG=1 -j$(nproc)
@@ -25,8 +25,8 @@
 ```
 
 
-# How to run
-## Configuration
+## How to run
+### Configuration
 ```
         1. Copy file: 'config.json.example' -> config.json
         2. Edit mandatory fields:
@@ -35,12 +35,12 @@
                 c. hook.url             -> Webhook url
                 d. hook.path            -> Webhook path
                 e. tg.bot_id            -> (self explanatory)
-                e. tg.owner_id          -> (self explanatory)
+                f. tg.owner_id          -> (self explanatory)
                 e. tg.bot_user_name     -> (self explanatory)
         3. run 'make config' after you modify 'config.json' file
 ```
 
-## Webhook
+### Webhook
 ```
         Set webhook:
                 ./kvrt_bot webhook-set
@@ -50,14 +50,14 @@
         * See: './kvrt_bot help' *
 ```
 
-## Run
+### Run
 ```
         ./kvrt_bot
 ```
 
 
-# Misc
-## Run in local environment
+## Misc
+### Run in local environment
 ```
         You can use 'ngrok' in non-production environment.
         1. Run 'ngrok http [YOUR BOT PORT]', example: 'ngrok http 8007'.
@@ -66,18 +66,18 @@
         4. Finally run './kvrt_bot'
 ```
 
-## Run in production environment
+### Run in production environment
 ```
         You must use reverse proxy, since this bot doesn't provide HTTP/SSL server.
 ```
 
-## Add/set external Commands
+### Add/set external Commands
 ```
         [TODO]
         see: https://github.com/rlapz/kvrt_bot_extern
 ```
 
-## Configuration field explanations
+### Configuration field explanations
 ```
         [TODO]
 ``
