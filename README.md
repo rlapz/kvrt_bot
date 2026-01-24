@@ -57,13 +57,18 @@
 
 
 # Misc
-## Local Usage
+## Run in local environment
 ```
-        You can use 'ngrok' in non-production.
+        You can use 'ngrok' in non-production environment.
         1. Run 'ngrok http [YOUR BOT PORT]', example: 'ngrok http 8007'.
         2. Copy ngrok public addres and put it in 'config.json' file as webhook URL.
         3. Run './kvrt_bot webhook-set'
         4. Finally run './kvrt_bot'
+```
+
+## Run in production environment
+```
+        You must use reverse proxy, since this bot doesn't provide HTTP/SSL server.
 ```
 
 ## Add/set external Commands
