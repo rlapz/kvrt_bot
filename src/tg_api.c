@@ -479,7 +479,7 @@ tg_api_markup_kbd(const TgApiMarkupKbd *t)
 		goto out0;
 
 	ret = strdup(esc);
-	free(esc);
+	http_url_escape_free(esc);
 
 out0:
 	str_deinit(&str);
