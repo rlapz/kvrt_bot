@@ -28,7 +28,7 @@
 ## How to run
 ### Configuration
 ```
-        1. Copy file: 'config.json.example' -> config.json
+        1. Copy file: 'config.json.example' -> 'config.json'
         2. Edit mandatory fields:
                 a. api.token            -> Bot token
                 b. api.secret           -> Bot secret key (bot secret key, user defined)
@@ -36,7 +36,7 @@
                 d. hook.path            -> Webhook path
                 e. tg.bot_id            -> (self explanatory)
                 f. tg.owner_id          -> (self explanatory)
-                e. tg.bot_user_name     -> (self explanatory)
+                g. tg.bot_user_name     -> (self explanatory)
         3. run 'make config' after you modify 'config.json' file
 ```
 
@@ -47,7 +47,7 @@
         Unset webhook:
                 ./kvrt_bot webhook-del
         
-        * See: './kvrt_bot help' *
+        *See: './kvrt_bot help'
 ```
 
 ### Run
@@ -80,4 +80,4 @@
 ### Configuration field explanations
 ```
         [TODO]
-``
+```
