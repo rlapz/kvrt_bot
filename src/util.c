@@ -146,12 +146,7 @@ char *
 cstr_fmt(const char fmt[], ...)
 {
 	char *ret;
-	va_list va;
-
-	va_start(va, fmt);
-	ret = cstr_vfmt(fmt, va);
-	va_end(va);
-
+	CSTR_VFMT(ret, fmt);
 	return ret;
 }
 
@@ -559,10 +554,8 @@ str_init(Str *s, char buffer[], size_t size, const char fmt[], ...)
 	if (fmt == NULL)
 		return 0;
 
-	va_list va;
-	va_start(va, fmt);
-	const char *const ret = str_set_vfmt(s, fmt, va);
-	va_end(va);
+	char *ret;
+	STR_VFMT(s, ret, fmt);
 	if (ret == NULL)
 		return -1;
 
@@ -589,10 +582,8 @@ str_init_alloc(Str *s, size_t size, const char fmt[], ...)
 	if (fmt == NULL)
 		return 0;
 
-	va_list va;
-	va_start(va, fmt);
-	const char *const ret = str_set_vfmt(s, fmt, va);
-	va_end(va);
+	char *ret;
+	STR_VFMT(s, ret, fmt);
 	if (ret == NULL) {
 		str_deinit(s);
 		return -1;
@@ -768,12 +759,7 @@ char *
 str_set_fmt(Str *s, const char fmt[], ...)
 {
 	char *ret;
-	va_list va;
-
-	va_start(va, fmt);
-	ret = str_set_vfmt(s, fmt, va);
-	va_end(va);
-
+	STR_VFMT(s, ret, fmt);
 	return ret;
 }
 

@@ -80,6 +80,15 @@ char *cstr_concat_n(size_t count, ...);
 
 int cstr_to_bool(const char cstr[]);
 
+#define CSTR_VFMT(RET, FMT) \
+{					\
+	va_list va;			\
+					\
+	va_start(va, FMT);		\
+	RET = cstr_vfmt(FMT, va);	\
+	va_end(va);			\
+}
+
 
 /*
  * SpaceTokenizer
@@ -137,6 +146,15 @@ char *str_set_fmt(Str *s, const char fmt[], ...);
 char *str_append_fmt(Str *s, const char fmt[], ...);
 char *str_pop(Str *s, size_t count);
 char *str_dup(Str *s);
+
+#define STR_VFMT(STR, RET, FMT)\
+{						\
+	va_list va;				\
+						\
+	va_start(va, FMT);			\
+	RET = str_set_vfmt(STR, FMT, va);	\
+	va_end(va);				\
+}
 
 
 /*

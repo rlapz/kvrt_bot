@@ -28,12 +28,7 @@ int
 send_text_plain(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 {
 	char *text;
-	va_list va;
-
-	va_start(va, fmt);
-	text = cstr_vfmt(fmt, va);
-	va_end(va);
-
+	CSTR_VFMT(text, fmt);
 	if (text == NULL)
 		return -1;
 
@@ -57,12 +52,7 @@ int
 send_text_format(const TgMessage *msg, int64_t *ret_id, const char fmt[], ...)
 {
 	char *text;
-	va_list va;
-
-	va_start(va, fmt);
-	text = cstr_vfmt(fmt, va);
-	va_end(va);
-
+	CSTR_VFMT(text, fmt);
 	if (text == NULL)
 		return -1;
 
@@ -86,12 +76,7 @@ int
 send_photo_plain(const TgMessage *msg, int64_t *ret_id, const char photo[], const char fmt[], ...)
 {
 	char *text;
-	va_list va;
-
-	va_start(va, fmt);
-	text = cstr_vfmt(fmt, va);
-	va_end(va);
-
+	CSTR_VFMT(text, fmt);
 	if (text == NULL)
 		return -1;
 
@@ -116,12 +101,7 @@ int
 send_photo_format(const TgMessage *msg, int64_t *ret_id, const char photo[], const char fmt[], ...)
 {
 	char *text;
-	va_list va;
-
-	va_start(va, fmt);
-	text = cstr_vfmt(fmt, va);
-	va_end(va);
-
+	CSTR_VFMT(text, fmt);
 	if (text == NULL)
 		return -1;
 
@@ -146,16 +126,11 @@ int
 send_error_text(const TgMessage *msg, int64_t *ret_id, const char ctx[], const char fmt[], ...)
 {
 	char *text;
-	va_list va;
-
-	va_start(va, fmt);
-	text = cstr_vfmt(fmt, va);
-	va_end(va);
-
-	int ret = -1;
+	CSTR_VFMT(text, fmt);
 	if (text == NULL)
 		return -1;
 
+	int ret = -1;
 	char *const new_text = CSTR_CONCAT("```error\n", ctx, ": ", text, "```");
 	if (new_text == NULL)
 		goto out0;
@@ -183,16 +158,11 @@ int
 send_error_text_nope(const TgMessage *msg, int64_t *ret_id, const char ctx[], const char fmt[], ...)
 {
 	char *text;
-	va_list va;
-
-	va_start(va, fmt);
-	text = cstr_vfmt(fmt, va);
-	va_end(va);
-
-	int ret = -1;
+	CSTR_VFMT(text, fmt);
 	if (text == NULL)
 		return -1;
 
+	int ret = -1;
 	char *const new_text = CSTR_CONCAT("Error:\n`", ctx, ": ", text, "`");
 	if (new_text == NULL)
 		goto out0;
