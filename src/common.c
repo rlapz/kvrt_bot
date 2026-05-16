@@ -324,26 +324,26 @@ out0:
 int
 session_acquire(int64_t chat_id, int64_t user_id, const char ctx[])
 {
-	const ModelCmdSession sess = {
+	const ModelSessionCmd sess = {
 		.chat_id = chat_id,
 		.user_id = user_id,
 		.ctx = ctx,
 	};
 
-	return model_cmd_session_add(&sess);
+	return model_session_cmd_add(&sess);
 }
 
 
 int
 session_release(int64_t chat_id, int64_t user_id, const char ctx[])
 {
-	const ModelCmdSession sess = {
+	const ModelSessionCmd sess = {
 		.chat_id = chat_id,
 		.user_id = user_id,
 		.ctx = ctx,
 	};
 
-	return model_cmd_session_delete(&sess);
+	return model_session_cmd_delete(&sess);
 }
 
 

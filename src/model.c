@@ -40,8 +40,8 @@ typedef struct data {
 
 static int _sqlite_step_one(sqlite3_stmt *stmt);
 static int _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt);
-static int _sqlite_exec_one(int db_index, const char query[], const Data args[],
-			    int args_len, Data *out);
+static int _sqlite_exec_one(int db_index, int must_wait, const char query[],
+			    const Data args[], int args_len, Data *out);
 
 
 /*
@@ -60,7 +60,7 @@ static const char *_admin_query(Str *str);
 static const char *_cmd_builtin_query(Str *str);
 static const char *_cmd_extern_query(Str *str);
 static const char *_cmd_message_query(Str *str);
-static const char *_cmd_session_query(Str *str);
+static const char *_session_cmd_query(Str *str);
 static const char *_sched_message_query(Str *str);
 static const char *_anime_sched_query(Str *str);
 
@@ -78,8 +78,10 @@ model_init(void)
 		{ MODEL_DB_INDEX_MAIN, "Cmd_Builtin", _cmd_builtin_query },
 		{ MODEL_DB_INDEX_MAIN, "Cmd_Extern",  _cmd_extern_query },
 		{ MODEL_DB_INDEX_MAIN, "Cmd_Message", _cmd_message_query },
-		{ MODEL_DB_INDEX_MAIN, "Cmd_Session", _cmd_session_query },
 		{ MODEL_DB_INDEX_MAIN, "Anime_Sched", _anime_sched_query },
+
+		{ MODEL_DB_INDEX_SESSION, "WAL",         _enable_wal_mode },
+		{ MODEL_DB_INDEX_SESSION, "Session_Cmd", _session_cmd_query },
 
 		{ MODEL_DB_INDEX_SCHED, "WAL",           _enable_wal_mode },
 		{ MODEL_DB_INDEX_SCHED, "Sched_Message", _sched_message_query },
@@ -104,7 +106,7 @@ model_chat_init(int64_t chat_id)
 	int fl = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &fl };
 	const char *query = "SELECT 1 FROM Chat WHERE (chat_id = ?);";
-	const int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, 1, &out);
+	const int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, args, 1, &out);
 	if (ret < 0)
 		return -1;
 
@@ -112,7 +114,7 @@ model_chat_init(int64_t chat_id)
 		return 0;
 
 	query = "INSERT INTO Chat(chat_id, flags, created_at) VALUES(?, ?, ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args), NULL);
 }
 
 
@@ -125,7 +127,7 @@ model_chat_set_flags(int64_t chat_id, int flags)
 	};
 
 	const char *const query = "UPDATE Chat SET flags = ? WHERE (chat_id = ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args), NULL);
 }
 
 
@@ -137,7 +139,7 @@ model_chat_get_flags(int64_t chat_id)
 
 	int flags = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &flags };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out) < 0)
+	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
 		return -1;
 
 	return flags;
@@ -191,7 +193,7 @@ _admin_add(DbConn *conn, const ModelAdmin list[], int len)
 		sqlite3_bind_int64(stmt, j++, now);
 	}
 
-	if (_sqlite_step_one(stmt) < 0)
+	if (_sqlite_step_one_wait(conn->sql, stmt) < 0)
 		goto out1;
 
 	ret = sqlite3_changes(conn->sql);
@@ -218,7 +220,7 @@ _admin_clear(DbConn *conn, int64_t chat_id)
 	}
 
 	sqlite3_bind_int64(stmt, 1, chat_id);
-	ret = _sqlite_step_one(stmt);
+	ret = _sqlite_step_one_wait(conn->sql, stmt);
 
 out0:
 	sqlite3_finalize(stmt);
@@ -271,7 +273,7 @@ model_admin_get_privileges(int64_t chat_id, int64_t user_id)
 
 	int privs = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &privs };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), &out) < 0)
+	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, args, LEN(args), &out) < 0)
 		return -1;
 
 	return privs;
@@ -451,7 +453,7 @@ model_cmd_builtin_add(const ModelCmdBuiltin *c)
 		"INSERT INTO Cmd_Builtin(idx, flags, name, description) "
 		"VALUES(?, ?, ?, ?);";
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args), NULL);
 }
 
 
@@ -507,7 +509,7 @@ model_cmd_builtin_get_index(const char name[])
 
 	int index = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &index };
-	const int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out);
+	const int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out);
 	if (ret < 0)
 		return -1;
 
@@ -526,7 +528,7 @@ model_cmd_builtin_is_exists(const char name[])
 
 	int is_exists = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out) < 0)
+	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
 		return -1;
 
 	return is_exists;
@@ -585,7 +587,7 @@ model_cmd_extern_is_exists(const char name[])
 
 	int is_exists = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out) < 0)
+	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
 		return -1;
 
 	return is_exists;
@@ -681,7 +683,7 @@ model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], si
 		.text = (DataText) { .value_out = value, .size = value_len },
 	};
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), &out);
+	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, args, LEN(args), &out);
 }
 
 
@@ -693,7 +695,7 @@ model_cmd_message_is_exists(const char name[])
 
 	int is_exists = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out) < 0)
+	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
 		return -1;
 
 	return is_exists;
@@ -840,26 +842,26 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		"INSERT INTO Sched_Message(type, chat_id, message_id, user_id, value, next_run, expire) "
 		"VALUES(?, ?, ?, ?, ?, ?, ?);";
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_SCHED, query, args, LEN(args), NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_SCHED, 1, query, args, LEN(args), NULL);
 }
 
 /*
- * ModelCmdSession
+ * ModelSessionCmd
  */
 int
-model_cmd_session_add(const ModelCmdSession *c)
+model_session_cmd_add(const ModelSessionCmd *s)
 {
-	if (c->chat_id == 0) {
+	if (s->chat_id == 0) {
 		LOG_ERRN("model", "%s", "invalid chat_id");
 		return -1;
 	}
 
-	if (c->user_id == 0) {
+	if (s->user_id == 0) {
 		LOG_ERRN("model", "%s", "invalid user_id");
 		return -1;
 	}
 
-	if (cstr_is_empty(c->ctx)) {
+	if (cstr_is_empty(s->ctx)) {
 		LOG_ERRN("model", "%s", "ctx is empty");
 		return -1;
 	}
@@ -867,57 +869,57 @@ model_cmd_session_add(const ModelCmdSession *c)
 	int fl = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &fl };
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT64, .int64_in = c->chat_id },
-		{ .type = _DATA_TYPE_INT64, .int64_in = c->user_id },
-		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = c->ctx, .len = -1 } },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->user_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = s->ctx, .len = -1 } },
 		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
 	};
 
 	const char *query =
-		"SELECT 1 FROM Cmd_Session "
+		"SELECT 1 FROM Session_Cmd "
 		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?)) "
-			"AND ((? - created_at) < " MODEL_CMD_SESSION_DEF_EXP ") "
+			"AND ((? - created_at) < " MODEL_SESSION_CMD_DEF_EXP ") "
 		"ORDER BY id DESC "
 		"LIMIT 1;";
-	int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), &out);
+	int ret = _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args), &out);
 	if (ret < 0)
 		return -1;
 	if (ret > 0)
 		return -2;
 
-	query = "INSERT INTO Cmd_Session(chat_id, user_id, ctx, created_at) VALUES(?, ?, LOWER(?), ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), &out);
+	query = "INSERT INTO Session_Cmd(chat_id, user_id, ctx, created_at) VALUES(?, ?, LOWER(?), ?);";
+	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 1, query, args, LEN(args), &out);
 }
 
 
 int
-model_cmd_session_delete(const ModelCmdSession *c)
+model_session_cmd_delete(const ModelSessionCmd *s)
 {
-	if (c->chat_id == 0) {
+	if (s->chat_id == 0) {
 		LOG_ERRN("model", "%s", "invalid chat_id");
 		return -1;
 	}
 
-	if (c->user_id == 0) {
+	if (s->user_id == 0) {
 		LOG_ERRN("model", "%s", "invalid user_id");
 		return -1;
 	}
 
-	if (cstr_is_empty(c->ctx)) {
+	if (cstr_is_empty(s->ctx)) {
 		LOG_ERRN("model", "%s", "ctx is empty");
 		return -1;
 	}
 
 	const Data args[] = {
-		{ .type = _DATA_TYPE_INT64, .int64_in = c->chat_id },
-		{ .type = _DATA_TYPE_INT64, .int64_in = c->user_id },
-		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = c->ctx, .len = -1 } },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->chat_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = s->user_id },
+		{ .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = s->ctx, .len = -1 } },
 	};
 
 	const char *const query =
-		"DELETE FROM Cmd_Session "
+		"DELETE FROM Session_Cmd "
 		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?));";
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 1, query, args, LEN(args), NULL);
 }
 
 
@@ -930,7 +932,7 @@ model_anime_sched_delete_by(const char filter[])
 	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = filter, .len = -1 } };
 	const char *const query = "DELETE FROM Anime_Sched WHERE (filter = ?);";
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, &arg, 1, NULL);
 }
 
 
@@ -991,7 +993,7 @@ model_anime_sched_add_list(const ModelAnimeSched list[], int len)
 		sqlite3_bind_int64(stmt, j++, now);
 	}
 
-	ret = _sqlite_step_one(stmt);
+	ret = _sqlite_step_one_wait(conn->sql, stmt);
 	if (ret < 0)
 		goto out2;
 
@@ -1102,7 +1104,7 @@ model_anime_sched_get_creation_time(const char filter[], time_t *cre_dt)
 	const char *const query = "SELECT created_at FROM Anime_Sched WHERE (filter = ?) LIMIT 1;";
 
 	Data out = { .type = _DATA_TYPE_INT64, .int64_out = cre_dt };
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out);
+	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out);
 }
 
 
@@ -1148,7 +1150,8 @@ _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
 
 
 static int
-_sqlite_exec_one(int db_index, const char query[], const Data args[], int args_len, Data *out)
+_sqlite_exec_one(int db_index, int must_wait, const char query[], const Data args[],
+		 int args_len, Data *out)
 {
 	int ret = -1;
 	sqlite3_stmt *stmt;
@@ -1184,7 +1187,11 @@ _sqlite_exec_one(int db_index, const char query[], const Data args[], int args_l
 		}
 	}
 
-	ret = _sqlite_step_one(stmt);
+	if (must_wait)
+		ret = _sqlite_step_one_wait(conn->sql, stmt);
+	else
+		ret = _sqlite_step_one(stmt);
+
 	if (ret < 0)
 		goto out1;
 
@@ -1359,10 +1366,10 @@ _cmd_message_query(Str *str)
 
 
 static const char *
-_cmd_session_query(Str *str)
+_session_cmd_query(Str *str)
 {
 	return str_set_fmt(str,
-		"CREATE TABLE IF NOT EXISTS Cmd_Session(\n"
+		"CREATE TABLE IF NOT EXISTS Session_Cmd(\n"
 		"	id		INTEGER PRIMARY KEY AUTOINCREMENT,\n"
 		"	chat_id		BIGINT NOT Null,\n"
 		"	user_id		BIGINT NOT Null,\n"

@@ -662,6 +662,10 @@ _session(const Arg *arg)
 			.path = getenv(CFG_ENV_DB_MAIN_FILE),
 			.size = 1,
 		},
+		[MODEL_DB_INDEX_SESSION] = {
+			.path = getenv(CFG_ENV_DB_SESSION_FILE),
+			.size = 1,
+		},
 		[MODEL_DB_INDEX_SCHED] = {
 			.path = getenv(CFG_ENV_DB_SCHED_FILE),
 			.size = 1,

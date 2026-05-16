@@ -586,6 +586,10 @@ _server_run(Server *s, char *envp[])
 			.path = config->db_main_path,
 			.size = config->db_main_pool_conn_size,
 		},
+		[MODEL_DB_INDEX_SESSION] = {
+			.path = config->db_session_path,
+			.size = config->db_session_pool_conn_size,
+		},
 		[MODEL_DB_INDEX_SCHED] = {
 			.path = config->db_sched_path,
 			.size = config->db_sched_pool_conn_size,

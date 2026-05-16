@@ -9,6 +9,7 @@
 
 enum {
 	MODEL_DB_INDEX_MAIN = 0,
+	MODEL_DB_INDEX_SESSION,
 	MODEL_DB_INDEX_SCHED,
 
 	_MODEL_DB_INDEX_SIZE,
@@ -181,18 +182,18 @@ int model_sched_message_add(const ModelSchedMessage *s, time_t interval_s);
 
 
 /*
- * ModelCmdSession
+ * ModelSession
  */
-#define MODEL_CMD_SESSION_DEF_EXP "60"
+#define MODEL_SESSION_CMD_DEF_EXP "60"
 
-typedef struct model_cmd_session {
+typedef struct model_session_cmd {
 	int64_t     chat_id;
 	int64_t     user_id;
 	const char *ctx;
-} ModelCmdSession;
+} ModelSessionCmd;
 
-int model_cmd_session_add(const ModelCmdSession *c);
-int model_cmd_session_delete(const ModelCmdSession *c);
+int model_session_cmd_add(const ModelSessionCmd *s);
+int model_session_cmd_delete(const ModelSessionCmd *s);
 
 
 /*

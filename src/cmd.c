@@ -224,7 +224,7 @@ _session_release(const CmdParam *param)
 {
 	if (session_release(param->id_chat, param->id_user, param->name) < 0) {
 		SEND_ERROR_TEXT(param->msg, NULL, "Failed to release command session, "
-						  "please wait %s seconds!", MODEL_CMD_SESSION_DEF_EXP);
+						  "please wait %s seconds!", MODEL_SESSION_CMD_DEF_EXP);
 		return -1;
 	}
 

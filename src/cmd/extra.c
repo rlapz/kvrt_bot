@@ -153,7 +153,6 @@ _anime_sched_check_cache(const char filter[])
 
 	if (ret == 0)
 		return 0;
-
 	const time_t now = time(NULL);
 	if ((now - cre_dt) >= _ANIME_SCHED_EXPIRE) {
 		if (model_anime_sched_delete_by(filter) >= 0)
