@@ -69,8 +69,11 @@ sqlite_pool_deinit(void)
 DbConn *
 sqlite_pool_get(int index)
 {
-	assert(index >= 0);
-	assert(index < _pool_list_len);
+	if (index < 0 || index >= _pool_list_len) {
+		LOG_ERRN("sqlite_pool", "%s: %d", "invalid DB index", index);
+		assert(0);
+		return NULL;
+	}
 
 	DbPool *const db = &_pool_list[index];
 	DListNode *node = NULL;

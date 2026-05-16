@@ -888,7 +888,7 @@ model_session_cmd_add(const ModelSessionCmd *s)
 		return -2;
 
 	query = "INSERT INTO Session_Cmd(chat_id, user_id, ctx, created_at) VALUES(?, ?, LOWER(?), ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 1, query, args, LEN(args), &out);
+	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args), &out);
 }
 
 
@@ -919,7 +919,7 @@ model_session_cmd_delete(const ModelSessionCmd *s)
 	const char *const query =
 		"DELETE FROM Session_Cmd "
 		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?));";
-	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 1, query, args, LEN(args), NULL);
+	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args), NULL);
 }
 
 
@@ -1145,6 +1145,7 @@ _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
 		break;
 	}
 
+	LOG_ERRN("model", "%s", "ev_is_alive: false");
 	return -1;
 }
 

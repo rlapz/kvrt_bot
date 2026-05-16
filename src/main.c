@@ -524,6 +524,17 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		goto err0;
 	}
 
+	const char *const db_session_file = realpath(config->db_session_path, buffer);
+	if (db_session_file == NULL) {
+		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_session_path);
+		goto err0;
+	}
+
+	if (chld_add_env_kv(CFG_ENV_DB_SESSION_FILE, db_session_file) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_DB_SESSION_FILE);
+		goto err0;
+	}
+
 	const char *const db_sched_file = realpath(config->db_sched_path, buffer);
 	if (db_sched_file == NULL) {
 		LOG_ERRP("main", "%s: '%s'", "realpath", config->db_sched_path);

@@ -375,7 +375,7 @@ out0:
 	c->db_session_pool_conn_size = db_session_pool_conn_size;
 	c->db_sched_pool_conn_size = db_sched_pool_conn_size;
 	cstr_copy_n(c->db_main_path, LEN(c->db_main_path), db_main_file);
-	cstr_copy_n(c->db_session_path, LEN(c->db_sched_path), db_session_file);
+	cstr_copy_n(c->db_session_path, LEN(c->db_session_path), db_session_file);
 	cstr_copy_n(c->db_sched_path, LEN(c->db_sched_path), db_sched_file);
 }
 
