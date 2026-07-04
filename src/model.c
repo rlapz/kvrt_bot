@@ -38,10 +38,14 @@ typedef struct data {
 	};
 } Data;
 
+static int _sqlite_prep(sqlite3 *sql, const char query[], int query_len,
+			const Data args[], int args_len, sqlite3_stmt **out);
 static int _sqlite_step_one(sqlite3_stmt *stmt);
 static int _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt);
-static int _sqlite_exec_one(int db_index, int must_wait, const char query[],
-			    const Data args[], int args_len, Data *out);
+static int _sqlite_exec(int db_index, int must_wait, const char query[],
+			    const Data args[], int args_len);
+static int _sqlite_query_one(int db_index, const char query[], const Data args[],
+			     int args_len, Data out[], int out_len);
 
 
 /*
@@ -103,18 +107,15 @@ model_chat_init(int64_t chat_id)
 		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
 	};
 
-	int fl = 0;
-	Data out = { .type = _DATA_TYPE_INT, .int_out = &fl };
 	const char *query = "SELECT 1 FROM Chat WHERE (chat_id = ?);";
-	const int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, args, 1, &out);
+	const int ret = _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, args, 1, NULL, 0);
 	if (ret < 0)
 		return -1;
-
 	if (ret > 0)
 		return 0;
 
 	query = "INSERT INTO Chat(chat_id, flags, created_at) VALUES(?, ?, ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args), NULL);
+	return _sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args));
 }
 
 
@@ -127,7 +128,7 @@ model_chat_set_flags(int64_t chat_id, int flags)
 	};
 
 	const char *const query = "UPDATE Chat SET flags = ? WHERE (chat_id = ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args), NULL);
+	return _sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args));
 }
 
 
@@ -139,7 +140,7 @@ model_chat_get_flags(int64_t chat_id)
 
 	int flags = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &flags };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
+	if (_sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out, 1) < 0)
 		return -1;
 
 	return flags;
@@ -273,7 +274,7 @@ model_admin_get_privileges(int64_t chat_id, int64_t user_id)
 
 	int privs = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &privs };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, args, LEN(args), &out) < 0)
+	if (_sqlite_query_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), &out, 1) < 0)
 		return -1;
 
 	return privs;
@@ -294,26 +295,22 @@ model_admin_get_list(ModelAdmin list[], int len, int64_t chat_id)
 	if (conn == NULL)
 		return -1;
 
-	int ret = -1;
-	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64_in = chat_id },
+		{ .type = _DATA_TYPE_INT, .int_in = len },
+	};
 
-	sqlite3_bind_int64(stmt, 1, chat_id);
-	sqlite3_bind_int(stmt, 2, len);
+	int ret = _sqlite_prep(conn->sql, query, -1, args, LEN(args), &stmt);
+	if (ret < 0)
+		goto out0;
 
 	int count = 0;
 	for (; count < len; count++) {
-		res = sqlite3_step(stmt);
-		if (res == SQLITE_DONE)
-			break;
-
-		if (res != SQLITE_ROW) {
-			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
+		ret = _sqlite_step_one(stmt);
+		if (ret < 0)
 			goto out1;
-		}
+		if (ret == 0)
+			break;
 
 		int i = 0;
 		ModelAdmin *const adm = &list[count];
@@ -346,7 +343,6 @@ out0:
 int
 model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_flags, int is_private)
 {
-	int ret = -1;
 	const char *const query =
 		"SELECT SUM(size), Null, Null, Null, Null FROM ( "
 			"SELECT COUNT(1) AS size FROM Cmd_Builtin WHERE ((flags & ?) = 0) "
@@ -387,20 +383,20 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 	if ((chat_flags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) == 0)
 		flags |= MODEL_CMD_FLAG_NSFW;
 
-	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT, .int_in = show_extern },
+		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT, .int_in = show_extern },
+		{ .type = _DATA_TYPE_INT, .int_in = flags },
+		{ .type = _DATA_TYPE_INT, .int_in = len },
+		{ .type = _DATA_TYPE_INT, .int_in = offset },
+	};
 
-	sqlite3_bind_int(stmt, 1, flags);
-	sqlite3_bind_int(stmt, 2, show_extern);
-	sqlite3_bind_int(stmt, 3, flags);
-	sqlite3_bind_int(stmt, 4, flags);
-	sqlite3_bind_int(stmt, 5, show_extern);
-	sqlite3_bind_int(stmt, 6, flags);
-	sqlite3_bind_int(stmt, 7, len);
-	sqlite3_bind_int(stmt, 8, offset);
+	int ret = _sqlite_prep(conn->sql, query, -1, args, LEN(args), &stmt);
+	if (ret < 0)
+		goto out0;
 
 	ret = _sqlite_step_one(stmt);
 	if (ret <= 0)
@@ -410,14 +406,11 @@ model_cmd_get_list(ModelCmd list[], int len, int offset, int *total, int chat_fl
 
 	int count = 0;
 	for (; count < len; count++) {
-		res = sqlite3_step(stmt);
-		if (res == SQLITE_DONE)
-			break;
-
-		if (res != SQLITE_ROW) {
-			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
+		ret = _sqlite_step_one(stmt);
+		if (ret < 0)
 			goto out1;
-		}
+		if (ret == 0)
+			break;
 
 		ModelCmd *const mc = &list[count];
 		mc->is_builtin = sqlite3_column_int(stmt, 1);
@@ -453,51 +446,19 @@ model_cmd_builtin_add(const ModelCmdBuiltin *c)
 		"INSERT INTO Cmd_Builtin(idx, flags, name, description) "
 		"VALUES(?, ?, ?, ?);";
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args), NULL);
+	return _sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, args, LEN(args));
 }
 
 
 int
 model_cmd_builtin_clear(void)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
-	if (conn == NULL)
+	const char *query = "UPDATE sqlite_sequence SET seq = 0 WHERE (name = 'Cmd_Builtin');";
+	if (_sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, NULL, 0) < 0)
 		return -1;
 
-	const char *query = "UPDATE sqlite_sequence SET seq = 0 WHERE (name = 'Cmd_Builtin');";
-	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	ret = _sqlite_step_one_wait(conn->sql, stmt);
-	if (ret < 0)
-		goto out1;
-
-	sqlite3_finalize(stmt);
-
 	query = "DELETE FROM Cmd_Builtin;";
-	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	ret = _sqlite_step_one_wait(conn->sql, stmt);
-	if (ret < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, NULL, 0);
 }
 
 
@@ -509,10 +470,9 @@ model_cmd_builtin_get_index(const char name[])
 
 	int index = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &index };
-	const int ret = _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out);
+	const int ret = _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out, 1);
 	if (ret < 0)
 		return -1;
-
 	if (ret == 0)
 		return -2;
 
@@ -525,13 +485,7 @@ model_cmd_builtin_is_exists(const char name[])
 {
 	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } };
 	const char *const query = "SELECT 1 FROM Cmd_Builtin WHERE (name = ?);";
-
-	int is_exists = 0;
-	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
-		return -1;
-
-	return is_exists;
+	return _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, NULL, 0);
 }
 
 
@@ -541,41 +495,35 @@ model_cmd_builtin_is_exists(const char name[])
 int
 model_cmd_extern_get(ModelCmdExtern *c, const char name[])
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
-	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
-	if (conn == NULL)
-		return -1;
-
 	const char *const query =
 		"SELECT id, is_enable, flags, name, file_name, description "
 		"FROM Cmd_Extern "
 		"WHERE (name = ?); ";
 
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data arg = {
+		.type = _DATA_TYPE_TEXT,
+		.text = (DataText) { .value_in = name, .len = -1 },
+	};
 
-	sqlite3_bind_text(stmt, 1, name, -1, NULL);
-	ret = _sqlite_step_one(stmt);
-	if (ret <= 0)
-		goto out1;
+	Data out[] = {
+		{ .type = _DATA_TYPE_INT, .int_out = &c->id },
+		{ .type = _DATA_TYPE_INT, .int_out = &c->is_enable },
+		{ .type = _DATA_TYPE_INT, .int_out = &c->flags },
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_out = c->name, .size = LEN(c->name) },
+		},
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_out = c->file_name, .size = LEN(c->file_name) },
+		},
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_out = c->description, .size = LEN(c->description) },
+		},
+	};
 
-	c->id = sqlite3_column_int(stmt, 0);
-	c->is_enable = sqlite3_column_int(stmt, 1);
-	c->flags = sqlite3_column_int(stmt, 2);
-	cstr_copy_n(c->name, LEN(c->name), (const char *)sqlite3_column_text(stmt, 3));
-	cstr_copy_n(c->file_name, LEN(c->file_name), (const char *)sqlite3_column_text(stmt, 4));
-	cstr_copy_n(c->description, LEN(c->description), (const char *)sqlite3_column_text(stmt, 5));
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, out, LEN(out));
 }
 
 
@@ -584,13 +532,7 @@ model_cmd_extern_is_exists(const char name[])
 {
 	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = name, .len = -1 } };
 	const char *const query = "SELECT 1 FROM Cmd_Extern WHERE (name = ?);";
-
-	int is_exists = 0;
-	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
-		return -1;
-
-	return is_exists;
+	return _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, NULL, 0);
 }
 
 
@@ -600,72 +542,46 @@ model_cmd_extern_is_exists(const char name[])
 int
 model_cmd_message_set(const ModelCmdMessage *c)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
+	const char *query = "SELECT 1 FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
+	const Data args0[] = {
+		{ .type = _DATA_TYPE_INT64, .int64_in = c->chat_id },
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_in = c->name_in, .len = -1 },
+		},
+	};
 
-	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_MAIN);
-	if (conn == NULL)
+	const int ret = _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, args0, LEN(args0), NULL, 0);
+	if ((ret < 0) || ((ret == 0) && (c->value_in == NULL)))
 		return -1;
 
-	const char *query = "SELECT 1 FROM Cmd_Message WHERE (chat_id = ?) AND (name = ?);";
-	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
-
-	sqlite3_bind_int64(stmt, 1, c->chat_id);
-	sqlite3_bind_text(stmt, 2, c->name_in, -1, NULL);
-	ret = _sqlite_step_one(stmt);
-	if (ret < 0)
-		goto out1;
-
-	if ((ret == 0) && (c->value_in == NULL))
-		goto out1;
-
-	sqlite3_finalize(stmt);
-
+	int64_t user_id;
 	if (ret == 0) {
-		query = "INSERT INTO Cmd_Message(value, created_by, chat_id, name, created_at) "
-			"VALUES(?, ?, ?, ?, ?);";
+		query = "INSERT INTO Cmd_Message(value, created_by, created_at, chat_id, name) "
+			"SELECT ?, ?, ?, ?, ? ";
+		user_id = c->created_by;
 	} else {
 		query = "UPDATE Cmd_Message "
 				"SET value = ?, updated_by = ?, updated_at = ? "
 			"WHERE (chat_id = ?) and (name = ?);";
+		user_id = c->updated_by;
 	}
 
-	res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data args1[] = {
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_in = c->value_in, .len = -1 },
+		},
+		{ .type = _DATA_TYPE_INT64, .int64_in = user_id },
+		{ .type = _DATA_TYPE_INT64, .int64_in = time(NULL) },
+		{ .type = _DATA_TYPE_INT64, .int64_in = c->chat_id },
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_in = c->name_in, .len = -1 },
+		},
+	};
 
-	const time_t now = time(NULL);
-
-	sqlite3_bind_text(stmt, 1, c->value_in, -1, NULL);
-	if (ret == 0) {
-		sqlite3_bind_int64(stmt, 2, c->created_by);
-		sqlite3_bind_int64(stmt, 3, c->chat_id);
-		sqlite3_bind_text(stmt, 4, c->name_in, -1, NULL);
-		sqlite3_bind_int64(stmt, 5, now);
-	} else {
-		sqlite3_bind_int64(stmt, 2, c->updated_by);
-		sqlite3_bind_int64(stmt, 3, now);
-		sqlite3_bind_int64(stmt, 4, c->chat_id);
-		sqlite3_bind_text(stmt, 5, c->name_in, -1, NULL);
-	}
-
-	ret = _sqlite_step_one_wait(conn->sql, stmt);
-	if (ret < 0)
-		goto out1;
-
-	ret = sqlite3_changes(conn->sql);
-
-out1:
-	sqlite3_finalize(stmt);
-out0:
-	sqlite_pool_put(conn);
-	return ret;
+	return _sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, args1, LEN(args1));
 }
 
 
@@ -683,7 +599,7 @@ model_cmd_message_get_value(int64_t chat_id, const char name[], char value[], si
 		.text = (DataText) { .value_out = value, .size = value_len },
 	};
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, args, LEN(args), &out);
+	return _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, args, LEN(args), &out, 1);
 }
 
 
@@ -695,7 +611,7 @@ model_cmd_message_is_exists(const char name[])
 
 	int is_exists = 0;
 	Data out = { .type = _DATA_TYPE_INT, .int_out = &is_exists };
-	if (_sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out) < 0)
+	if (_sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out, 1) < 0)
 		return -1;
 
 	return is_exists;
@@ -708,9 +624,7 @@ model_cmd_message_is_exists(const char name[])
 int
 model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 {
-	int ret = -1;
 	sqlite3_stmt *stmt;
-
 	DbConn *const conn = sqlite_pool_get(MODEL_DB_INDEX_SCHED);
 	if (conn == NULL)
 		return -1;
@@ -721,26 +635,23 @@ model_sched_message_get_list(ModelSchedMessage *list[], int len, time_t now)
 		"WHERE (? >= next_run) AND (? < (next_run + expire)) "
 		"LIMIT ?";
 
-	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data args[] = {
+		{ .type = _DATA_TYPE_INT64, .int64_in = now },
+		{ .type = _DATA_TYPE_INT64, .int64_in = now },
+		{ .type = _DATA_TYPE_INT, .int_in = len },
+	};
 
-	sqlite3_bind_int64(stmt, 1, now);
-	sqlite3_bind_int64(stmt, 2, now);
-	sqlite3_bind_int(stmt, 3, len);
+	int ret = _sqlite_prep(conn->sql, query, -1, args, LEN(args), &stmt);
+	if (ret < 0)
+		goto out0;
 
 	int count = 0;
 	for (; count < len; count++) {
-		res = sqlite3_step(stmt);
-		if (res == SQLITE_DONE)
-			break;
-
-		if (res != SQLITE_ROW) {
-			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
+		ret = _sqlite_step_one(stmt);
+		if (ret < 0)
 			goto out1;
-		}
+		if (ret == 0)
+			break;
 
 		ModelSchedMessage *const it = malloc(sizeof(ModelSchedMessage));
 		if (it == NULL)
@@ -842,7 +753,7 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 		"INSERT INTO Sched_Message(type, chat_id, message_id, user_id, value, next_run, expire) "
 		"VALUES(?, ?, ?, ?, ?, ?, ?);";
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_SCHED, 1, query, args, LEN(args), NULL);
+	return _sqlite_exec(MODEL_DB_INDEX_SCHED, 1, query, args, LEN(args));
 }
 
 /*
@@ -866,8 +777,6 @@ model_session_cmd_add(const ModelSessionCmd *s)
 		return -1;
 	}
 
-	int fl = 0;
-	Data out = { .type = _DATA_TYPE_INT, .int_out = &fl };
 	const Data args[] = {
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->chat_id },
 		{ .type = _DATA_TYPE_INT64, .int64_in = s->user_id },
@@ -881,14 +790,19 @@ model_session_cmd_add(const ModelSessionCmd *s)
 			"AND ((? - created_at) < " MODEL_SESSION_CMD_DEF_EXP ") "
 		"ORDER BY id DESC "
 		"LIMIT 1;";
-	int ret = _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args), &out);
+
+	const int ret = _sqlite_query_one(MODEL_DB_INDEX_SESSION, query, args, LEN(args), NULL, 0);
 	if (ret < 0)
 		return -1;
 	if (ret > 0)
 		return -2;
 
 	query = "INSERT INTO Session_Cmd(chat_id, user_id, ctx, created_at) VALUES(?, ?, LOWER(?), ?);";
-	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args), &out);
+	if (_sqlite_exec(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args)) > 0)
+		return 0;
+
+	// nothing or failed to insert
+	return -1;
 }
 
 
@@ -919,7 +833,7 @@ model_session_cmd_delete(const ModelSessionCmd *s)
 	const char *const query =
 		"DELETE FROM Session_Cmd "
 		"WHERE (chat_id = ?) AND (user_id = ?) AND (ctx = LOWER(?));";
-	return _sqlite_exec_one(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args), NULL);
+	return _sqlite_exec(MODEL_DB_INDEX_SESSION, 0, query, args, LEN(args));
 }
 
 
@@ -932,7 +846,7 @@ model_anime_sched_delete_by(const char filter[])
 	const Data arg = { .type = _DATA_TYPE_TEXT, .text = (DataText) { .value_in = filter, .len = -1 } };
 	const char *const query = "DELETE FROM Anime_Sched WHERE (filter = ?);";
 
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 1, query, &arg, 1, NULL);
+	return _sqlite_exec(MODEL_DB_INDEX_MAIN, 1, query, &arg, 1);
 }
 
 
@@ -1012,7 +926,6 @@ out0:
 int
 model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[], int offset, int *total)
 {
-	int ret = -1;
 	const char *const query =
 		"SELECT COUNT(1), Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, Null, "
 			"Null, Null, Null, Null, Null, Null, Null, Null "
@@ -1033,16 +946,22 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 	if (conn == NULL)
 		return -1;
 
-	int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
-		goto out0;
-	}
+	const Data args[] = {
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_in = filter, .len = -1 },
+		},
+		{
+			.type = _DATA_TYPE_TEXT,
+			.text = (DataText) { .value_in = filter, .len = -1 },
+		},
+		{ .type = _DATA_TYPE_INT, .int_in = len },
+		{ .type = _DATA_TYPE_INT, .int_in = offset },
+	};
 
-	sqlite3_bind_text(stmt, 1, filter, -1, NULL);
-	sqlite3_bind_text(stmt, 2, filter, -1, NULL);
-	sqlite3_bind_int(stmt, 3, len);
-	sqlite3_bind_int(stmt, 4, offset);
+	int ret = _sqlite_prep(conn->sql, query, -1, args, LEN(args), &stmt);
+	if (ret < 0)
+		goto out0;
 
 	ret = _sqlite_step_one(stmt);
 	if (ret <= 0)
@@ -1052,14 +971,11 @@ model_anime_sched_get_list(ModelAnimeSched list[], int len, const char filter[],
 
 	int count = 0;
 	for (; count < len; count++) {
-		res = sqlite3_step(stmt);
-		if (res == SQLITE_DONE)
-			break;
-
-		if (res != SQLITE_ROW) {
-			LOG_ERRN("model", "sqlite3_step: %s", sqlite3_errstr(res));
+		ret = _sqlite_step_one(stmt);
+		if (ret < 0)
 			goto out1;
-		}
+		if (ret == 0)
+			break;
 
 		int i = 1;
 		ModelAnimeSched *const ma = &list[count];
@@ -1104,13 +1020,57 @@ model_anime_sched_get_creation_time(const char filter[], time_t *cre_dt)
 	const char *const query = "SELECT created_at FROM Anime_Sched WHERE (filter = ?) LIMIT 1;";
 
 	Data out = { .type = _DATA_TYPE_INT64, .int64_out = cre_dt };
-	return _sqlite_exec_one(MODEL_DB_INDEX_MAIN, 0, query, &arg, 1, &out);
+	return _sqlite_query_one(MODEL_DB_INDEX_MAIN, query, &arg, 1, &out, 1);
 }
 
 
 /*
  * Private
  */
+static int
+_sqlite_prep(sqlite3 *sql, const char query[], int query_len, const Data args[], int args_len,
+	     sqlite3_stmt **out)
+{
+	sqlite3_stmt *stmt;
+	int res = sqlite3_prepare_v2(sql, query, query_len, &stmt, NULL);
+	if (res != SQLITE_OK) {
+		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(res));
+		return -1;
+	}
+
+	res = 0;
+	for (int i = 0, j = 1; i < args_len; i++, j++) {
+		const Data *const a = &args[i];
+		switch (a->type) {
+		case _DATA_TYPE_INT:
+			sqlite3_bind_int(stmt, j, a->int_in);
+			break;
+		case _DATA_TYPE_INT64:
+			sqlite3_bind_int64(stmt, j, a->int64_in);
+			break;
+		case _DATA_TYPE_TEXT:
+			sqlite3_bind_text(stmt, j, a->text.value_in, a->text.len, NULL);
+			break;
+		case _DATA_TYPE_NULL:
+			sqlite3_bind_null(stmt, j);
+			break;
+		default:
+			LOG_ERRN("model", "arg: invalid type: [%d]:%d", i, a->type);
+			res = -1;
+			goto out0;
+		}
+	}
+
+out0:
+	if (res < 0)
+		sqlite3_finalize(stmt);
+	else
+		*out = stmt;
+
+	return res;
+}
+
+
 static int
 _sqlite_step_one(sqlite3_stmt *stmt)
 {
@@ -1151,42 +1111,16 @@ _sqlite_step_one_wait(sqlite3 *sql, sqlite3_stmt *stmt)
 
 
 static int
-_sqlite_exec_one(int db_index, int must_wait, const char query[], const Data args[],
-		 int args_len, Data *out)
+_sqlite_exec(int db_index, int must_wait, const char query[], const Data args[], int args_len)
 {
-	int ret = -1;
-	sqlite3_stmt *stmt;
-
 	DbConn *const conn = sqlite_pool_get(db_index);
 	if (conn == NULL)
 		return -1;
 
-	const int res = sqlite3_prepare_v2(conn->sql, query, -1, &stmt, NULL);
-	if (res != SQLITE_OK) {
-		LOG_ERRN("model", "sqlite3_prepare_v2: %s", sqlite3_errstr(ret));
+	sqlite3_stmt *stmt;
+	int ret = _sqlite_prep(conn->sql, query, -1, args, args_len, &stmt);
+	if (ret < 0)
 		goto out0;
-	}
-
-	for (int i = 0, j = 1; i < args_len; i++, j++) {
-		const Data *const a = &args[i];
-		switch (a->type) {
-		case _DATA_TYPE_INT:
-			sqlite3_bind_int(stmt, j, a->int_in);
-			break;
-		case _DATA_TYPE_INT64:
-			sqlite3_bind_int64(stmt, j, a->int64_in);
-			break;
-		case _DATA_TYPE_TEXT:
-			sqlite3_bind_text(stmt, j, a->text.value_in, a->text.len, NULL);
-			break;
-		case _DATA_TYPE_NULL:
-			sqlite3_bind_null(stmt, j);
-			break;
-		default:
-			LOG_ERRN("model", "arg: invalid type: [%d]:%d", i, a->type);
-			goto out1;
-		}
-	}
 
 	if (must_wait)
 		ret = _sqlite_step_one_wait(conn->sql, stmt);
@@ -1196,35 +1130,67 @@ _sqlite_exec_one(int db_index, int must_wait, const char query[], const Data arg
 	if (ret < 0)
 		goto out1;
 
-	if (out == NULL) {
-		ret = sqlite3_changes(conn->sql);
-		goto out1;
-	}
+	ret = sqlite3_changes(conn->sql);
 
+out1:
+	sqlite3_finalize(stmt);
+out0:
+	sqlite_pool_put(conn);
+	return ret;
+}
+
+
+static int
+_sqlite_query_one(int db_index, const char query[], const Data args[], int args_len,
+		  Data out[], int out_len)
+{
+	DbConn *const conn = sqlite_pool_get(db_index);
+	if (conn == NULL)
+		return -1;
+
+	sqlite3_stmt *stmt;
+	int ret = _sqlite_prep(conn->sql, query, -1, args, args_len, &stmt);
+	if (ret < 0)
+		goto out0;
+
+	ret = _sqlite_step_one(stmt);
+	if ((ret <= 0) || (out == NULL) || (out_len <= 0))
+		goto out1;
+
+	ret = sqlite3_column_count(stmt);
 	if (ret == 0)
 		goto out1;
 
-	const int type = sqlite3_column_type(stmt, 0);
-	if (type == SQLITE_NULL) {
-		out->type = _DATA_TYPE_NULL;
+	if (ret != out_len) {
+		ret = -1;
+		LOG_ERRN("model", "%s", "sqlite3_column_count: invalid column count");
 		goto out1;
 	}
 
-	switch (out->type) {
-	case _DATA_TYPE_INT:
-		*out->int_out = sqlite3_column_int(stmt, 0);
-		break;
-	case _DATA_TYPE_INT64:
-		*out->int64_out = sqlite3_column_int64(stmt, 0);
-		break;
-	case _DATA_TYPE_TEXT:
-		out->text.len = cstr_copy_n(out->text.value_out, out->text.size,
-					    (const char *)sqlite3_column_text(stmt, 0));
-		break;
-	default:
-		LOG_ERRN("model", "out: invalid type: %d", out->type);
-		ret = -1;
-		break;
+	for (int i = 0; i < out_len; i++) {
+		Data *const o = &out[i];
+		const int type = sqlite3_column_type(stmt, i);
+		if (type == SQLITE_NULL) {
+			o->type = _DATA_TYPE_NULL;
+			goto out1;
+		}
+
+		switch (o->type) {
+		case _DATA_TYPE_INT:
+			*o->int_out = sqlite3_column_int(stmt, i);
+			break;
+		case _DATA_TYPE_INT64:
+			*o->int64_out = sqlite3_column_int64(stmt, i);
+			break;
+		case _DATA_TYPE_TEXT:
+			o->text.len = cstr_copy_n(o->text.value_out, o->text.size,
+						  (const char *)sqlite3_column_text(stmt, i));
+			break;
+		default:
+			LOG_ERRN("model", "out: invalid type: %d", o->type);
+			ret = -1;
+			break;
+		}
 	}
 
 out1:
