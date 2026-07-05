@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <string.h>
 #include <sqlite3.h>
 
 #include "model.h"
@@ -1173,6 +1174,7 @@ _sqlite_query_one(int db_index, const char query[], const Data args[], int args_
 		Data *const o = &out[i];
 		const int type = sqlite3_column_type(stmt, i);
 		if (type == SQLITE_NULL) {
+			memset(o, 0, sizeof(*o));
 			o->type = _DATA_TYPE_NULL;
 			continue;
 		}
