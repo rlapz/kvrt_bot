@@ -75,6 +75,8 @@ static const char *_anime_sched_query(Str *str);
 int
 model_init(void)
 {
+	LOG_INFO("model", "sqlite version: v%s", SQLITE_VERSION);
+
 	const TableQuery queries[] = {
 		{ MODEL_DB_INDEX_MAIN, "WAL",         _enable_wal_mode },
 		{ MODEL_DB_INDEX_MAIN, "Chat",        _chat_query },
