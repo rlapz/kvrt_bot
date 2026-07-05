@@ -1174,7 +1174,7 @@ _sqlite_query_one(int db_index, const char query[], const Data args[], int args_
 		const int type = sqlite3_column_type(stmt, i);
 		if (type == SQLITE_NULL) {
 			o->type = _DATA_TYPE_NULL;
-			goto out1;
+			continue;
 		}
 
 		switch (o->type) {
