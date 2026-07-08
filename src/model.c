@@ -750,21 +750,6 @@ model_sched_message_add(const ModelSchedMessage *s, time_t interval_s)
 int
 model_session_cmd_add(const ModelSessionCmd *s)
 {
-	if (s->chat_id == 0) {
-		LOG_ERRN("model", "%s", "invalid chat_id");
-		return -1;
-	}
-
-	if (s->user_id == 0) {
-		LOG_ERRN("model", "%s", "invalid user_id");
-		return -1;
-	}
-
-	if (cstr_is_empty(s->ctx)) {
-		LOG_ERRN("model", "%s", "ctx is empty");
-		return -1;
-	}
-
 	const Data args[] = {
 		_ARG_INT64(s->chat_id),
 		_ARG_INT64(s->user_id),
@@ -797,21 +782,6 @@ model_session_cmd_add(const ModelSessionCmd *s)
 int
 model_session_cmd_delete(const ModelSessionCmd *s)
 {
-	if (s->chat_id == 0) {
-		LOG_ERRN("model", "%s", "invalid chat_id");
-		return -1;
-	}
-
-	if (s->user_id == 0) {
-		LOG_ERRN("model", "%s", "invalid user_id");
-		return -1;
-	}
-
-	if (cstr_is_empty(s->ctx)) {
-		LOG_ERRN("model", "%s", "ctx is empty");
-		return -1;
-	}
-
 	const Data args[] = {
 		_ARG_INT64(s->chat_id),
 		_ARG_INT64(s->user_id),

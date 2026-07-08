@@ -324,6 +324,21 @@ out0:
 int
 session_acquire(int64_t chat_id, int64_t user_id, const char ctx[])
 {
+	if (chat_id == 0) {
+		LOG_ERRN("common", "%s", "invalid chat_id");
+		return -1;
+	}
+
+	if (user_id == 0) {
+		LOG_ERRN("common", "%s", "invalid user_id");
+		return -1;
+	}
+
+	if (cstr_is_empty(ctx)) {
+		LOG_ERRN("common", "%s", "ctx is empty");
+		return -1;
+	}
+
 	const ModelSessionCmd sess = {
 		.chat_id = chat_id,
 		.user_id = user_id,
@@ -337,6 +352,21 @@ session_acquire(int64_t chat_id, int64_t user_id, const char ctx[])
 int
 session_release(int64_t chat_id, int64_t user_id, const char ctx[])
 {
+	if (chat_id == 0) {
+		LOG_ERRN("common", "%s", "invalid chat_id");
+		return -1;
+	}
+
+	if (user_id == 0) {
+		LOG_ERRN("common", "%s", "invalid user_id");
+		return -1;
+	}
+
+	if (cstr_is_empty(ctx)) {
+		LOG_ERRN("common", "%s", "ctx is empty");
+		return -1;
+	}
+
 	const ModelSessionCmd sess = {
 		.chat_id = chat_id,
 		.user_id = user_id,
