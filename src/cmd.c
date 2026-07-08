@@ -205,7 +205,7 @@ _session_acquire(const CmdParam *param)
 	int64_t msg_id = 0;
 	if (SEND_ERROR_TEXT(param->msg, &msg_id, "%s", "Please wait!") < 0)
 		return 0;
-	
+
 	const SchedParam sch = {
 		.chat_id = param->id_chat,
 		.message_id = msg_id,
@@ -239,7 +239,7 @@ _exec_builtin(const CmdParam *c, int chat_flags)
 	if (index == -2)
 		return 0;
 
-	if (is_valid_index(index, LEN(_cmd_builtin_list)) == 0) {
+	if (is_index_valid(index, LEN(_cmd_builtin_list)) == 0) {
 		SEND_ERROR_TEXT(c->msg, NULL, "%s", "Failed to get builtin command data!");
 		return 1;
 	}

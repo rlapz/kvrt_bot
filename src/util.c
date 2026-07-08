@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <strings.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1294,7 +1295,7 @@ out0:
 
 
 int
-is_valid_index(int val, size_t max_items)
+is_index_valid(int val, size_t max_items)
 {
 	if ((val < 0) || ((size_t)val >= max_items))
 		return 0;
@@ -1370,13 +1371,10 @@ http_send_get(const char url[], const char content_type[])
 
 	if (curl_easy_setopt(handle, CURLOPT_URL, url) != CURLE_OK)
 		goto out1;
-
 	if (curl_easy_setopt(handle, CURLOPT_WRITEDATA, &str) != CURLE_OK)
 		goto out1;
-
 	if (curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, _http_writer) != CURLE_OK)
 		goto out1;
-
 	if (curl_easy_setopt(handle, CURLOPT_TIMEOUT, CFG_HTTP_REQUEST_TIMEOUT) != CURLE_OK)
 		goto out1;
 
@@ -1477,8 +1475,8 @@ dump_json_obj(const char ctx[], json_object *json)
 /*
  * Log
  */
-static mtx_t _log_mutex;
-static int   _log_is_ready = 0;
+static mtx_t      _log_mutex;
+static atomic_int _log_is_ready = 0;
 
 static const char *const _log_prefix[] = {
 	[LOG_TYPE_DEBUG] = "D",
@@ -1486,21 +1484,7 @@ static const char *const _log_prefix[] = {
 	[LOG_TYPE_ERR]   = "E",
 };
 
-
-static FILE *
-_log_get_file(int type)
-{
-	switch (type) {
-	case LOG_TYPE_INFO:
-		return stdout;
-	case LOG_TYPE_ERR:
-	case LOG_TYPE_DEBUG:
-		return stderr;
-	}
-
-	// Invalid log type
-	assert(0);
-}
+static FILE *_log_files[LOG_TYPES_SIZE];
 
 
 int
@@ -1509,7 +1493,10 @@ log_init(void)
 	if (mtx_init(&_log_mutex, mtx_plain) != 0)
 		return -1;
 
-	_log_is_ready = 1;
+	_log_files[LOG_TYPE_DEBUG] = stderr;
+	_log_files[LOG_TYPE_INFO] = stdout;
+	_log_files[LOG_TYPE_ERR] = stderr;
+	atomic_store(&_log_is_ready, 1);
 	return 0;
 }
 
@@ -1517,11 +1504,14 @@ log_init(void)
 void
 log_writer(int type, const char ctx[], const char fn_name[], int errnum, const char fmt[], ...)
 {
-	if (_log_is_ready == 0)
-		return;
+	assert((type >= LOG_TYPE_DEBUG) && (type < LOG_TYPES_SIZE));
+	assert(atomic_load(&_log_is_ready) != 0);
 
-	FILE *const log_file = _log_get_file(type);
+	FILE *const log_file = _log_files[type];
+	assert(log_file != NULL);
+
 	const char *const log_prefix = _log_prefix[type];
+	assert(log_prefix != NULL);
 
 	char buffer[128];
 	const time_t raw = time(NULL);
@@ -1552,5 +1542,5 @@ void
 log_deinit(void)
 {
 	mtx_destroy(&_log_mutex);
-	_log_is_ready = 0;
+	atomic_store(&_log_is_ready, 0);
 }
