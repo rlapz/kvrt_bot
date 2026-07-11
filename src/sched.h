@@ -17,8 +17,8 @@ typedef struct sched {
 	atomic_bool is_ready;
 } Sched;
 
-int  sched_init(Sched *s, time_t timeout_s);
-void sched_deinit(const Sched *s);
+int  sched_create(Sched *s, time_t timeout_s);
+void sched_destroy(const Sched *s);
 
 
 typedef struct sched_param {

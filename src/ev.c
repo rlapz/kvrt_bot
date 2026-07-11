@@ -94,8 +94,10 @@ ev_is_alive(void)
 
 
 int
-ev_ctx_add(EvCtx *c)
+ev_ctx_add_in(EvCtx *c)
 {
+	memset(&c->event, 0, sizeof(c->event));
+	c->event.events = EPOLLIN;
 	c->event.data.ptr = c;
 	if (epoll_ctl(_instance.fd, EPOLL_CTL_ADD, c->fd, &c->event) < 0)
 		return -errno;
@@ -105,8 +107,9 @@ ev_ctx_add(EvCtx *c)
 
 
 int
-ev_ctx_mod(EvCtx *c)
+ev_ctx_mod_out(EvCtx *c)
 {
+	c->event.events = EPOLLOUT;
 	if (epoll_ctl(_instance.fd, EPOLL_CTL_MOD, c->fd, &c->event) < 0)
 		return -errno;
 
@@ -125,7 +128,7 @@ ev_ctx_del(EvCtx *c)
 
 
 int
-ev_signal_init(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *udata)
+ev_signal_create(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *udata)
 {
 	sigset_t mask;
 	sigemptyset(&mask);
@@ -137,7 +140,7 @@ ev_signal_init(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *ud
 	const int fd = signalfd(-1, &mask, SFD_CLOEXEC | SFD_NONBLOCK);
 	if (fd < 0) {
 		LOG_ERRP("ev", "%s", "signalfd");
-		return -errno;
+		return -1;
 	}
 
 	*e = (EvSignal) {
@@ -146,25 +149,29 @@ ev_signal_init(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *ud
 		.ctx = (EvCtx) {
 			.fd = fd,
 			.callback_fn = _signal_handler,
-			.event = (Event) {
-				.events = EPOLLIN,
-			},
 		},
 	};
+
+	const int ret = ev_ctx_add_in(&e->ctx);
+	if (ret < 0) {
+		LOG_ERR(ret, "ev", "%s", "ev_ctx_add_in");
+		close(fd);
+		return -1;
+	}
 
 	return 0;
 }
 
 
 void
-ev_signal_deinit(const EvSignal *e)
+ev_signal_destroy(const EvSignal *e)
 {
 	close(e->ctx.fd);
 }
 
 
 int
-ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int), void *udata)
+ev_listener_create(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int), void *udata)
 {
 	const struct sockaddr_in addr = {
 		.sin_family = AF_INET,
@@ -203,30 +210,34 @@ ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callbac
 		.ctx = (EvCtx) {
 			.fd = fd,
 			.callback_fn = _listener_handler,
-			.event = (Event) {
-				.events = EPOLLIN,
-			},
 		},
 	};
+
+	const int ret = ev_ctx_add_in(&e->ctx);
+	if (ret < 0) {
+		LOG_ERR(ret, "ev", "%s", "ev_ctx_add_in");
+		close(fd);
+		return -1;
+	}
 
 	return 0;
 }
 
 
 void
-ev_listener_deinit(const EvListener *e)
+ev_listener_destroy(const EvListener *e)
 {
 	close(e->ctx.fd);
 }
 
 
 int
-ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t timeout_s)
+ev_timer_create(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t timeout_s)
 {
 	const int fd = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (fd < 0) {
 		LOG_ERRP("ev", "%s", "timerfd_create");
-		return -errno;
+		return -1;
 	}
 
 	const struct itimerspec timerspec = {
@@ -235,10 +246,9 @@ ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t 
 	};
 
 	if (timerfd_settime(fd, 0, &timerspec, NULL) < 0) {
-		const int ret = -errno;
-		LOG_ERR(ret, "ev", "%s", "timerfd_settime");
+		LOG_ERR(errno, "ev", "%s", "timerfd_settime");
 		close(fd);
-		return ret;
+		return -1;
 	}
 
 	*e = (EvTimer) {
@@ -247,18 +257,22 @@ ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t 
 		.ctx = (EvCtx) {
 			.fd = fd,
 			.callback_fn = _timer_handler,
-			.event = (Event) {
-				.events = EPOLLIN,
-			},
 		},
 	};
+
+	const int ret = ev_ctx_add_in(&e->ctx);
+	if (ret < 0) {
+		LOG_ERR(ret, "ev", "%s", "ev_ctx_add_in");
+		close(fd);
+		return -1;
+	}
 
 	return 0;
 }
 
 
 void
-ev_timer_deinit(const EvTimer *e)
+ev_timer_destroy(const EvTimer *e)
 {
 	close(e->ctx.fd);
 }

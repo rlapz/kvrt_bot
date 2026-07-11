@@ -23,7 +23,7 @@ static int  _add(const SchedParam *param, int type);
  * Public
  */
 int
-sched_init(Sched *s, time_t timeout_s)
+sched_create(Sched *s, time_t timeout_s)
 {
 	const int fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK | TFD_CLOEXEC);
 	if (fd < 0) {
@@ -54,12 +54,19 @@ sched_init(Sched *s, time_t timeout_s)
 		.timeout_s = timeout_s,
 	};
 
+	const int ret = ev_ctx_add_in(&s->ctx);
+	if (ret < 0) {
+		LOG_ERR(ret, "ev", "%s", "ev_ctx_add_in");
+		close(fd);
+		return -1;
+	}
+
 	return 0;
 }
 
 
 void
-sched_deinit(const Sched *s)
+sched_destroy(const Sched *s)
 {
 	close(s->ctx.fd);
 }
@@ -180,7 +187,7 @@ _run_task(void *ctx, void *udata)
 			LOG_ERRN("sched", "error occured! Try again (%d)", count);
 			continue;
 		}
-		
+
 		break;
 	}
 

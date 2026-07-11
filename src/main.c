@@ -405,10 +405,9 @@ _client_body_parse(Client *c)
 static int
 _client_resp_send(Client *c)
 {
-	c->ctx.event.events = EPOLLOUT;
-	const int ret = ev_ctx_mod(&c->ctx);
+	const int ret = ev_ctx_mod_out(&c->ctx);
 	if (ret < 0) {
-		LOG_ERR(ret, "main", "%s", "v_ctx_mod");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_mod_out");
 		return _CLIENT_STATE_FINISH;
 	}
 
@@ -624,15 +623,15 @@ _server_run(Server *s, char *envp[])
 		goto out0;
 	}
 
-	ret = ev_signal_init(&signale, _server_on_signal, s);
+	ret = ev_signal_create(&signale, _server_on_signal, s);
 	if (ret < 0)
 		goto out1;
 
-	ret = ev_timer_init(&timer, _server_on_timer, s, 5);
+	ret = ev_timer_create(&timer, _server_on_timer, s, 5);
 	if (ret < 0)
 		goto out2;
 
-	ret = ev_listener_init(&listener, config->listen_host, config->listen_port, _server_on_listener, s);
+	ret = ev_listener_create(&listener, config->listen_host, config->listen_port, _server_on_listener, s);
 	if (ret < 0)
 		goto out3;
 
@@ -640,7 +639,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out4;
 
-	ret = sched_init(&sched, 1);
+	ret = sched_create(&sched, 1);
 	if (ret < 0)
 		goto out5;
 
@@ -652,31 +651,6 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out7;
 
-	/* register events */
-	ret = ev_ctx_add(&signale.ctx);
-	if (ret < 0) {
-		LOG_ERR(ret, "main", "%s", "ev_ctx_add: signal");
-		goto out7;
-	}
-
-	ret = ev_ctx_add(&timer.ctx);
-	if (ret < 0) {
-		LOG_ERR(ret, "main", "%s", "ev_ctx_add: timer");
-		goto out7;
-	}
-
-	ret = ev_ctx_add(&listener.ctx);
-	if (ret < 0) {
-		LOG_ERR(ret, "main", "%s", "ev_ctx_add: listener");
-		goto out7;
-	}
-
-	ret = ev_ctx_add(&sched.ctx);
-	if (ret < 0) {
-		LOG_ERR(ret, "main", "%s", "ev_ctx_add: sched");
-		goto out7;
-	}
-
 	ret = ev_run();
 	if (ret < 0)
 		LOG_ERR(ret, "main", "%s", "ev_run");
@@ -684,16 +658,16 @@ _server_run(Server *s, char *envp[])
 out7:
 	thrd_pool_deinit();
 out6:
-	sched_deinit(&sched);
+	sched_destroy(&sched);
 out5:
 	chld_wait_all();
 	chld_deinit();
 out4:
-	ev_listener_deinit(&listener);
+	ev_listener_destroy(&listener);
 out3:
-	ev_timer_deinit(&timer);
+	ev_timer_destroy(&timer);
 out2:
-	ev_signal_deinit(&signale);
+	ev_signal_destroy(&signale);
 out1:
 	ev_deinit();
 out0:
@@ -785,15 +759,12 @@ _server_add_client(Server *s, int fd)
 		.ctx = (EvCtx) {
 			.fd = fd,
 			.callback_fn = _server_handle_client,
-			.event = (Event) {
-				.events = EPOLLIN,
-			},
 		},
 	};
 
-	const int ret = ev_ctx_add(&client->ctx);
+	const int ret = ev_ctx_add_in(&client->ctx);
 	if (ret < 0) {
-		LOG_ERR(ret, "main", "%s", "ev_ctx_add");
+		LOG_ERR(ret, "main", "%s", "ev_ctx_add_in");
 		free(client);
 		return -1;
 	}

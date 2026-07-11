@@ -22,8 +22,8 @@ void ev_deinit(void);
 int  ev_run(void);
 void ev_stop(void);
 bool ev_is_alive(void);
-int  ev_ctx_add(EvCtx *c);
-int  ev_ctx_mod(EvCtx *c);
+int  ev_ctx_add_in(EvCtx *c);
+int  ev_ctx_mod_out(EvCtx *c);
 int  ev_ctx_del(EvCtx *c);
 
 
@@ -33,8 +33,8 @@ typedef struct ev_signal {
 	void  *udata;
 } EvSignal;
 
-int  ev_signal_init(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *udata);
-void ev_signal_deinit(const EvSignal *e);
+int  ev_signal_create(EvSignal *e, void (*callback_fn)(void *, uint32_t, int), void *udata);
+void ev_signal_destroy(const EvSignal *e);
 
 
 typedef struct ev_listener {
@@ -43,9 +43,9 @@ typedef struct ev_listener {
 	void  *udata;
 } EvListener;
 
-int  ev_listener_init(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int),
+int  ev_listener_create(EvListener *e, const char host[], uint16_t port, void (*callback_fn)(void *, int),
 		      void *udata);
-void ev_listener_deinit(const EvListener *e);
+void ev_listener_destroy(const EvListener *e);
 
 
 typedef struct ev_timer {
@@ -54,8 +54,8 @@ typedef struct ev_timer {
 	void  *udata;
 } EvTimer;
 
-int  ev_timer_init(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t timeout_s);
-void ev_timer_deinit(const EvTimer *e);
+int  ev_timer_create(EvTimer *e, void (*callback_fn)(void *, int), void *udata, time_t timeout_s);
+void ev_timer_destroy(const EvTimer *e);
 
 
 #endif
