@@ -23,8 +23,9 @@ static const char *const _anime_sched_filters[] = {
 
 static int   _anime_sched_prep_filter(const char filter[], const char *res[]);
 static int   _anime_sched_check_cache(const char filter[]);
-static int   _anime_sched_fetch(const char filter[], int show_nsfw);
-static int   _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj);
+static int   _anime_sched_fetch(const char filter[], int show_nsfw, char *err_msg[]);
+static int   _anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj,
+				char *err_msg[]);
 static void  _anime_sched_parse_list(json_object *list_obj, char *out[]);
 static char *_anime_sched_build_body(const ModelAnimeSched list[], int len, int start);
 
@@ -48,6 +49,7 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	if (pager_init(&pager, cmd->args) < 0)
 		return;
 
+	int err_msg_mutable = 0;
 	const char *filter;
 	if (_anime_sched_prep_filter(pager.udata, &filter) < 0) {
 		SEND_ERROR_TEXT_NOPE(cmd->msg, NULL, "%s",
@@ -61,8 +63,16 @@ cmd_extra_anime_sched(const CmdParam *cmd)
 	if (_anime_sched_check_cache(filter) == 0) {
 		const int cflags = model_chat_get_flags(cmd->id_chat);
 		const int show_nsfw = (cflags > 0)? (cflags & MODEL_CHAT_FLAG_ALLOW_CMD_NSFW) : 0;
-		if (_anime_sched_fetch(filter, show_nsfw) < 0) {
-			err_msg = "Failed to fetch anime list from the source!";
+
+		char *_err_msg = NULL;
+		if (_anime_sched_fetch(filter, show_nsfw, &_err_msg) < 0) {
+			if (_err_msg != NULL) {
+				err_msg_mutable = 1;
+				err_msg = _err_msg;
+			} else {
+				err_msg = "Failed to fetch anime list from the source!";
+			}
+
 			goto err0;
 		}
 	}
@@ -105,6 +115,9 @@ err0:
 		SEND_ERROR_TEXT_NOPE(cmd->msg, NULL, "%s", err_msg);
 	else
 		answer_callback_text(cmd->id_callback, err_msg, 1);
+
+	if (err_msg_mutable)
+		free((char *)err_msg);
 }
 
 
@@ -164,7 +177,7 @@ _anime_sched_check_cache(const char filter[])
 
 
 static int
-_anime_sched_fetch(const char filter[], int show_nsfw)
+_anime_sched_fetch(const char filter[], int show_nsfw, char *err_msg[])
 {
 	char *const req = cstr_fmt("%s?filter=%s&sfw=%s", _ANIME_SCHED_BASE_URL, filter,
 				   bool_to_cstr(!show_nsfw));
@@ -181,7 +194,7 @@ _anime_sched_fetch(const char filter[], int show_nsfw)
 		goto out1;
 
 	ModelAnimeSched *list;
-	const int len = _anime_sched_parse(&list, filter, obj);
+	const int len = _anime_sched_parse(&list, filter, obj, err_msg);
 	if (len < 0)
 		goto out2;
 
@@ -206,9 +219,24 @@ out0:
 
 
 static int
-_anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj)
+_anime_sched_parse(ModelAnimeSched *list[], const char filter[], json_object *obj,
+		   char *err_msg[])
 {
 	json_object *tmp_obj;
+
+	int32_t status = 0;
+	if (json_object_object_get_ex(obj, "status", &tmp_obj))
+		status = json_object_get_int(tmp_obj);
+
+	if (status != 200) {
+		const char *msg = "???";
+		if (json_object_object_get_ex(obj, "message", &tmp_obj))
+			msg = json_object_get_string(tmp_obj);
+
+		*err_msg = cstr_fmt("%d: %s", status, msg);
+		return -1;
+	}
+
 	array_list *data_list = NULL;
 	if (json_object_object_get_ex(obj, "data", &tmp_obj))
 		data_list = json_object_get_array(tmp_obj);
