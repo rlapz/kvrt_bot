@@ -11,8 +11,8 @@
 
 typedef void (*ThrdPoolFn) (void *ctx, void *udata);
 
-int  thrd_pool_init(unsigned thrd_size);
-void thrd_pool_deinit(void);
+int  thrd_pool_create(unsigned thrd_size);
+void thrd_pool_destroy(void);
 int  thrd_pool_add_job(ThrdPoolFn func, void *ctx, void *udata);
 
 

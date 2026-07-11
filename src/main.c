@@ -643,7 +643,7 @@ _server_run(Server *s, char *envp[])
 	if (ret < 0)
 		goto out5;
 
-	ret = thrd_pool_init(config->worker_size);
+	ret = thrd_pool_create(config->worker_size);
 	if (ret < 0)
 		goto out6;
 
@@ -656,7 +656,7 @@ _server_run(Server *s, char *envp[])
 		LOG_ERR(ret, "main", "%s", "ev_run");
 
 out7:
-	thrd_pool_deinit();
+	thrd_pool_destroy();
 out6:
 	sched_destroy(&sched);
 out5:

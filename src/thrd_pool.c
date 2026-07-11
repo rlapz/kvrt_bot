@@ -47,7 +47,7 @@ static int  _worker_fn(void *udata);
  * Public
  */
 int
-thrd_pool_init(unsigned thrd_size)
+thrd_pool_create(unsigned thrd_size)
 {
 	ThrdPool *const t = &_instance;
 	if (thrd_size <= 1) {
@@ -92,7 +92,7 @@ err0:
 
 
 void
-thrd_pool_deinit(void)
+thrd_pool_destroy(void)
 {
 	ThrdPool *const t = &_instance;
 
