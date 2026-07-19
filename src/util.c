@@ -395,6 +395,35 @@ cstr_concat_n(size_t count, ...)
 	return ret;
 }
 
+char *
+cstr_concat_n2(char dest[], size_t size, size_t count, ...)
+{
+	size_t offt = 0;
+	size_t remn_size = size;
+
+	va_list va;
+	va_start(va, count);
+	for (size_t i = 0; i < count; i++) {
+		void *const curr = va_arg(va, void *);
+		if (curr == NULL)
+			continue;
+
+		size_t len = strlen((const char *)curr);
+		if (len >= remn_size) {
+			len = remn_size - 1;
+			count = 0; // break the loop after this iteration
+		}
+
+		memcpy(dest + offt, curr, len);
+		remn_size -= len;
+		offt += len;
+	}
+	va_end(va);
+
+	dest[offt] = '\0';
+	return dest;
+}
+
 
 int
 cstr_to_bool(const char cstr[])
@@ -913,6 +942,32 @@ chld_add_env_kv(const char key[], const char val[])
 
 
 int
+chld_add_env_kv_int64(const char key[], int64_t val)
+{
+	Chld *const c = _chld_instance;
+	assert(c != NULL);
+
+	if (CSTR_IS_EMPTY(key)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	if (c->envp_len == CFG_CHLD_ENVP_SIZE) {
+		errno = ENOMEM;
+		return -1;
+	}
+
+	char *const kv = cstr_fmt("%s=%" PRId64, key, val);
+	if (kv == NULL)
+		return -1;
+
+	LOG_DEBUG("chld", "\"%s=%" PRIi64 "\"", key, val);
+	c->envp[c->envp_len++] = kv;
+	return 0;
+}
+
+
+int
 chld_spawn(const char file[], char *const argv[])
 {
 	int ret = -1;
@@ -1305,7 +1360,7 @@ is_index_valid(int val, size_t max_items)
 
 
 const char *
-epoch_to_str(char buffer[], size_t size, const char fmt[], time_t time)
+epoch_to_cstr(char buffer[], size_t size, const char fmt[], time_t time)
 {
 	const struct tm *const tm = localtime(&time);
 	const size_t rlen = strftime(buffer, size, fmt, tm);
@@ -1316,12 +1371,12 @@ epoch_to_str(char buffer[], size_t size, const char fmt[], time_t time)
 
 
 const char *
-epoch_to_str_default(char buffer[], size_t size, time_t time)
+epoch_to_cstr_default(char buffer[], size_t size, time_t time)
 {
 	if (size < 20)
 		return NULL;
 
-	return epoch_to_str(buffer, size, "%Y-%m-%d %H:%M:%S", time);
+	return epoch_to_cstr(buffer, size, "%Y-%m-%d %H:%M:%S", time);
 }
 
 
@@ -1356,18 +1411,25 @@ _http_writer(void *ctx, size_t size, size_t nmemb, void *udata)
 char *
 http_send_get(const char url[], const char content_type[])
 {
-	Str str;
-	char *ret = NULL;
-	if (cstr_is_empty(url))
+	if (cstr_is_empty(url)) {
+		LOG_ERRN("http", "%s", "url is empty");
 		return NULL;
+	}
 
 	LOG_DEBUG("http", "url: %s", url);
-	if (str_init_alloc(&str, 1024, NULL) < 0)
-		return NULL;
 
+	Str str;
+	if (str_init_alloc(&str, 1024, NULL) < 0) {
+		LOG_ERRP("http", "str_init_alloc: %s", url);
+		return NULL;
+	}
+
+	char *ret = NULL;
 	CURL *const handle = curl_easy_init();
-	if (handle == NULL)
+	if (handle == NULL) {
+		LOG_ERRN("http", "curl_easy_init: %s", "failed to init curl handle");
 		goto out0;
+	}
 
 	if (curl_easy_setopt(handle, CURLOPT_URL, url) != CURLE_OK)
 		goto out1;
@@ -1515,7 +1577,7 @@ log_writer(int type, const char ctx[], const char fn_name[], int errnum, const c
 
 	char buffer[128];
 	const time_t raw = time(NULL);
-	const char *const time_str = epoch_to_str_default(buffer, LEN(buffer), raw);
+	const char *const time_str = epoch_to_cstr_default(buffer, LEN(buffer), raw);
 
 	mtx_lock(&_log_mutex);
 	{

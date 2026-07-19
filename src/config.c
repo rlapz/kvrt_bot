@@ -69,7 +69,8 @@ config_dump(const Config *c)
 	printf("Api Secret                 : *****************\n");
 #endif
 
-	printf("Hook URL                   : %s%s\n", c->hook_url, c->hook_path);
+	printf("Hook URL                   : %s\n", c->hook_url);
+	printf("Hook Path                  : %s\n", c->hook_path);
 
 	printf("Listen Host                : %s\n", c->listen_host);
 	printf("Listen Port                : %u\n", c->listen_port);
@@ -195,17 +196,9 @@ _parse_json_api(Config *c, json_object *root_obj)
 		return -1;
 	}
 
-	char *const base_api = CSTR_CONCAT(CFG_TELEGRAM_API, token);
-	if (base_api == NULL) {
-		LOG_ERRN("config", "%s", "api.url: failed to allocate");
-		return -1;
-	}
-
-	cstr_copy_n(c->api_url, LEN(c->api_url), base_api);
+	CSTR_CONCAT2(c->api_url, LEN(c->api_url), CFG_TELEGRAM_API, token);
 	cstr_copy_n(c->api_token, LEN(c->api_token), token);
 	cstr_copy_n(c->api_secret, LEN(c->api_secret), secret);
-
-	free(base_api);
 	return 0;
 }
 
@@ -231,7 +224,7 @@ _parse_json_hook(Config *c, json_object *root_obj)
 		return -1;
 	}
 
-	const char *const url = json_object_get_string(url_obj);
+	const char *url = json_object_get_string(url_obj);
 	if (cstr_is_empty(url)) {
 		LOG_ERRN("config", "%s", "hook.url: empty");
 		return -1;
@@ -243,7 +236,16 @@ _parse_json_hook(Config *c, json_object *root_obj)
 		return -1;
 	}
 
-	cstr_copy_lower_n(c->hook_url, LEN(c->hook_url), url);
+	/* ommit "https://" */
+	if (cstr_casecmp_n2(url, 8, "https://", 8) != 0)
+		url += 8;
+
+	/* ommit trailing '/' */
+	size_t url_len = strlen(url);
+	while ((url_len > 0) && (url[url_len - 1] == '/'))
+		url_len--;
+
+	cstr_copy_lower_n2(c->hook_url, LEN(c->hook_url), url, url_len);
 	cstr_copy_lower_n(c->hook_path, LEN(c->hook_path), path);
 	return 0;
 }

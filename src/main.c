@@ -70,10 +70,9 @@ static int  _client_resp_send(Client *c);
  * Server
  */
 typedef struct server_verif {
-	size_t      api_secret_len;
-	const char *hook_url;
-	size_t      hook_url_len;
-	size_t      hook_path_len;
+	size_t api_secret_len;
+	size_t hook_url_len;
+	size_t hook_path_len;
 } ServerVerif;
 
 typedef struct server {
@@ -338,7 +337,7 @@ _client_header_validate(const Client *c, const HttpRequest *req, size_t *content
 	for (size_t i = 0, found = 0; (i < hdr_len) && (found < found_len); i++) {
 		const struct phr_header *const hdr = &req->hdrs[i];
 		if (cstr_casecmp_n2(hdr->name, hdr->name_len, "Host", 4)) {
-			if (cstr_casecmp_n2(vf->hook_url, vf->hook_url_len, hdr->value, hdr->value_len) == 0)
+			if (cstr_casecmp_n2(cfg->hook_url, vf->hook_url_len, hdr->value, hdr->value_len) == 0)
 				return -1;
 
 			found++;
@@ -428,19 +427,11 @@ _server_init(Server *s, const char config_file[])
 	dlist_init(&s->clients);
 
 	s->verif.api_secret_len = strlen(s->config.api_secret);
-	s->verif.hook_url_len = strlen(s->config.hook_url);
 	s->verif.hook_path_len = strlen(s->config.hook_path);
-
-	/* ommit "https://" */
-	const char *const proto = strstr(s->config.hook_url, "https://");
-	if (proto != NULL) {
-		s->verif.hook_url = proto + 8;
-		s->verif.hook_url_len -= 8;
-	} else {
-		s->verif.hook_url = s->config.hook_url;
-	}
-
+	s->verif.hook_url_len = strlen(s->config.hook_url);
 	s->config_file = config_file;
+
+	config_dump(&s->config);
 	return 0;
 }
 
@@ -550,23 +541,13 @@ _server_init_chld(Server *s, const char api[], char *envp[])
 		goto err0;
 	}
 
-	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->owner_id) < 0) {
-		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_TELEGRAM_API);
+	if (chld_add_env_kv_int64(CFG_ENV_OWNER_ID, config->owner_id) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv_int64", CFG_ENV_OWNER_ID);
 		goto err0;
 	}
 
-	if (chld_add_env_kv(CFG_ENV_OWNER_ID, buffer) < 0) {
-		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", buffer);
-		goto err0;
-	}
-
-	if (snprintf(buffer, LEN(buffer), "%" PRIi64, config->bot_id) < 0) {
-		LOG_ERRP("main", "%s: '%s'", "snprintf", CFG_ENV_OWNER_ID);
-		goto err0;
-	}
-
-	if (chld_add_env_kv(CFG_ENV_BOT_ID, buffer) < 0) {
-		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv", CFG_ENV_BOT_ID);
+	if (chld_add_env_kv_int64(CFG_ENV_BOT_ID, config->bot_id) < 0) {
+		LOG_ERRP("main", "%s: '%s'", "chld_add_env_kv_int64", CFG_ENV_BOT_ID);
 		goto err0;
 	}
 
@@ -607,7 +588,6 @@ _server_run(Server *s, char *envp[])
 	};
 
 
-	config_dump(config);
 	tg_api_init(config->api_url);
 
 	int ret = sqlite_pool_init(db_params, (int)LEN(db_params));

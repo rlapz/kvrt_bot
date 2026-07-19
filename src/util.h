@@ -75,8 +75,10 @@ cstr_null_if_empty(const char cstr[])
 
 
 char *cstr_concat_n(size_t count, ...);
+char *cstr_concat_n2(char dest[], size_t size, size_t count, ...);
 
 #define CSTR_CONCAT(...) cstr_concat_n(ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
+#define CSTR_CONCAT2(DEST, SIZE, ...) cstr_concat_n2(DEST, SIZE, ARGS_COUNT(__VA_ARGS__), __VA_ARGS__)
 
 int cstr_to_bool(const char cstr[]);
 
@@ -187,8 +189,8 @@ bool_to_cstr(int cond)
 	return (cond != 0)? "true" : "false";
 }
 
-const char *epoch_to_str(char buffer[], size_t size, const char fmt[], time_t time);
-const char *epoch_to_str_default(char buffer[], size_t size, time_t time);
+const char *epoch_to_cstr(char buffer[], size_t size, const char fmt[], time_t time);
+const char *epoch_to_cstr_default(char buffer[], size_t size, time_t time);
 
 
 /*
@@ -198,6 +200,7 @@ int  chld_init(const char path[], const char log_file[]);
 void chld_deinit(void);
 int  chld_add_env(const char key_value[]);
 int  chld_add_env_kv(const char key[], const char val[]);
+int  chld_add_env_kv_int64(const char key[], int64_t val);
 int  chld_spawn(const char file[], char *const argv[]);
 void chld_reap(void);
 void chld_wait_all(void);
