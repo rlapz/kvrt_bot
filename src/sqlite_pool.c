@@ -157,7 +157,7 @@ _init_db(DbPool *d, const SqlitePoolParam *param, int index)
 	for (int i = 0; i < param->size; i++) {
 		if (_open(param->path, &new_conn) < 0)
 			goto err0;
-		
+
 		new_conn->index = index;
 		new_conn->_in_pool = 1;
 		dlist_append(&d->sql_list, &new_conn->_node);
@@ -205,8 +205,10 @@ _open(const char path[], DbConn **conn)
 	const int ret = sqlite3_open_v2(path, &new_conn->sql, flags, NULL);
 	if (ret != SQLITE_OK) {
 		LOG_ERRN("sqlite_pool", "sqlite3_open_v2: failed to open: \"%s\": %s",
-			path, sqlite3_errstr(ret));
+			 path, sqlite3_errstr(ret));
 
+		/* error occurred, but the resource is already allocated */
+		sqlite3_close(new_conn->sql);
 		free(new_conn);
 		return -1;
 	}
