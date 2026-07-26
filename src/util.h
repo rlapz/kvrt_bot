@@ -122,6 +122,8 @@ void       dlist_append(DList *d, DListNode *node);
 void       dlist_prepend(DList *d, DListNode *node);
 void       dlist_remove(DList *d, DListNode *node);
 DListNode *dlist_pop(DList *d);
+void       dlist_iterate(const DList *d, int (*cb)(const DListNode *node, void *udata),
+			 void *udata);
 
 
 /*

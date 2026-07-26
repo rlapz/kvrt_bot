@@ -541,6 +541,20 @@ dlist_pop(DList *d)
 }
 
 
+void
+dlist_iterate(const DList *d, int (*cb)(const DListNode *node, void *udata), void *udata)
+{
+	const DListNode *node = d->first;
+	while (node != NULL) {
+		const DListNode *const next = node->next;
+		if (cb(node, udata) == 0)
+			break;
+
+		node = next;
+	}
+}
+
+
 /*
  * Str
  */

@@ -95,6 +95,7 @@ static int  _server_add_client(Server *s, int fd);
 static void _server_del_client(Server *s, Client *client);
 static void _server_handle_client(EvCtx *ctx);
 static void _server_handle_update(void *ctx, void *udata);
+static int  _server_timeout_clients(const DListNode *node, void *udata);
 
 
 /* IMPL */
@@ -681,23 +682,7 @@ _server_on_timer(void *udata, int err)
 		return;
 	}
 
-	const DListNode *node = s->clients.first;
-	while (node != NULL) {
-		const Client *const client = FIELD_PARENT_PTR(Client, node, node);
-		node = node->next;
-
-		const time_t now = time(NULL);
-		const time_t elapsed_s = now - client->created_at;
-		if (elapsed_s >= CFG_CONNECTION_TIMEOUT_S) {
-			LOG_INFO("main", "client: %p: fd: %d: timed out. Closing...",
-				 (void *)client, client->ctx.fd);
-
-			shutdown(client->ctx.fd, SHUT_RDWR);
-			continue;
-		}
-
-		break;
-	}
+	dlist_iterate(&s->clients, _server_timeout_clients, NULL);
 
 	chld_reap();
 }
@@ -800,6 +785,25 @@ _server_handle_update(void *ctx, void *udata)
 
 	update_handle(&update);
 	json_object_put(json);
+}
+
+
+static int
+_server_timeout_clients(const DListNode *node, void *udata)
+{
+	const Client *const client = FIELD_PARENT_PTR(Client, node, node);
+	const time_t now = time(NULL);
+	const time_t elapsed_s = now - client->created_at;
+	if (elapsed_s >= CFG_CONNECTION_TIMEOUT_S) {
+		LOG_INFO("main", "client: %p: fd: %d: timed out. Closing...",
+			 (void *)client, client->ctx.fd);
+
+		shutdown(client->ctx.fd, SHUT_RDWR);
+		return 1;
+	}
+
+	(void)udata;
+	return 0;
 }
 
 
