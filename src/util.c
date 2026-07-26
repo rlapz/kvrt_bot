@@ -1567,7 +1567,8 @@ void
 log_writer(int type, const char ctx[], const char fn_name[], int errnum, const char fmt[], ...)
 {
 	assert((type >= LOG_TYPE_DEBUG) && (type < LOG_TYPES_SIZE));
-	assert(atomic_load(&_log_is_ready) != 0);
+	if (atomic_load(&_log_is_ready) == 0)
+		return;
 
 	FILE *const log_file = _log_files[type];
 	assert(log_file != NULL);
